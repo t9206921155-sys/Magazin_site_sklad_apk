@@ -1,0 +1,16 @@
+{
+  "name": "telegram-shop-mobile",
+  "version": "1.0.0",
+  "description": "Полноценное мобильное приложение покупателя Telegram Shop",
+  "main": "src/App.js",
+  "scripts": {
+    "start": "node src/App.js",
+    "build:android": "echo 'Для сборки APK используйте Expo или React Native CLI: npx react-native run-android'",
+    "build:apk": "bash build-apk.sh"
+  },
+  "dependencies": {
+    "react": "^18.3.1",
+    "react-native": "^0.75.0"
+  },
+  "devDependencies": {}
+}
