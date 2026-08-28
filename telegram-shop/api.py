@@ -2830,6 +2830,41 @@ def create_app(store, providers: dict, bot=None, notify_new_order=None, notify_o
         buyer_key = _buyer_key(request)
         return store.saved_search_notifications(user_key=buyer_key or "")
 
+    @app.get("/api/boost")
+    async def list_boosts():
+        return store.get_boosted_products()
+
+    @app.post("/api/boost")
+    async def create_boost(body: dict, x_seller_key: str = Header(default="")):
+        seller = require_seller(x_seller_key)
+        try:
+            return store.create_boost(
+                product_id=int(body.get("product_id") or 0),
+                seller_id=seller["id"],
+                duration_days=int(body.get("duration_days") or 1),
+                price=int(body.get("price") or 0),
+            )
+        except ValueError as e:
+            raise HTTPException(422, str(e))
+
+    @app.delete("/api/boost/{boost_id}")
+    async def cancel_boost_endpoint(boost_id: int, x_seller_key: str = Header(default="")):
+        seller = require_seller(x_seller_key)
+        return {"ok": True, "cancelled": store.cancel_boost(boost_id)}
+
+    @app.get("/api/partner")
+    async def partner_referrals(x_seller_key: str = Header(default="")):
+        seller = require_seller(x_seller_key)
+        return store.partner_referrals(seller_id=seller["id"])
+
+    @app.get("/api/boost/price")
+    async def boost_prices():
+        ps = (store.settings.get("tariffs") or {}).get("promo_services") or {}
+        return {"boost_1d": int(ps.get("boost_1d") or 49),
+                "boost_3d": int(ps.get("boost_3d") or 99),
+                "boost_7d": int(ps.get("boost_7d") or 199),
+                "vip_week": int(ps.get("vip_week") or 149)}
+
     # ------------------------------------------------------------------ админ: продавцы
     @app.get("/admin/api/sellers")
     async def admin_sellers(x_admin_token: str = Header(default="")):

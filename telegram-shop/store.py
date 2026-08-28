@@ -256,6 +256,17 @@ CREATE TABLE IF NOT EXISTS saved_searches(
   query TEXT DEFAULT '', filters TEXT DEFAULT '{}',
   created_at TEXT DEFAULT '', updated_at TEXT DEFAULT ''
 );
+CREATE TABLE IF NOT EXISTS boosts(
+  id INTEGER PRIMARY KEY AUTOINCREMENT, product_id INTEGER DEFAULT 0,
+  seller_id INTEGER DEFAULT 0, duration_days INTEGER DEFAULT 1,
+  started_at TEXT DEFAULT '', expires_at TEXT DEFAULT '',
+  price INTEGER DEFAULT 0, status TEXT DEFAULT 'active'
+);
+CREATE TABLE IF NOT EXISTS partner_referrals(
+  id INTEGER PRIMARY KEY AUTOINCREMENT, seller_id INTEGER DEFAULT 0,
+  referrer_seller_id INTEGER DEFAULT 0, buyer_key TEXT DEFAULT '',
+  order_id TEXT DEFAULT '', commission_amount INTEGER DEFAULT 0, created_at TEXT DEFAULT ''
+);
 CREATE TABLE IF NOT EXISTS wh_push_subs(
   id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER DEFAULT 0,
   sub TEXT DEFAULT '', created_at TEXT DEFAULT ''
@@ -2518,6 +2529,70 @@ class Store:
                     "new_count": len(matched),
                 })
         return out
+
+    # ---------------- монетизация: буст + VIP (#3 Этап) ----------------
+    def create_boost(self, product_id: int, seller_id: int, duration_days: int = 1,
+                     price: int = 0) -> dict:
+        with _lock:
+            p = self.get_product(product_id)
+            if not p or not p.get("in_stock"):
+                raise ValueError("Товар не найден или отсутствует")
+            if int(p.get("seller_id") or 0) != int(seller_id):
+                raise ValueError("Это не ваш товар")
+            expires = datetime.now(timezone.utc) + timedelta(days=int(duration_days))
+            self._conn.execute(
+                "INSERT INTO boosts(product_id, seller_id, duration_days, started_at, expires_at, price, status)"
+                " VALUES(?,?,?,?,?,?,?)",
+                (int(product_id), int(seller_id), int(duration_days), _now_iso(),
+                 expires.isoformat(), int(price or 0), "active"))
+            self._conn.commit()
+            r = self._q1("SELECT * FROM boosts ORDER BY id DESC LIMIT 1")
+            return dict(r) if r else None
+
+    def get_boosted_products(self) -> list:
+        now = _now_iso()
+        rows = self._q("SELECT * FROM boosts WHERE status='active' AND expires_at > ?", (now,))
+        out = []
+        for b in rows:
+            p = self.get_product(b.get("product_id"))
+            if p and p.get("in_stock"):
+                p["boost_expires"] = b.get("expires_at")
+                out.append(p)
+        return out
+
+    def active_boost_for_product(self, product_id: int) -> dict:
+        now = _now_iso()
+        r = self._q1("SELECT * FROM boosts WHERE product_id=? AND status='active' AND expires_at > ? ORDER BY expires_at DESC",
+                     (int(product_id), now))
+        return dict(r) if r else None
+
+    def cancel_boost(self, boost_id: int) -> bool:
+        with _lock:
+            self._conn.execute("UPDATE boosts SET status='cancelled' WHERE id=?", (int(boost_id),))
+            self._conn.commit()
+            return self._conn.total_changes > 0
+
+    def add_partner_referral(self, seller_id: int, referrer_seller_id: int,
+                             buyer_key: str, order_id: str = "",
+                             commission_amount: int = 0) -> dict:
+        with _lock:
+            self._conn.execute(
+                "INSERT INTO partner_referrals(seller_id, referrer_seller_id, buyer_key, order_id, commission_amount, created_at)"
+                " VALUES(?,?,?,?,?,?)",
+                (int(seller_id), int(referrer_seller_id), str(buyer_key or ""),
+                 str(order_id or ""), int(commission_amount or 0), _now_iso()))
+            self._conn.commit()
+            r = self._q1("SELECT * FROM partner_referrals ORDER BY id DESC LIMIT 1")
+            return dict(r) if r else None
+
+    def partner_referrals(self, seller_id: int = 0) -> list:
+        sql = "SELECT * FROM partner_referrals"
+        args = ()
+        if seller_id:
+            sql += " WHERE seller_id=? OR referrer_seller_id=?"
+            args = (int(seller_id), int(seller_id))
+        sql += " ORDER BY created_at DESC"
+        return [dict(r) for r in self._q(sql, args)]
 
     # ---------------- push-подписки склада ----------------
     def wh_push_add(self, user_id: int, sub: dict):
