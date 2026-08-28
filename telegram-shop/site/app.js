@@ -246,6 +246,7 @@ function renderProduct(id) {
         <button class="btn ghost" style="display:inline-block;width:auto;margin-left:10px;padding:14px 22px"
                 onclick="addToCart(${p.id}, +document.getElementById('pq').textContent); location.hash='#/cart'">⚡ Купить сейчас</button>
         <button class="btn ghost" onclick="boostProduct(${p.id}, ${p.price})" style="padding:14px 22px">🚀 Продвинуть</button>
+        ${Array.isArray(p.labels) && p.labels.length ? `<span class="label" style="margin-left:8px;padding:2px 8px;border-radius:4px;background:${p.labels[0]?.label_color || '#4f46e5'};color:#fff;font-size:11px">${esc(p.labels[0]?.label_name || '')}</span>` : ''}
       </div>
       <div class="hint" style="margin-top:16px">Доставка рассчитывается при оформлении. Оплата: карта, СБП, криптовалюта.</div>
     </div>

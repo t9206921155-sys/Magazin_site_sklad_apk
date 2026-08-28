@@ -277,6 +277,16 @@ CREATE TABLE IF NOT EXISTS campaigns(
   spent INTEGER DEFAULT 0, status TEXT DEFAULT 'draft', created_at TEXT DEFAULT '',
   creative_url TEXT DEFAULT '', target_city TEXT DEFAULT ''
 );
+CREATE TABLE IF NOT EXISTS moderation_results(
+  id INTEGER PRIMARY KEY AUTOINCREMENT, content_id INTEGER DEFAULT 0,
+  content_type TEXT DEFAULT 'product', result TEXT DEFAULT 'pending',
+  score REAL DEFAULT 0, details TEXT DEFAULT '', created_at TEXT DEFAULT ''
+);
+CREATE TABLE IF NOT EXISTS labels(
+  id INTEGER PRIMARY KEY AUTOINCREMENT, product_id INTEGER DEFAULT 0,
+  label_name TEXT DEFAULT '', label_color TEXT DEFAULT '#4f46e5',
+  created_at TEXT DEFAULT ''
+);
 CREATE TABLE IF NOT EXISTS wh_push_subs(
   id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER DEFAULT 0,
   sub TEXT DEFAULT '', created_at TEXT DEFAULT ''
@@ -2660,6 +2670,50 @@ class Store:
         return n
 
     # ---------------- маркетплейс: подкатегории, поиск, избранное ----------------
+    def moderate_content(self, content_id: int = 0, content_type: str = "product", text: str = "", image_url: str = "") -> dict:
+        # Заглушка модерации ИИ: базовый скрининг текста и проверка фото
+        banned_words = ["запрещено", "наркотики", "оружие", "подделка", "контрафакт", "пиратский"]
+        text_lower = (text or "").lower()
+        score = 0.0
+        details = []
+        for word in banned_words:
+            if word in text_lower:
+                score += 0.3
+                details.append(f"Запрещённое слово: {word}")
+        if image_url and (".jpg" not in image_url) and (".png" not in image_url) and (".jpeg" not in image_url) and (".webp" not in image_url):
+            if not (image_url.startswith("http://") or image_url.startswith("https://")):
+                score += 0.2
+                details.append("Нет изображения или неподдерживаемый формат")
+        result = "approved" if score < 0.3 else ("rejected" if score >= 0.6 else "pending")
+        cur = self.db.execute(
+            "INSERT INTO moderation_results (content_id, content_type, result, score, details, created_at) VALUES (?, ?, ?, ?, ?, ?)",
+            (content_id, content_type, result, round(score, 2), "; ".join(details), str(__import__("datetime").datetime.now())))
+        self.db.commit()
+        return {"id": cur.lastrowid, "content_id": content_id, "result": result, "score": round(score, 2), "details": details}
+
+    def moderation_status(self, content_id: int = 0, content_type: str = "") -> list:
+        rows = self.db.execute("SELECT * FROM moderation_results WHERE 1=1").fetchall()
+        out = [dict(r) for r in rows]
+        if content_id:
+            out = [r for r in out if r.get("content_id") == content_id]
+        if content_type:
+            out = [r for r in out if r.get("content_type", "").lower() == content_type.lower()]
+        return out
+
+    def add_label(self, product_id: int = 0, label_name: str = "", label_color: str = "#4f46e5") -> int:
+        cur = self.db.execute(
+            "INSERT INTO labels (product_id, label_name, label_color, created_at) VALUES (?, ?, ?, ?)",
+            (product_id, label_name, label_color, str(__import__("datetime").datetime.now())))
+        self.db.commit()
+        return cur.lastrowid
+
+    def get_labels(self, product_id: int = 0) -> list:
+        rows = self.db.execute("SELECT * FROM labels WHERE 1=1").fetchall()
+        out = [dict(r) for r in rows]
+        if product_id:
+            out = [r for r in out if r.get("product_id") == product_id]
+        return out
+
     def campaigns(self, seller_id: int = 0, platform: str = "") -> list:
         rows = self.db.execute("SELECT * FROM campaigns WHERE 1=1").fetchall()
         out = [dict(r) for r in rows]

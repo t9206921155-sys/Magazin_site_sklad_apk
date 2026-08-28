@@ -2875,6 +2875,27 @@ def create_app(store, providers: dict, bot=None, notify_new_order=None, notify_o
         ok = store.update_campaign_status(int(req.get("campaign_id", 0) or 0), req.get("status", "draft"))
         return {"updated": ok}
 
+    @app.post("/api/moderate")
+    async def moderate(req: dict):
+        return store.moderate_content(
+            content_id=int(req.get("content_id", 0) or 0),
+            content_type=req.get("content_type", "product"),
+            text=req.get("text", ""),
+            image_url=req.get("image_url", ""))
+
+    @app.get("/api/moderation/status")
+    async def moderation_status(content_id: int = 0, content_type: str = ""):
+        return store.moderation_status(content_id=int(content_id or 0), content_type=content_type or "")
+
+    @app.post("/api/label/add")
+    async def label_add(req: dict):
+        lid = store.add_label(product_id=int(req.get("product_id", 0) or 0), label_name=req.get("label_name", ""), label_color=req.get("label_color", "#4f46e5"))
+        return {"label_id": lid}
+
+    @app.get("/api/label/list")
+    async def label_list(product_id: int = 0):
+        return store.get_labels(product_id=int(product_id or 0))
+
     @app.get("/api/search/geo")
     async def search_geo(q: str = "", city: str = "", radius_km: int = 50):
         return store.geo_search(query=q, city=city, radius_km=int(radius_km or 50))
