@@ -458,6 +458,9 @@ async function openScanModes() {
     </div>
     <div class="card" style="align-items:center" onclick="closeSheet2(); openScanHistory()">
       <div class="info"><div class="name">📜 История сканирований</div><div class="meta">Последние 50 операций</div></div>
+    </div>
+    <div class="card" style="align-items:center" onclick="closeSheet2(); openHidScanMode()">
+      <div class="info"><div class="name">📶 Bluetooth / ТСД (HID)</div><div class="meta">Заглушка: HID-ввод с клавиатуры (заглушка Этап 3)</div></div>
     </div>`;
   $('#sheet2').classList.remove('hidden');
 }
@@ -815,6 +818,74 @@ function showVisionResults(result) {
   }
   $('#vision-results').innerHTML = html + `<button class="btn ghost" onclick="openVision()" style="margin-top:10px">🔄 Повторить</button>`;
 }
+
+function closeSheet2() { $('#sheet2').classList.add('hidden'); }
+
+/* ---------- Bluetooth / ТСД-сканеры (HID-режим) — Этап 3 склада — ЗАГЛУШКА ---------- */
+// Bluetooth-сканеры в HID-режиме работают как клавиатура: вводят штрих-код и нажимают Enter.
+// Заглушка (stub): фреймворк готов, реальное подключение Bluetooth требует теста на устройстве.
+let HID_SCANNER_ACTIVE = false;
+let HID_SCANNER_BUFFER = '';
+
+function openHidScanMode() {
+  HID_SCANNER_ACTIVE = true;
+  HID_SCANNER_BUFFER = '';
+  $('#sheet2-title').textContent = '📶 Bluetooth / ТСД (HID) — заглушка';
+  $('#sheet2-body').innerHTML = `
+    <div style="background:#fff7ed;border:1px dashed #f97316;border-radius:12px;padding:12px;margin-bottom:12px;color:#c2410c;font-size:13px">
+      <b>⚠️ Заглушка (stub)</b><br>
+      Bluetooth-ТСД в HID-режиме работает как клавиатура. Для теста нажмите «Активировать HID-ввод» и сканируйте штрих-код или введите код вручную.<br><br>
+      <b>Что нужно для полной интеграции:</b><br>
+      • Тест на реальном устройстве с подключённым Bluetooth-сканером (Zebra DS3678, Атол SB2108)<br>
+      • Проверка автоматического ввода штрих-кода в поле<br>
+      • Настройка префикса/суффикса сканера (обычно Enter в конце)<br>
+      • Обработка ошибок при потере связи с ТСД
+    </div>
+    <button class="btn primary" onclick="activateHidInput()">📶 Активировать HID-ввод (клавиатура)</button>
+    <div class="row2" style="margin-top:10px">
+      <input class="fld" id="hid-manual" placeholder="Или введите штрих-код вручную (заглушка)" onkeydown="if(event.key==='Enter'){handleScanCode(this.value.trim());this.value='';}">
+    </div>
+    <button class="btn ghost" onclick="deactivateHidInput()">✕ Отключить HID-сканер</button>
+    <div id="hid-status" style="margin-top:8px;color:#64748b;font-size:12px"></div>`;
+  $('#sheet2').classList.remove('hidden');
+}
+
+function activateHidInput() {
+  HID_SCANNER_ACTIVE = true;
+  $('#hid-status').innerHTML = '<b style="color:#15803d">✅ HID-сканер активен</b> — сканируйте штрих-код или введите вручную.';
+  toast('📶 HID-сканер (заглушка) активирован. Сканируйте код или введите вручную.', false);
+  setTimeout(() => { $('#hid-manual').focus(); }, 200);
+}
+
+function deactivateHidInput() {
+  HID_SCANNER_ACTIVE = false;
+  HID_SCANNER_BUFFER = '';
+  $('#hid-status').textContent = 'HID-сканер отключён.';
+}
+
+// Перехват клавиатурного ввода для HID-сканера
+(function initHidKeyboardStub() {
+  let lastKeyTime = Date.now();
+  document.addEventListener('keydown', function(e) {
+    if (!HID_SCANNER_ACTIVE) return;
+    if (e.ctrlKey || e.altKey || e.metaKey) return;
+    if ([9, 16, 17, 18, 20, 27, 91, 93].includes(e.keyCode)) return;
+    const now = Date.now();
+    const delta = now - lastKeyTime;
+    lastKeyTime = now;
+    if (delta < 150 && delta > 5) {
+      if (e.key.length === 1) HID_SCANNER_BUFFER += e.key;
+    } else {
+      if (e.key.length === 1) HID_SCANNER_BUFFER += e.key;
+    }
+    if (e.key === 'Enter' && HID_SCANNER_BUFFER.length > 2) {
+      e.preventDefault();
+      const code = HID_SCANNER_BUFFER.trim();
+      HID_SCANNER_BUFFER = '';
+      handleScanCode(code);
+    }
+  });
+})();
 
 function closeSheet2() { $('#sheet2').classList.add('hidden'); }
 
