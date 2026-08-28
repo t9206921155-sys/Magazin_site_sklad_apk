@@ -2857,6 +2857,24 @@ def create_app(store, providers: dict, bot=None, notify_new_order=None, notify_o
         seller = require_seller(x_seller_key)
         return store.partner_referrals(seller_id=seller["id"])
 
+    @app.get("/api/ad/list")
+    async def ad_list(seller_id: int = 0, platform: str = ""):
+        return store.campaigns(seller_id=int(seller_id or 0), platform=platform or "")
+
+    @app.post("/api/ad/create")
+    async def ad_create(req: dict):
+        sid = int(req.get("seller_id", 0) or 0)
+        cid = store.create_campaign(
+            seller_id=sid, platform=req.get("platform", "yandex"),
+            title=req.get("title", ""), budget=int(req.get("budget", 0) or 0),
+            creative_url=req.get("creative_url", ""), target_city=req.get("target_city", ""))
+        return {"campaign_id": cid, "status": "created"}
+
+    @app.post("/api/ad/update")
+    async def ad_update(req: dict):
+        ok = store.update_campaign_status(int(req.get("campaign_id", 0) or 0), req.get("status", "draft"))
+        return {"updated": ok}
+
     @app.get("/api/search/geo")
     async def search_geo(q: str = "", city: str = "", radius_km: int = 50):
         return store.geo_search(query=q, city=city, radius_km=int(radius_km or 50))

@@ -271,6 +271,12 @@ CREATE TABLE IF NOT EXISTS geo_locations(
   id INTEGER PRIMARY KEY AUTOINCREMENT, city TEXT DEFAULT '', region TEXT DEFAULT '',
   lat REAL DEFAULT 0, lng REAL DEFAULT 0, created_at TEXT DEFAULT ''
 );
+CREATE TABLE IF NOT EXISTS campaigns(
+  id INTEGER PRIMARY KEY AUTOINCREMENT, seller_id INTEGER DEFAULT 0,
+  platform TEXT DEFAULT 'yandex', title TEXT DEFAULT '', budget INTEGER DEFAULT 0,
+  spent INTEGER DEFAULT 0, status TEXT DEFAULT 'draft', created_at TEXT DEFAULT '',
+  creative_url TEXT DEFAULT '', target_city TEXT DEFAULT ''
+);
 CREATE TABLE IF NOT EXISTS wh_push_subs(
   id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER DEFAULT 0,
   sub TEXT DEFAULT '', created_at TEXT DEFAULT ''
@@ -2654,6 +2660,27 @@ class Store:
         return n
 
     # ---------------- маркетплейс: подкатегории, поиск, избранное ----------------
+    def campaigns(self, seller_id: int = 0, platform: str = "") -> list:
+        rows = self.db.execute("SELECT * FROM campaigns WHERE 1=1").fetchall()
+        out = [dict(r) for r in rows]
+        if seller_id:
+            out = [r for r in out if r.get("seller_id") == seller_id]
+        if platform:
+            out = [r for r in out if r.get("platform", "").lower() == platform.lower()]
+        return out
+
+    def create_campaign(self, seller_id: int = 0, platform: str = "yandex", title: str = "", budget: int = 0, creative_url: str = "", target_city: str = "") -> int:
+        cur = self.db.execute(
+            "INSERT INTO campaigns (seller_id, platform, title, budget, spent, status, creative_url, target_city, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            (seller_id, platform, title, budget, 0, "draft", creative_url, target_city, str(__import__("datetime").datetime.now())))
+        self.db.commit()
+        return cur.lastrowid
+
+    def update_campaign_status(self, campaign_id: int, status: str) -> bool:
+        cur = self.db.execute("UPDATE campaigns SET status = ? WHERE id = ?", (status, campaign_id))
+        self.db.commit()
+        return cur.rowcount > 0
+
     def geo_search(self, query: str = "", city: str = "", radius_km: int = 50, limit: int = 30) -> list:
         """Простая заглушка гео-поиска: ищет товары с совпадением города или по названию."""
         city_lower = (city or "").lower().strip()
