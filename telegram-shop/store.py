@@ -2444,6 +2444,42 @@ class Store:
             self._conn.commit()
             return self._conn.total_changes > 0
 
+    # ---------------- уведомления по сохранённым поискам (#8 улучшение) ----------------
+    def saved_search_notifications(self, user_key: str) -> list:
+        """Проверяет сохранённые поиски пользователя и возвращает товары,
+        добавленные после создания поиска (простая заглушка-реализация)."""
+        searches = self.saved_searches(user_key)
+        out = []
+        for s in searches:
+            try:
+                filters = json.loads(s.get("filters") or "{}")
+            except Exception:
+                filters = {}
+            query = s.get("query") or ""
+            created_at = s.get("created_at") or ""
+            products = self.products()
+            matched = []
+            for p in products:
+                # Заглушка: считаем «новыми» товары, созданные после сохранения поиска,
+                # и соответствующие фильтру категории и текстовому запросу.
+                product_created = p.get("created_at") or ""
+                if created_at and product_created and product_created > created_at:
+                    if filters.get("category") and p.get("category") != filters["category"]:
+                        continue
+                    score = search_score(p, query) if query else 5
+                    if query and score == 0:
+                        continue
+                    matched.append(p)
+            if matched:
+                out.append({
+                    "search_id": s.get("id"),
+                    "query": query,
+                    "filters": filters,
+                    "new_items": matched,
+                    "new_count": len(matched),
+                })
+        return out
+
     # ---------------- push-подписки склада ----------------
     def wh_push_add(self, user_id: int, sub: dict):
         with _lock:

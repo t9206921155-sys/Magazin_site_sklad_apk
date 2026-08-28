@@ -2784,6 +2784,11 @@ def create_app(store, providers: dict, bot=None, notify_new_order=None, notify_o
             raise HTTPException(404, "Поиск не найден или нет прав")
         return {"ok": True}
 
+    @app.get("/api/saved_searches/notify")
+    async def saved_search_notify(request: Request):
+        buyer_key = _buyer_key(request)
+        return store.saved_search_notifications(user_key=buyer_key or "")
+
     # ------------------------------------------------------------------ админ: продавцы
     @app.get("/admin/api/sellers")
     async def admin_sellers(x_admin_token: str = Header(default="")):
