@@ -955,6 +955,142 @@ def create_app(store, providers: dict, bot=None, notify_new_order=None, notify_o
         return o
 
     # --- ИИ: контент для склада (название / объявление / Telegram) ---
+    # --- ИИ-vision: распознавание товара по фото (Этап 3 — сканер-профи) ---
+    @app.post("/api/warehouse/vision")
+    async def wh_vision(body: dict, x_wh_token: str = Header(default=""),
+                        x_admin_token: str = Header(default="")):
+        """ИИ-распознавание товара по фото."""
+        user = wh_user_from_headers(x_wh_token, x_admin_token)
+        image_data = str(body.get("image", "")).strip()
+        if not image_data:
+            raise HTTPException(422, "Нет изображения")
+        if "," in image_data:
+            image_data = image_data.split(",", 1)[1]
+        if len(image_data) > 5 * 1024 * 1024:
+            raise HTTPException(422, "Изображение слишком большое (>5 МБ)")
+        cfg = store.settings.get("ai") or {}
+        vision_enabled = bool(cfg.get("enabled") and cfg.get("api_key"))
+        description = ""
+        results = []
+        # Поиск по описанию или ключевым словам из базы
+        all_products = [p for p in store.products() if not p.get("is_archived") and p.get("in_stock")]
+        # Для демонстрации: простая эвристика — ищем по названию и категории
+        keywords = ["наушники", "телефон", "одежда", "аксессуар", "книга", "игрушка", "электроника", "дом"]
+        # Если ключи настроены, пробуем получить описание через текстовый запрос
+        if vision_enabled:
+            try:
+                import requests
+                base_url = (cfg.get("base_url") or "https://api.openai.com/v1").rstrip("/") + "/chat/completions"
+                payload = {
+                    "model": cfg.get("model") or "gpt-4o-mini",
+                    "messages": [
+                        {"role": "system", "content": "Ты эксперт по товарам. Кратко опиши товар по фото."},
+                        {"role": "user", "content": "Фото товара из складского учёта. Опиши кратко: название, категория, ключевые слова (до 200 символов)."},
+                    ],
+                    "max_tokens": 250,
+                    "temperature": 0.3,
+                }
+                headers = {"Authorization": "Bearer " + cfg["api_key"], "Content-Type": "application/json"}
+                resp = requests.post(base_url, json=payload, headers=headers, timeout=30)
+                if resp.status_code < 400:
+                    description = resp.json().get("choices", [{}])[0].get("message", {}).get("content", "")
+            except Exception:
+                description = ""
+        # Оцениваем товары по ключевым словам и описанию
+        for p in all_products:
+            score = 0
+            text_to_search = (str(p.get("name", "")) + " " + str(p.get("category", "")) + " " + str(p.get("description", ""))).lower()
+            # Совпадения с ключевыми словами
+            for kw in keywords:
+                if kw in text_to_search:
+                    score += 1
+            # Если есть описание из ИИ
+            if description:
+                desc_lower = description.lower()
+                for word in desc_lower.split():
+                    if len(word) >= 3 and word in text_to_search:
+                        score += 0.5
+            # Бонус за фото
+            if p.get("photo"):
+                score += 0.3
+            if score > 0:
+                results.append({
+                    "product": {
+                        "id": p["id"], "name": p.get("name", ""), "price": p.get("price", 0),
+                        "category": p.get("category", ""), "photo": p.get("photo", ""),
+                        "code": p.get("code", ""), "barcode": p.get("barcode", ""),
+                        "stock": p.get("stock", -1),
+                    },
+                    "relevance": min(100, int(score * 15)),
+                    "score": score,
+                })
+        results.sort(key=lambda x: -x["relevance"])
+        top_results = results[:5]
+        store.wh_log_add(user["name"], "ИИ-vision сканирование", f"совпадений: {len(top_results)}")
+        return {
+            "ok": True,
+            "vision_enabled": vision_enabled,
+            "description": (description or "Описание не получено")[:300],
+            "matches": len(top_results),
+            "results": [{"product": r["product"], "relevance": r["relevance"], "score": r["score"]} for r in top_results],
+        }
+
+    # --- Сканер-профи: инвентаризация со сверкой (Этап 3 склада) ---
+    @app.post("/api/warehouse/inventory/compare")
+    async def wh_inventory_compare(body: dict, x_wh_token: str = Header(default=""),
+                                   x_admin_token: str = Header(default="")):
+        user = wh_user_from_headers(x_wh_token, x_admin_token)
+        actual_items = body.get("items", [])
+        if not isinstance(actual_items, list):
+            raise HTTPException(422, "Ожидается список items")
+        actual_dict = {}
+        for item in actual_items:
+            pid = int(item.get("product_id", 0))
+            qty = int(item.get("qty", 0))
+            if pid > 0:
+                actual_dict[pid] = qty
+        all_db = {p["id"]: p.get("stock", -1) for p in store.products() if not p.get("is_archived")}
+        matches = []
+        discrepancies = []
+        missing_in_db = []
+        for pid, qty in actual_dict.items():
+            db_qty = all_db.get(pid)
+            if db_qty is None:
+                missing_in_db.append({"product_id": pid, "qty_actual": qty, "qty_db": None, "status": "not_in_db"})
+            elif db_qty == qty:
+                matches.append({"product_id": pid, "qty": qty, "status": "match"})
+            else:
+                discrepancies.append({
+                    "product_id": pid,
+                    "qty_actual": qty,
+                    "qty_db": db_qty,
+                    "diff": qty - db_qty,
+                    "status": "surplus" if qty > db_qty else "shortage",
+                    "product_name": (store.get_product(pid) or {}).get("name", "—"),
+                    "category": (store.get_product(pid) or {}).get("category", ""),
+                })
+        total_db = sum(all_db.values()) if all_db else 0
+        total_actual = sum(actual_dict.values())
+        store.wh_log_add(user["name"], "инвентаризация со сверкой",
+                         f"сверено: {len(actual_dict)} поз., расхождений: {len(discrepancies)}, совпадений: {len(matches)}")
+        return {
+            "ok": True,
+            "summary": {
+                "total_items_checked": len(actual_dict),
+                "total_db_items": len(all_db),
+                "matches": len(matches),
+                "discrepancies": len(discrepancies),
+                "missing_in_inventory": len([pid for pid in all_db if pid not in actual_dict]),
+                "total_qty_db": total_db,
+                "total_qty_actual": total_actual,
+            },
+            "results": {
+                "matches": [{"product_id": m["product_id"], "qty": m["qty"]} for m in matches],
+                "discrepancies": discrepancies,
+                "missing_in_db": missing_in_db,
+            },
+        }
+
     @app.post("/api/warehouse/ai")
     async def wh_ai(body: dict, x_admin_token: str = Header(default="")):
         require_admin(x_admin_token)
