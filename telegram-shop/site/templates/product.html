@@ -1,0 +1,294 @@
+{% extends "base.html" %}
+{% block content %}
+<nav class="crumbs">
+  <a href="/">Главная</a> <span>›</span>
+  <a href="/catalog">Каталог</a> <span>›</span>
+  <span>{{ p.name }}</span>
+</nav>
+
+<div class="product">
+  <div class="product-gallery">
+    <img src="{{ p.photo }}" alt="{{ p.name }} — фото товара">
+  </div>
+
+  <div class="product-info">
+    <div class="b-chips">
+      {% if 'hit' in p.badges %}<span class="b-chip hot">🔥 Хит</span>{% endif %}
+      {% if 'new' in p.badges %}<span class="b-chip new">✨ Новинка</span>{% endif %}
+      {% if p.old_price and p.old_price > p.price %}<span class="b-chip disc">Скидка −{{ ((1 - p.price / p.old_price) * 100) | round | int }}%</span>{% endif %}
+    </div>
+    <h1>{{ p.name }}</h1>
+    <div class="p-meta">Артикул: {{ p.code or 'TG-' ~ p.id }} · Категория: <a href="/catalog?cat={{ p.category | urlencode }}">{{ p.category }}</a></div>
+
+    <div class="p-price">
+      {% if p.old_price and p.old_price > p.price %}<span class="old-price">{{ p.old_price }} ₽</span>{% endif %}
+      <span class="now">{{ p.price }} ₽</span>
+      {% if p.condition == 'used' %}<span class="cond-badge used" title="Бывшее в употреблении">↻ Б/у</span>
+      {% elif p.condition == 'defect' %}<span class="cond-badge defect" title="Имеются дефекты — читайте описание">⚠ С дефектами</span>
+      {% else %}<span class="cond-badge new" title="Новый товар">✦ Новое</span>{% endif %}
+    </div>
+
+    {% if p.stock >= 0 %}
+    <div class="p-stock {{ 'low' if p.stock <= 5 }}">{% if p.stock > 5 %}✅ В наличии: {{ p.stock }} шт.{% else %}⚠️ Осталось всего {{ p.stock }} шт. — успейте заказать{% endif %}</div>
+    {% endif %}
+
+    {% if seller %}
+    <div class="seller-badge">
+      <span class="seller-ava small">{{ seller.store_name[:1] | upper }}</span>
+      <span>Продавец: <a href="/seller/{{ seller.slug }}">{{ seller.store_name }}</a>
+      {% if seller.verification_status == 'verified' %}<span title="Проверенный продавец">✅</span>{% endif %}</span>
+      <button class="chat-open-btn" id="chat-open-btn" type="button">💬 Написать продавцу</button>
+    </div>
+    {% endif %}
+    <p class="p-desc">{{ p.description }}</p>
+
+    {% if params %}
+    <div class="p-params">
+      <h3>Характеристики</h3>
+      <table>
+        {% for k, v in params %}
+        <tr><td>{{ k }}</td><td><b>{{ v }}</b></td></tr>
+        {% endfor %}
+      </table>
+    </div>
+    {% endif %}
+
+    <div class="p-actions">
+      <button class="buy-btn" data-buy="{{ p.id }}" data-name="{{ p.name }}" data-price="{{ p.price }}">🛒 В корзину</button>
+      <button class="buy-now" data-buynow="{{ p.id }}" data-name="{{ p.name }}" data-price="{{ p.price }}">⚡ Купить сейчас</button>
+      <button class="fav-btn" id="fav-btn" data-id="{{ p.id }}" data-name="{{ p.name }}" data-price="{{ p.price }}" data-photo="{{ p.photo }}">❤ В избранное</button>
+    </div>
+
+    <div class="p-delivery">
+      <div>🚚 <b>Доставка:</b> курьер, почта, СДЭК, 5POST, Яндекс Доставка</div>
+      <div>💳 <b>Оплата:</b> карта, СБП, криптовалюта, Telegram Stars</div>
+      {% if free_delivery_from %}<div>🎉 Бесплатная доставка от {{ free_delivery_from }} ₽</div>{% endif %}
+      <div>↩️ Возврат в течение 14 дней</div>
+    </div>
+
+    <div class="share">
+      <span>Поделиться:</span>
+      <a class="sh-btn vk" target="_blank" rel="noopener" href="https://vk.com/share.php?url={{ url | urlencode }}&title={{ (p.name ~ ' — ' ~ p.price ~ ' ₽') | urlencode }}">VK</a>
+      <a class="sh-btn tg" target="_blank" rel="noopener" href="https://t.me/share/url?url={{ url | urlencode }}&text={{ (p.name ~ ' за ' ~ p.price ~ ' ₽') | urlencode }}">Telegram</a>
+      <a class="sh-btn wa" target="_blank" rel="noopener" href="https://wa.me/?text={{ (p.name ~ ' — ' ~ p.price ~ ' ₽ ' ~ url) | urlencode }}">WhatsApp</a>
+      <a class="sh-btn ok" target="_blank" rel="noopener" href="https://connect.ok.ru/offer?url={{ url | urlencode }}">OK</a>
+    </div>
+  </div>
+</div>
+
+{% if related.same_category %}
+<section class="sect">
+  <div class="sect-head"><h2>Похожие товары</h2></div>
+  <div class="grid">{% for r in related.same_category %}{% include "_card.html" %}{% endfor %}</div>
+</section>
+{% endif %}
+{% if related.co_bought %}
+<section class="sect">
+  <div class="sect-head"><h2>🛒 С этим также покупают</h2></div>
+  <div class="grid">{% for r in related.co_bought %}{% include "_card.html" %}{% endfor %}</div>
+</section>
+{% endif %}
+{% if related.top %}
+<section class="sect">
+  <div class="sect-head"><h2>🔥 Популярное в магазине</h2></div>
+  <div class="grid">{% for r in related.top %}{% include "_card.html" %}{% endfor %}</div>
+</section>
+{% endif %}
+
+<section class="sect" id="reviews">
+  <div class="sect-head">
+    <h2>Отзывы{% if rstats.count %}<span class="rev-stars"> {{ '★' * (rstats.avg | round | int) }}{{ '☆' * (5 - (rstats.avg | round | int)) }} {{ rstats.avg }} / 5 · {{ rstats.count }} шт.</span>{% endif %}</h2>
+  </div>
+  <div class="reviews-grid">
+    <div class="rev-list">
+      {% for r in reviews %}
+      <div class="rev">
+        <div class="rev-head"><b>{{ r.author }}</b>
+          <span class="rev-stars">{{ '★' * r.rating }}{{ '☆' * (5 - r.rating) }}</span>
+          <span class="rev-date">{{ r.created_at[:10] }}</span></div>
+        <p>{{ r.text }}</p>
+      </div>
+      {% else %}
+      <div class="hint">Отзывов пока нет — станьте первым! 🙌</div>
+      {% endfor %}
+    </div>
+    <form class="panel rev-form" id="rev-form">
+      <h3>Оставить отзыв</h3>
+      <input class="field" name="author" placeholder="Ваше имя">
+      <select class="field" name="rating">
+        <option value="5">★★★★★ — отлично</option>
+        <option value="4">★★★★☆ — хорошо</option>
+        <option value="3">★★★☆☆ — нормально</option>
+        <option value="2">★★☆☆☆ — плохо</option>
+        <option value="1">★☆☆☆☆ — ужасно</option>
+      </select>
+      <textarea class="field" name="text" placeholder="Что понравилось или не понравилось?" style="min-height:90px"></textarea>
+      <button class="btn primary" type="submit">Отправить отзыв</button>
+      <div class="hint" id="rev-note" style="margin-top:8px"></div>
+    </form>
+  </div>
+</section>
+
+{% if seller %}
+<!-- Чат с продавцом -->
+<div id="chat-panel" style="display:none; position:fixed; right:16px; bottom:16px; width:340px; max-width:92vw; height:460px; max-height:75vh; background:#fff; border:1px solid #e5e7eb; border-radius:16px; box-shadow:0 12px 40px rgba(0,0,0,.18); z-index:999; display:none; flex-direction:column; overflow:hidden">
+  <div style="display:flex; align-items:center; gap:8px; padding:12px 14px; background:#0F766E; color:#fff">
+    <span style="font-weight:700; flex:1">{{ seller.store_name }}</span>
+    <button type="button" onclick="closeChatPanel()" style="background:none;border:none;color:#fff;font-size:16px;cursor:pointer">✕</button>
+  </div>
+  <div id="chat-msgs" style="flex:1; overflow-y:auto; padding:12px; display:flex; flex-direction:column; gap:8px; background:#f8faf9"></div>
+  <div style="display:flex; gap:8px; padding:10px; border-top:1px solid #eee">
+    <input id="chat-input" placeholder="Ваш вопрос продавцу…" style="flex:1; border:1px solid #d1d5db; border-radius:10px; padding:8px 12px; font-size:14px">
+    <button type="button" onclick="sendChatMsg()" style="background:#0F766E;color:#fff;border:none;border-radius:10px;padding:0 16px;cursor:pointer">➤</button>
+  </div>
+</div>
+<script>
+(function () {
+  var PID = {{ p.id }}, SID = {{ seller.id }}, SNAME = {{ seller.store_name | tojson }};
+  var guestKey = localStorage.getItem('tgshop_guest') ||
+    (function () { var g = 'g-' + Date.now() + '-' + Math.random().toString(36).slice(2); localStorage.setItem('tgshop_guest', g); return g; })();
+  var panel = document.getElementById('chat-panel');
+  var openBtn = document.getElementById('chat-open-btn');
+  function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
+  function showChatPanel() { panel.style.display = 'flex'; loadChat(); openBtn.style.display = 'none'; }
+  window.closeChatPanel = function () { panel.style.display = 'none'; openBtn.style.display = ''; };
+  if (openBtn) openBtn.addEventListener('click', showChatPanel);
+  async function loadChat() {
+    var box = document.getElementById('chat-msgs');
+    try {
+      var res = await fetch('/api/chat/messages?product_id=' + PID + '&seller_id=' + SID + '&buyer_key=' + encodeURIComponent('g:' + guestKey) + '&guest_id=' + encodeURIComponent(guestKey));
+      var ms = await res.json();
+      box.innerHTML = ms.length ? ms.map(function (m) {
+        return '<div style="align-self:' + (m.sender === 'seller' ? 'flex-end' : 'flex-start') + '; max-width:80%; padding:8px 12px; border-radius:12px; font-size:14px; background:' + (m.sender === 'seller' ? '#0F766E' : '#e5e7eb') + '; color:' + (m.sender === 'seller' ? '#fff' : '#111') + '">' + esc(m.text) + '<div style="font-size:10px; opacity:.7; margin-top:2px">' + (m.ts || '').slice(11, 16) + '</div></div>';
+      }).join('') : '<div style="color:#888; font-size:13px; text-align:center">Здравствуйте! Задайте вопрос о товаре — продавец ответит здесь.</div>';
+      box.scrollTop = 99999;
+    } catch (e) { box.innerHTML = '<div style="color:#c33">Не удалось загрузить сообщения</div>'; }
+  }
+  window.sendChatMsg = async function () {
+    var inp = document.getElementById('chat-input');
+    var text = inp.value.trim();
+    if (!text) return;
+    try {
+      await fetch('/api/chat/send?guest_id=' + encodeURIComponent(guestKey), {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ product_id: PID, seller_id: SID, text: text, buyer_name: 'Гость сайта' }),
+      });
+      inp.value = '';
+      loadChat();
+    } catch (e) {}
+  };
+})();
+</script>
+{% endif %}
+
+<script>
+/* Избранное (localStorage, синхронизируется со страницей /favorites) */
+(function () {
+  var KEY = 'tgshop_fav';
+  var btn = document.getElementById('fav-btn');
+  if (!btn) return;
+  function favs() { try { return JSON.parse(localStorage.getItem(KEY) || '[]'); } catch (e) { return []; } }
+  function save(list) { localStorage.setItem(KEY, JSON.stringify(list)); }
+  function isFav() { return favs().some(function (f) { return f.id === btn.dataset.id; }); }
+  function render() {
+    if (isFav()) { btn.textContent = '❤ В избранном'; btn.classList.add('active'); }
+    else { btn.textContent = '❤ В избранное'; btn.classList.remove('active'); }
+  }
+  btn.addEventListener('click', function () {
+    var list = favs();
+    if (isFav()) {
+      list = list.filter(function (f) { return f.id !== btn.dataset.id; });
+      toast('Удалено из избранного');
+    } else {
+      list.push({ id: btn.dataset.id, name: btn.dataset.name, price: +btn.dataset.price, photo: btn.dataset.photo, at: Date.now() });
+      toast('Добавлено в избранное ❤');
+    }
+    save(list);
+    render();
+  });
+  window.toast = window.toast || function (msg) {
+    var t = document.createElement('div');
+    t.className = 'toast-msg';
+    t.textContent = msg;
+    document.body.appendChild(t);
+    setTimeout(function () { t.remove(); }, 2200);
+  };
+  render();
+})();
+</script>
+
+<script>
+document.getElementById('rev-form').addEventListener('submit', async function (e) {
+  e.preventDefault();
+  var f = new FormData(this);
+  var note = document.getElementById('rev-note');
+  note.textContent = 'Отправляем…';
+  try {
+    var res = await fetch('/api/reviews', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        product_id: {{ p.id }},
+        author: f.get('author') || 'Гость',
+        rating: +f.get('rating'),
+        text: f.get('text'),
+      }),
+    });
+    var data = await res.json();
+    if (!res.ok) throw new Error(data.detail || 'Ошибка');
+    note.textContent = data.status === 'approved'
+      ? '✅ Спасибо! Ваш отзыв опубликован.'
+      : '✅ Спасибо! Отзыв отправлен на модерацию.';
+    note.style.color = '#10b981';
+    if (data.status === 'approved') setTimeout(function () { location.reload(); }, 1200);
+  } catch (err) {
+    note.textContent = '❌ ' + err.message;
+    note.style.color = '#ef4444';
+  }
+});
+</script>
+
+<section class="sect" id="recent" style="display:none">
+  <div class="sect-head"><h2>👀 Вы недавно смотрели</h2></div>
+  <div class="grid" id="recent-grid"></div>
+</section>
+
+<script>
+// покупка с SSR-страницы: кладём в общую корзину и уходим в приложение
+(function () {
+  var CART_KEY = 'tgshop_cart';
+  function load() { try { return JSON.parse(localStorage.getItem(CART_KEY) || '{}'); } catch (e) { return {}; } }
+  function save(c) { localStorage.setItem(CART_KEY, JSON.stringify(c)); }
+  document.addEventListener('click', function (e) {
+    var buy = e.target.closest('[data-buy]');
+    var now = e.target.closest('[data-buynow]');
+    var t = buy || now;
+    if (!t) return;
+    var c = load();
+    c[t.dataset.buy || t.dataset.buynow] = (c[t.dataset.buy || t.dataset.buynow] || 0) + 1;
+    save(c);
+    location.href = '/shop#/cart';
+  });
+  // недавно просмотренные
+  var key = 'tgshop_recent';
+  var seen = JSON.parse(localStorage.getItem(key) || '[]');
+  var me = {{ p.id }};
+  if (seen.length > 1) {
+    var grid = document.getElementById('recent-grid');
+    var ids = seen.filter(function (x) { return x !== me; }).slice(0, 4);
+    if (ids.length) {
+      fetch('/api/recommendations/recent?ids=' + ids.join(',')).then(function (r) { return r.json(); }).then(function (data) {
+        if (!data.products || !data.products.length) return;
+        grid.innerHTML = data.products.map(function (r) {
+          return '<article class="card"><a class="card-img" href="/p/' + r.id + '"><img src="' + r.photo + '" loading="lazy"></a>' +
+            '<div class="card-body"><a class="card-name" href="/p/' + r.id + '">' + r.name + '</a>' +
+            '<div class="card-foot"><div class="price"><span class="now">' + r.price + ' ₽</span></div>' +
+            '<button class="add-btn" data-add="' + r.id + '">＋</button></div></div></article>';
+        }).join('');
+        document.getElementById('recent').style.display = '';
+      });
+    }
+  }
+})();
+</script>
+{% endblock %}

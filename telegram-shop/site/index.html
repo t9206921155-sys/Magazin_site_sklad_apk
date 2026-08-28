@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#4f46e5">
+  <meta name="robots" content="noindex,nofollow">
+  <title>Telegram Shop — оформление заказа</title>
+  <link rel="icon" type="image/svg+xml" href="/site/img/favicon.svg">
+  <link rel="stylesheet" href="/site/styles.css">
+</head>
+<body>
+<div class="ann-bar hidden" id="ann-bar"><div class="wrap ann-in" id="ann-text"></div></div>
+
+<header class="top">
+  <div class="wrap top-in">
+    <a class="brand" href="/"><span class="brand-logo">🛍️</span><span id="brand-name">Telegram Shop</span></a>
+    <nav class="nav" id="nav">
+      <a href="/catalog">Каталог</a>
+      <a href="/blog">Блог</a>
+      <a href="#/delivery">Доставка</a>
+      <a href="#/payments">Оплата</a>
+      <a href="#/orders">Мои заказы</a>
+      <a href="#/about">О магазине</a>
+    </nav>
+    <div class="top-right">
+      <a class="icon-link" href="#/orders">📦 Заказы</a>
+      <a class="cart-btn" href="#/cart">🛒 Корзина <span class="pill" id="cart-count">0</span></a>
+      <button class="burger" id="burger" aria-label="Меню">☰</button>
+    </div>
+  </div>
+</header>
+
+<main id="view" class="wrap"></main>
+
+<footer class="foot">
+  <div class="wrap foot-top">
+    <div class="foot-sub">
+      <b>📬 Подпишитесь на акции и новинки</b>
+      <p>Никакого спама — только скидки, промокоды и полезные подборки.</p>
+      <form class="sub-form" id="sub-form">
+        <input type="email" class="field" id="sub-email" placeholder="ваш@email.ru" required>
+        <button class="btn primary" type="submit" style="width:auto; padding:12px 22px">Подписаться</button>
+      </form>
+      <div class="hint" id="sub-note" style="margin-top:8px"></div>
+    </div>
+    <div class="foot-social hidden" id="foot-social-wrap">
+      <b>Мы в соцсетях</b>
+      <div class="soc-row" id="foot-soc"></div>
+    </div>
+  </div>
+  <div class="wrap foot-in">
+    <div>
+      <b id="foot-brand">Telegram Shop</b>
+      <p id="foot-contacts"></p>
+    </div>
+    <div class="foot-links">
+      <a href="/catalog">Каталог</a>
+      <a href="/blog">Блог</a>
+      <a href="#/delivery">Доставка</a>
+      <a href="#/payments">Оплата</a>
+      <a href="#/orders">Мои заказы</a>
+      <a href="/sitemap.xml">Карта сайта</a>
+    </div>
+  </div>
+</footer>
+
+<script src="/site/app.js"></script>
+<script>
+document.getElementById('burger').addEventListener('click', function () {
+  document.getElementById('nav').classList.toggle('open');
+});
+document.getElementById('sub-form').addEventListener('submit', async function (e) {
+  e.preventDefault();
+  var note = document.getElementById('sub-note');
+  note.style.color = '';
+  note.textContent = 'Подписываем…';
+  try {
+    var res = await fetch('/api/subscribe', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: document.getElementById('sub-email').value }),
+    });
+    var data = await res.json();
+    if (!res.ok) throw new Error(data.detail || 'Ошибка');
+    note.textContent = data['new'] ? '✅ Вы подписаны! Добро пожаловать в клуб выгодных покупок.'
+                                  : '✅ Этот email уже подписан — спасибо!';
+    note.style.color = '#10b981';
+    document.getElementById('sub-email').value = '';
+  } catch (err) {
+    note.textContent = '❌ ' + err.message;
+    note.style.color = '#ef4444';
+  }
+});
+</script>
+</body>
+</html>

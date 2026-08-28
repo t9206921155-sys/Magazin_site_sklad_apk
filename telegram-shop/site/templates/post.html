@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% block content %}
+<nav class="crumbs">
+  <a href="/">Главная</a> <span>›</span>
+  <a href="/blog">Блог</a> <span>›</span>
+  <span>{{ post.title[:40] }}</span>
+</nav>
+
+<article class="post">
+  <h1>{{ post.title }}</h1>
+  <div class="post-meta">📅 {{ post.created_at[:10] }} · {{ shop }}</div>
+  {% if post.cover %}<img class="post-cover" src="{{ post.cover }}" alt="{{ post.title }}">{% endif %}
+  <div class="post-content">
+    {% for para in post.content.split('\n\n') %}
+      {% if para.strip() %}<p>{{ para | escape | replace('\n', '<br>') | safe }}</p>{% endif %}
+    {% endfor %}
+  </div>
+  <div class="post-cta">
+    <p>Понравилась статья? Загляните в наш каталог — там много полезного!</p>
+    <a class="btn primary" href="/catalog" style="width:auto; display:inline-block; padding:13px 30px">Перейти в каталог</a>
+  </div>
+</article>
+{% endblock %}

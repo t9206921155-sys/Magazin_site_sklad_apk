@@ -1,0 +1,100 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical">
+
+    <!-- Экран склада (WebView) -->
+    <LinearLayout
+        android:id="@+id/main_wrap"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:orientation="vertical">
+        <WebView
+            android:id="@+id/webview"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent" />
+    </LinearLayout>
+
+    <!-- Экран настройки сервера -->
+    <ScrollView
+        android:id="@+id/setup_wrap"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:visibility="gone"
+        android:fillViewport="true">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:padding="24dp">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Склад"
+                android:textSize="28sp"
+                android:textStyle="bold"
+                android:textColor="@color/teal" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Telegram Shop • мобильный учёт товаров"
+                android:textSize="14sp"
+                android:textColor="#666666"
+                android:paddingBottom="24dp" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Адрес сервера"
+                android:textSize="14sp"
+                android:textStyle="bold" />
+
+            <EditText
+                android:id="@+id/url_input"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:hint="https://myshop.ru/warehouse/"
+                android:inputType="textUri"
+                android:importantForAutofill="no"
+                android:textSize="15sp"
+                android:paddingTop="8dp" />
+
+            <TextView
+                android:id="@+id/setup_error"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:textColor="#cc3333"
+                android:visibility="gone"
+                android:paddingTop="4dp" />
+
+            <Button
+                android:id="@+id/btn_connect"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="16dp"
+                android:text="Подключиться"
+                android:backgroundTint="@color/teal" />
+
+            <Button
+                android:id="@+id/btn_back"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:text="Назад в приложение"
+                android:visibility="gone"
+                style="?android:attr/borderlessButtonStyle" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="16dp"
+                android:text="Если путь не указан — добавится /warehouse/.\nСменить сервер: долгое нажатие на экран склада."
+                android:textSize="12sp"
+                android:textColor="#888888" />
+        </LinearLayout>
+    </ScrollView>
+</LinearLayout>

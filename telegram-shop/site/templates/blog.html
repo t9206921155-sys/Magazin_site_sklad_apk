@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% block content %}
+<nav class="crumbs">
+  <a href="/">Главная</a> <span>›</span> <span>Блог</span>
+</nav>
+
+<section class="catalog-head">
+  <h1>Блог магазина</h1>
+  <p>Обзоры товаров, советы по выбору и новости — от команды {{ shop }}.</p>
+</section>
+
+{% if posts %}
+<div class="blog-grid">
+  {% for post in posts %}
+  <a class="blog-card" href="/blog/{{ post.slug }}">
+    {% if post.cover %}<div class="blog-cover"><img src="{{ post.cover }}" alt="{{ post.title }}" loading="lazy"></div>
+    {% else %}<div class="blog-cover ph">📝</div>{% endif %}
+    <div class="blog-body">
+      <div class="blog-date">{{ post.created_at[:10] }}</div>
+      <div class="blog-title">{{ post.title }}</div>
+      {% if post.excerpt %}<div class="blog-excerpt">{{ post.excerpt }}</div>{% endif %}
+      <span class="blog-more">Читать →</span>
+    </div>
+  </a>
+  {% endfor %}
+</div>
+{% else %}
+<div class="empty">Статей пока нет — загляните позже! 📝</div>
+{% endif %}
+
+<section class="sect seo-text">
+  <h2>Полезные статьи от {{ shop }}</h2>
+  <p>В нашем блоге мы рассказываем, как выбирать товары, на что обращать внимание при покупке
+  и как ухаживать за вещами, чтобы они служили дольше. Подписывайтесь на новости магазина
+  и следите за акциями — доставка по всей стране, оплата картой, СБП и криптовалютой.</p>
+</section>
+{% endblock %}

@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+  <meta name="theme-color" content="#0f766e">
+  <meta name="robots" content="noindex,nofollow">
+  <title>📦 Склад — учёт товаров</title>
+  <link rel="manifest" href="/warehouse/manifest.json">
+  <link rel="icon" href="/warehouse/icon-192.png">
+  <link rel="apple-touch-icon" href="/warehouse/icon-192.png">
+  <style>
+    :root { --teal: #0f766e; --teal2: #14b8a6; --bg: #f1f5f4; --card: #fff; --text: #0f172a; --hint: #64748b; --line: #e2e8f0; }
+    * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+    body { margin: 0; font-family: -apple-system, "Segoe UI", Roboto, sans-serif; background: var(--bg); color: var(--text); font-size: 14px; }
+    .hidden { display: none !important; }
+    #app { max-width: 560px; margin: 0 auto; min-height: 100vh; padding-bottom: 90px; }
+
+    .top { position: sticky; top: 0; z-index: 20; background: linear-gradient(120deg, var(--teal), var(--teal2)); color: #fff; padding: 12px 14px; display: flex; align-items: center; gap: 10px; }
+    .top b { font-size: 17px; }
+    .top .cnt { margin-left: auto; background: rgba(255,255,255,.2); border-radius: 20px; padding: 4px 12px; font-size: 13px; font-weight: 700; }
+    .searchbar { display: flex; gap: 8px; padding: 10px 12px; background: var(--card); border-bottom: 1px solid var(--line); position: sticky; top: 52px; z-index: 19; }
+    .searchbar input { flex: 1; border: 1px solid var(--line); border-radius: 12px; padding: 10px 14px; font: inherit; outline: none; background: var(--bg); }
+    .scan-btn, .print-btn { border: none; border-radius: 12px; padding: 10px 13px; font-size: 18px; cursor: pointer; background: var(--bg); }
+    .print-btn { background: var(--teal); color: #fff; font-size: 13px; font-weight: 700; display: none; }
+    .print-btn.active { display: block; }
+
+    .list { padding: 10px 12px; }
+    .card { background: var(--card); border-radius: 16px; padding: 12px; margin-bottom: 10px; display: flex; gap: 12px; border: 1px solid var(--line); }
+    .card img { width: 74px; height: 74px; border-radius: 12px; object-fit: cover; flex: 0 0 74px; background: #eee; }
+    .card .info { flex: 1; min-width: 0; }
+    .card .name { font-weight: 700; font-size: 14.5px; line-height: 1.3; }
+    .card .meta { color: var(--hint); font-size: 12px; margin-top: 3px; line-height: 1.5; }
+    .card .row { display: flex; align-items: center; justify-content: space-between; margin-top: 6px; }
+    .price { font-weight: 800; font-size: 15px; }
+    .sum { color: var(--hint); font-size: 12.5px; }
+    .badge { font-size: 11px; padding: 3px 9px; border-radius: 20px; font-weight: 700; }
+    .badge.on { background: #dcfce7; color: #15803d; }
+    .badge.off { background: #f1f5f9; color: #64748b; }
+    .badge.scan { background: #fef3c7; color: #b45309; }
+    .chk { width: 18px; height: 18px; accent-color: var(--teal); }
+    .actions { display: flex; gap: 6px; margin-top: 8px; flex-wrap: wrap; }
+    .mini { border: 1px solid var(--line); background: #fff; border-radius: 10px; padding: 6px 10px; font-size: 12px; cursor: pointer; color: var(--teal); font-weight: 600; }
+    .mini.danger { color: #dc2626; }
+    .switch { position: relative; width: 42px; height: 24px; flex: 0 0 auto; }
+    .switch input { display: none; }
+    .switch .sl { position: absolute; inset: 0; background: #cbd5e1; border-radius: 24px; transition: .2s; }
+    .switch .sl:before { content: ""; position: absolute; width: 18px; height: 18px; border-radius: 50%; background: #fff; top: 3px; left: 3px; transition: .2s; }
+    .switch input:checked + .sl { background: var(--teal); }
+    .switch input:checked + .sl:before { transform: translateX(18px); }
+
+    .fab { position: fixed; right: 18px; bottom: 24px; width: 58px; height: 58px; border-radius: 50%; border: none; background: linear-gradient(135deg, var(--teal), var(--teal2)); color: #fff; font-size: 30px; box-shadow: 0 8px 24px rgba(15,118,110,.45); cursor: pointer; z-index: 30; }
+
+    .sheet { position: fixed; inset: 0; background: rgba(0,0,0,.45); z-index: 40; display: flex; align-items: flex-end; }
+    .sheet .panel { background: #fff; border-radius: 22px 22px 0 0; width: 100%; max-width: 560px; margin: 0 auto; padding: 18px 16px 24px; max-height: 92vh; overflow-y: auto; }
+    .sheet h3 { margin: 0 0 12px; font-size: 17px; }
+    .fld { width: 100%; border: 1px solid var(--line); border-radius: 12px; padding: 11px 13px; font: inherit; margin-bottom: 10px; outline: none; background: var(--bg); }
+    .fld:focus { border-color: var(--teal); }
+    .row2 { display: flex; gap: 10px; }
+    .row2 .fld { flex: 1; }
+    label.lb { display: block; font-size: 12px; color: var(--hint); margin: 2px 2px 4px; }
+    .photos { display: flex; gap: 8px; flex-wrap: wrap; margin: 6px 0 10px; }
+    .photos img { width: 64px; height: 64px; border-radius: 12px; object-fit: cover; position: relative; }
+    .phwrap { position: relative; }
+    .phdel { position: absolute; top: -6px; right: -6px; width: 20px; height: 20px; border-radius: 50%; background: #dc2626; color: #fff; border: none; font-size: 11px; cursor: pointer; }
+    .phadd { width: 64px; height: 64px; border-radius: 12px; border: 2px dashed var(--line); background: var(--bg); font-size: 13px; color: var(--hint); cursor: pointer; text-align: center; }
+    .btn { display: block; width: 100%; border: none; border-radius: 13px; padding: 14px; font: inherit; font-weight: 800; font-size: 15px; cursor: pointer; }
+    .btn.primary { background: linear-gradient(120deg, var(--teal), var(--teal2)); color: #fff; }
+    .btn.ghost { background: var(--bg); color: var(--text); margin-top: 8px; }
+    .airow { display: flex; gap: 8px; margin: 4px 0 10px; }
+    .airow .mini { flex: 1; padding: 9px; }
+    #toasts { position: fixed; top: 64px; left: 0; right: 0; z-index: 60; display: flex; flex-direction: column; align-items: center; gap: 8px; pointer-events: none; }
+    .toast { background: #0f172a; color: #fff; padding: 10px 18px; border-radius: 20px; font-size: 13.5px; max-width: 90%; }
+    .toast.err { background: #dc2626; }
+    .cam { position: fixed; inset: 0; background: #000; z-index: 50; display: flex; flex-direction: column; }
+    .cam video { flex: 1; object-fit: cover; }
+    .cam .ctr { display: flex; gap: 12px; justify-content: center; padding: 14px; background: #000; }
+    .cam button { border: none; border-radius: 14px; padding: 12px 22px; font-size: 15px; font-weight: 700; cursor: pointer; }
+    .cam .stop { background: #dc2626; color: #fff; }
+    #login { position: fixed; inset: 0; background: var(--bg); z-index: 70; display: flex; align-items: center; justify-content: center; }
+
+    /* тёмная тема (ТЗ 7.3) */
+    body[data-theme="dark"] { --bg: #0f172a; --card: #1e293b; --text: #e2e8f0; --hint: #94a3b8; --line: #334155; }
+    body[data-theme="dark"] .fld { background: #0f172a; color: #e2e8f0; }
+    body[data-theme="dark"] .sheet .panel { background: #1e293b; }
+    body[data-theme="dark"] .mini { background: #1e293b; color: #5eead4; border-color: #334155; }
+    body[data-theme="dark"] #login .box { background: #1e293b; }
+    #login .box { background: #fff; border-radius: 20px; padding: 28px; width: 320px; text-align: center; box-shadow: 0 20px 50px rgba(0,0,0,.15); }
+    #login .logo { font-size: 44px; }
+  </style>
+</head>
+<body>
+<div id="app">
+  <div class="top"><span>📦</span><b>Склад</b><span class="cnt" id="cnt">—</span>
+    <button style="background:rgba(255,255,255,.2);border:none;border-radius:10px;color:#fff;font-size:15px;padding:6px 10px;cursor:pointer" onclick="openUsers()">👥</button>
+    <button style="background:rgba(255,255,255,.2);border:none;border-radius:10px;color:#fff;font-size:15px;padding:6px 10px;cursor:pointer" onclick="openLog()">📋</button>
+    <button style="background:rgba(255,255,255,.2);border:none;border-radius:10px;color:#fff;font-size:15px;padding:6px 10px;cursor:pointer" onclick="toggleTheme()" id="themeBtn">🌓</button>
+    <button style="background:rgba(255,255,255,.2);border:none;border-radius:10px;color:#fff;font-size:15px;padding:6px 10px;cursor:pointer" onclick="openSettings()">⚙️</button>
+  </div>
+  <div style="background:#0b5c56;color:#d7f5f0;font-size:11.5px;text-align:center;padding:4px" id="syncbar">☁️ единая база · синхронизация…</div>
+  <div class="searchbar">
+    <input id="q" placeholder="🔍 Поиск: артикул, ШК, название, место, владелец…" oninput="loadList()">
+    <button class="scan-btn" onclick="openScanModes()" title="Сканер (режимы)">📷</button>
+    <button class="print-btn" id="bulkBtn" onclick="openBulkEdit()" style="background:var(--amber, #b45309)">✏️ Изменить</button>
+    <button class="print-btn" id="printBtn" onclick="printLabels()">🖨 Наклейки</button>
+  </div>
+  <div class="list" id="list"></div>
+  <button class="fab" onclick="openForm()">＋</button>
+</div>
+
+<div id="sheet" class="sheet hidden">
+  <div class="panel">
+    <h3 id="form-title">Новый товар</h3>
+    <label class="lb">Фото (до 20): камера / галерея / URL</label>
+    <div class="photos" id="photos"></div>
+    <div class="row2">
+      <button class="mini" onclick="addPhoto('camera')">📷 Камера</button>
+      <button class="mini" onclick="addPhoto('file')">🖼 Галерея</button>
+      <button class="mini" onclick="addPhoto('url')">🔗 URL</button>
+    </div>
+    <div class="airow">
+      <button class="mini" onclick="aiGen('title')">🤖 Название</button>
+      <button class="mini" onclick="aiGen('listing')">📝 Объявление</button>
+    </div>
+    <div class="airow">
+      <button class="mini" onclick="aiGen('telegram')">📣 Telegram</button>
+      <button class="mini" onclick="aiGen('vk')">🅥 VK</button>
+      <button class="mini" onclick="aiGen('instagram')">📸 Instagram</button>
+    </div>
+    <input class="fld" id="f-name" placeholder="Наименование *">
+    <div class="row2">
+      <input class="fld" id="f-code" placeholder="Внутренний артикул">
+      <input class="fld" id="f-barcode" placeholder="Штрих-код (сканер)">
+    </div>
+    <div class="row2">
+      <input class="fld" id="f-location" placeholder="Место хранения (А-1, коробка 5)">
+      <input class="fld" id="f-owner" placeholder="Владелец товара">
+    </div>
+    <div class="row2">
+      <input class="fld" id="f-qty" type="number" placeholder="Количество">
+      <input class="fld" id="f-price" type="number" placeholder="Цена, ₽ *">
+    </div>
+    <input class="fld" id="f-purchase" type="number" placeholder="Закупочная цена, ₽ (для учёта себестоимости)">
+    <input class="fld" id="f-cat" placeholder="Категория">
+    <textarea class="fld" id="f-desc" placeholder="Описание (состояние, характеристики)"></textarea>
+    <label class="lb" style="display:flex; align-items:center; gap:10px; cursor:pointer">
+      <span class="switch"><input type="checkbox" id="f-showcase" checked><span class="sl"></span></span>
+      <b>Выставлено на витрину</b> <span class="sum">(виден покупателям в каталоге)</span>
+    </label>
+    <label class="lb" style="display:flex; align-items:center; gap:10px; cursor:pointer">
+      <span class="switch"><input type="checkbox" id="f-publish"><span class="sl"></span></span>
+      <b>📣 Опубликовать в соцсети</b> <span class="sum">(Telegram-канал / VK — при создании)</span>
+    </label>
+    <button class="btn primary" id="saveBtn">💾 Сохранить</button>
+    <button class="btn ghost" id="delBtn">🗑 Удалить товар</button>
+    <button class="btn ghost" onclick="closeForm()">Отмена</button>
+  </div>
+</div>
+
+<div id="sheet2" class="sheet hidden">
+  <div class="panel">
+    <h3 id="sheet2-title">Печать наклеек</h3>
+    <div id="sheet2-body"></div>
+    <button class="btn ghost" onclick="closeSheet2()">Закрыть</button>
+  </div>
+</div>
+
+<div id="sheet3" class="sheet hidden">
+  <div class="panel">
+    <h3>✏️ Изменить выбранные (<span id="bulk-count">0</span>)</h3>
+    <p class="sum" style="color:#64748b;font-size:12px;margin:0 0 10px">Оставьте поле пустым — значение не изменится.</p>
+    <div class="row2">
+      <label class="lb">Цена, ₽<input class="fld" id="bk-price" type="number" placeholder="—" style="margin:0"></label>
+      <label class="lb">Закупочная, ₽<input class="fld" id="bk-purchase" type="number" placeholder="—" style="margin:0"></label>
+    </div>
+    <div class="row2">
+      <label class="lb">Место хранения<input class="fld" id="bk-location" placeholder="—" style="margin:0"></label>
+      <label class="lb">Владелец<input class="fld" id="bk-owner" placeholder="—" style="margin:0"></label>
+    </div>
+    <div class="row2">
+      <label class="lb">Категория<input class="fld" id="bk-category" placeholder="—" style="margin:0"></label>
+      <label class="lb">Остаток, шт<input class="fld" id="bk-stock" type="number" placeholder="—" style="margin:0"></label>
+    </div>
+    <div class="row2" style="margin-bottom:10px">
+      <span class="switch"><input type="checkbox" id="bk-showcase"><span class="sl"></span></span>
+      <label class="lb" style="margin:0">🟢 Выставить на витрину (применить ко всем)</label>
+    </div>
+    <div class="row2" style="margin-bottom:10px">
+      <span class="switch"><input type="checkbox" id="bk-instock"><span class="sl"></span></span>
+      <label class="lb" style="margin:0">✅ В наличии (применить ко всем)</label>
+    </div>
+    <button class="btn primary" onclick="applyBulk()">💾 Применить</button>
+    <button class="btn ghost" onclick="closeBulk()">Отмена</button>
+  </div>
+</div>
+
+<div id="cam" class="cam hidden">
+  <video id="video" autoplay playsinline></video>
+  <div class="ctr">
+    <button class="stop" onclick="stopScan()">✕ Закрыть</button>
+  </div>
+</div>
+
+<div id="login">
+  <div class="box">
+    <div class="logo">📦</div>
+    <h3 style="margin:8px 0 4px">Вход в склад</h3>
+    <p style="color:#64748b; font-size:13px; margin:0 0 14px">Единая облачная база — входите под своей учёткой, данные общие у всех устройств</p>
+    <input class="fld" id="login-inp" placeholder="Логин" value="admin">
+    <input type="password" class="fld" id="pass" placeholder="Пароль">
+    <label style="display:flex; align-items:center; gap:8px; font-size:13px; color:#64748b; margin-bottom:12px; cursor:pointer">
+      <input type="checkbox" id="remember" checked style="width:16px;height:16px;accent-color:#0f766e"> Запомнить логин на этом устройстве
+    </label>
+    <button class="btn primary" onclick="doLogin()">Войти</button>
+    <div id="quickBox" class="hidden" style="margin-top:14px; border-top:1px dashed #cbd5e1; padding-top:12px">
+      <button class="btn" id="quickBtn" onclick="quickLoginStart()" style="background:#0b5c56">⚡ Быстрый вход</button>
+      <div id="quickPinBox" class="hidden" style="margin-top:8px">
+        <input type="password" class="fld" id="quick-pin" inputmode="numeric" maxlength="8" placeholder="PIN-код" style="text-align:center; letter-spacing:8px; font-size:18px">
+        <button class="btn primary" onclick="quickLoginWithPin()" style="margin-top:8px">Войти по PIN</button>
+      </div>
+      <div id="quickNote" style="font-size:12px; color:#64748b; margin-top:8px"></div>
+    </div>
+    <div id="loginErr" class="hidden" style="color:#dc2626; font-size:13px; margin-top:8px"></div>
+  </div>
+</div>
+
+<div id="toasts"></div>
+<script src="/warehouse/app.js"></script>
+</body>
+</html>

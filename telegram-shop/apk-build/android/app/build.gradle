@@ -1,0 +1,53 @@
+plugins {
+    id 'com.android.application'
+}
+
+android {
+    namespace 'ru.telegramshop.sklad'
+    compileSdk 34
+
+    defaultConfig {
+        applicationId "ru.telegramshop.sklad"
+        minSdk 23
+        targetSdk 34
+        versionCode 1
+        versionName "1.0.0"
+        // URL по умолчанию: передаётся при сборке -PwarehouseUrl=https://.../warehouse/
+        // Если пусто — при первом запуске приложение покажет экран ввода адреса сервера.
+        buildConfigField "String", "WAREHOUSE_URL", "\"${project.findProperty('warehouseUrl') ?: ''}\""
+    }
+
+    signingConfigs {
+        release {
+            storeFile file('../../keystore/telegramshop.keystore')
+            storePassword 'TgShop2026!'
+            keyAlias 'telegramshop'
+            keyPassword 'TgShop2026!'
+        }
+    }
+
+    buildTypes {
+        debug {
+            applicationIdSuffix '.debug'
+            versionNameSuffix '-debug'
+        }
+        release {
+            minifyEnabled false
+            shrinkResources false
+            signingConfig signingConfigs.release
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+
+    buildFeatures {
+        buildConfig true
+    }
+}
+
+dependencies {
+    implementation 'androidx.appcompat:appcompat:1.6.1'
+}

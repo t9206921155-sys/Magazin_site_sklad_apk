@@ -1,0 +1,115 @@
+{% extends "base.html" %}
+{% block content %}
+<nav class="crumbs">
+  <a href="/">Главная</a> <span>›</span> <span>Каталог</span>
+</nav>
+
+<section class="catalog-head">
+  <h1>{{ heading }}</h1>
+  <p>{{ sub }}</p>
+</section>
+
+<div class="catalog-tools">
+  <form class="search-form" method="get" action="/catalog" style="position:relative">
+    {% if cat %}<input type="hidden" name="cat" value="{{ cat }}">{% endif %}
+    {% if subcat %}<input type="hidden" name="sub" value="{{ subcat }}">{% endif %}
+    {% if condition %}<input type="hidden" name="condition" value="{{ condition }}">{% endif %}
+    <input class="search" name="q" value="{{ q }}" placeholder="🔍 Поиск: название, бренд, цвет… (учитывает опечатки и синонимы)" autocomplete="off" id="cat-search">
+    <div id="suggest-box" class="suggest-box" style="display:none"></div>
+    <button class="btn-sm">Найти</button>
+  </form>
+  <div class="chips">
+    <a class="chip {{ 'active' if not cat }}" href="/catalog">🛍️ Все</a>
+    {% for c in categories %}
+    <a class="chip {{ 'active' if cat == c }}" href="/catalog/{{ cat_slugs.get(c, c) }}">{{ cat_emojis.get(c, '🛍️') }} {{ c }}</a>
+    {% endfor %}
+  </div>
+  {% if subs %}
+  <div class="chips" style="margin-top:6px">
+    {% for sc in subs %}
+    <a class="chip mini {{ 'active' if subcat == sc.subcategory }}" href="/catalog/{{ cat_slugs.get(cat, '') }}/{{ sc.slug }}">{{ sc.subcategory }}</a>
+    {% endfor %}
+  </div>
+  {% endif %}
+  {% if not q %}
+  <div class="chips" style="margin-top:6px">
+    <a class="chip mini {{ 'active' if not condition }}" href="?{% if cat %}cat={{ cat | urlencode }}&{% endif %}">Все состояния</a>
+    {% for ck, cl in condition_labels.items() %}
+    <a class="chip mini {{ 'active' if condition == ck }}" href="?{% if cat %}cat={{ cat | urlencode }}&{% endif %}{% if subcat %}sub={{ subcat | urlencode }}&{% endif %}condition={{ ck }}">{{ cl }}</a>
+    {% endfor %}
+  </div>
+  {% endif %}
+</div>
+
+{% if products %}
+<div class="grid">
+  {% for p in products %}{% include "_card.html" %}{% endfor %}
+</div>
+<div class="catalog-count">Показано {{ products | length }} из {{ total }} товаров</div>
+{% if pages > 1 %}
+<nav class="pager">
+  {% set base_qs = '' %}
+  {% if cat %} {% set base_qs = base_qs ~ 'cat=' ~ (cat | urlencode) ~ '&' %} {% endif %}
+  {% if subcat %} {% set base_qs = base_qs ~ 'sub=' ~ (subcat | urlencode) ~ '&' %} {% endif %}
+  {% if q %} {% set base_qs = base_qs ~ 'q=' ~ (q | urlencode) ~ '&' %} {% endif %}
+  {% if condition %} {% set base_qs = base_qs ~ 'condition=' ~ (condition | urlencode) ~ '&' %} {% endif %}
+  {% if page > 1 %}
+  <a class="pg-btn" href="/catalog?{{ base_qs }}page={{ page - 1 }}">← Назад</a>
+  {% endif %}
+  {% for i in range(1, pages + 1) %}
+    {% if i == page %}
+    <span class="pg-btn active">{{ i }}</span>
+    {% elif i <= 3 or i > pages - 2 or (i >= page - 1 and i <= page + 1) %}
+    <a class="pg-btn" href="/catalog?{{ base_qs }}page={{ i }}">{{ i }}</a>
+    {% elif i == 4 or i == pages - 2 %}
+    <span class="pg-dots">…</span>
+    {% endif %}
+  {% endfor %}
+  {% if page < pages %}
+  <a class="pg-btn" href="/catalog?{{ base_qs }}page={{ page + 1 }}">Вперёд →</a>
+  {% endif %}
+</nav>
+{% endif %}
+{% else %}
+<div class="empty">По запросу «{{ q }}» ничего не найдено 🔍<br><a href="/catalog">Сбросить фильтры</a></div>
+{% endif %}
+
+{% if q or cat %}
+<section class="sect seo-text">
+  <h2>{% if cat %}Товары категории «{{ cat }}»{% else %}Поиск: {{ q }}{% endif %}</h2>
+  <p>В интернет-магазине {{ shop }} вы найдёте {% if cat %}всё из категории «{{ cat }}»{% else %}то, что искали{% endif %} по лучшим ценам. Доставка по всей стране: курьером, в постаматы 5POST и СДЭК, Яндекс Доставкой. Оплата картой, СБП, криптовалютой и Telegram Stars.</p>
+</section>
+{% endif %}
+
+<script>
+(function () {
+  var input = document.getElementById('cat-search');
+  var box = document.getElementById('suggest-box');
+  if (!input || !box) return;
+  var timer = null;
+  input.addEventListener('input', function () {
+    clearTimeout(timer);
+    var q = input.value.trim();
+    if (q.length < 2) { box.style.display = 'none'; return; }
+    timer = setTimeout(function () {
+      fetch('/api/search/suggest?q=' + encodeURIComponent(q))
+        .then(function (r) { return r.json(); })
+        .then(function (d) {
+          var items = (d.suggestions || []).slice(0, 6);
+          if (!items.length) { box.style.display = 'none'; return; }
+          box.innerHTML = items.map(function (s) {
+            return '<a class="suggest-item" href="/p/' + s.id + '">' +
+              '<img src="' + s.photo + '" alt="">' +
+              '<span>' + s.name.replace(/[<>&"]/g, '') + '</span>' +
+              '<b>' + s.price + ' ₽</b></a>';
+          }).join('');
+          box.style.display = 'block';
+        }).catch(function () {});
+    }, 250);
+  });
+  document.addEventListener('click', function (e) {
+    if (!e.target.closest('.search-form')) box.style.display = 'none';
+  });
+})();
+</script>
+{% endblock %}

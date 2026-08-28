@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex,nofollow">
+  <title>Кабинет продавца — Telegram Shop</title>
+  <link rel="icon" type="image/svg+xml" href="/site/img/favicon.svg">
+  <link rel="stylesheet" href="/admin/styles.css">
+</head>
+<body>
+<div id="login" class="login hidden">
+  <div class="login-box">
+    <div class="login-logo">🏪</div>
+    <h2>Кабинет продавца</h2>
+    <p class="hint">Введите ключ доступа (выдан при регистрации витрины)</p>
+    <input type="password" id="key" class="field" placeholder="Ключ" onkeydown="if(event.key==='Enter')doLogin()">
+    <button class="btn primary" onclick="doLogin()">Войти</button>
+    <div id="login-err" class="err hidden"></div>
+    <p class="hint" style="margin-top:14px">Нет витрины? <a href="/become-seller">Стать продавцом</a></p>
+  </div>
+</div>
+
+<div id="app" class="hidden">
+  <aside class="side">
+    <div class="side-brand">🏪 <b id="sb-name">Витрина</b></div>
+    <nav>
+      <button data-tab="dashboard" class="active">📊 Кабинет</button>
+      <button data-tab="products">📦 Мои товары</button>
+      <button data-tab="promos">🎟 Мои акции</button>
+      <button data-tab="orders">🧾 Заказы</button>
+      <button data-tab="chat">💬 Сообщения</button>
+      <button data-tab="payouts">💰 Баланс и выплаты</button>
+      <button data-tab="settings">⚙️ Настройки витрины</button>
+    </nav>
+    <div class="side-foot">
+      <a href="#" id="store-link" target="_blank">🌐 Моя витрина</a>
+      <a href="/" target="_blank">🛍 Площадка</a>
+      <button onclick="logout()">Выйти</button>
+    </div>
+  </aside>
+  <main class="content">
+    <div id="tab-dashboard" class="tab"></div>
+    <div id="tab-products" class="tab hidden"></div>
+    <div id="tab-promos" class="tab hidden"></div>
+    <div id="tab-orders" class="tab hidden"></div>
+    <div id="tab-chat" class="tab hidden"></div>
+    <div id="tab-payouts" class="tab hidden"></div>
+    <div id="tab-settings" class="tab hidden"></div>
+  </main>
+</div>
+
+<div id="toasts"></div>
+<script src="/seller/app.js"></script>
+</body>
+</html>

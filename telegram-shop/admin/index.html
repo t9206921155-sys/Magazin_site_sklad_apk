@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Админ-панель — Telegram Shop</title>
+  <link rel="icon" type="image/svg+xml" href="/site/img/favicon.svg">
+  <link rel="stylesheet" href="/admin/styles.css">
+</head>
+<body>
+<div id="login" class="login hidden">
+  <div class="login-box">
+    <div class="login-logo">🛍️</div>
+    <h2>Админ-панель</h2>
+    <p class="hint">Введите пароль администратора (задаётся переменной ADMIN_PASSWORD в .env)</p>
+    <input type="password" id="pass" class="field" placeholder="Пароль" onkeydown="if(event.key==='Enter')doLogin()">
+    <button class="btn primary" onclick="doLogin()">Войти</button>
+    <div id="login-err" class="err hidden"></div>
+  </div>
+</div>
+
+<div id="app" class="hidden">
+  <aside class="side">
+    <div class="side-brand">🛍️ <b id="sb-name">Shop</b></div>
+    <nav>
+      <button data-tab="dashboard" class="active">📊 Дашборд</button>
+      <button data-tab="products">📦 Товары</button>
+      <button data-tab="catalog">🗂 Каталог</button>
+      <button data-tab="orders">🧾 Заказы</button>
+      <button data-tab="sellers">🏪 Продавцы</button>
+      <button data-tab="tariffs">💰 Тарифы</button>
+      <button data-tab="promos">🎟 Промокоды</button>
+      <button data-tab="reviews">⭐ Отзывы</button>
+      <button data-tab="blog">📝 Блог</button>
+      <button data-tab="broadcast">📣 Рассылка</button>
+      <button data-tab="reports">📈 Отчёты</button>
+      <button data-tab="settings">⚙️ Настройки</button>
+      <button data-tab="import">📥 Импорт · Excel · 1С</button>
+    </nav>
+    <div class="side-foot">
+      <a href="/" target="_blank">🌐 Сайт</a>
+      <a href="/app" target="_blank">📱 Mini App</a>
+      <button onclick="logout()">Выйти</button>
+    </div>
+  </aside>
+  <main class="content">
+    <div id="tab-dashboard" class="tab"></div>
+    <div id="tab-products" class="tab hidden"></div>
+    <div id="tab-catalog" class="tab hidden"></div>
+    <div id="tab-orders" class="tab hidden"></div>
+    <div id="tab-sellers" class="tab hidden"></div>
+    <div id="tab-tariffs" class="tab hidden"></div>
+    <div id="tab-promos" class="tab hidden"></div>
+    <div id="tab-reviews" class="tab hidden"></div>
+    <div id="tab-blog" class="tab hidden"></div>
+    <div id="tab-broadcast" class="tab hidden"></div>
+    <div id="tab-reports" class="tab hidden"></div>
+    <div id="tab-settings" class="tab hidden"></div>
+    <div id="tab-import" class="tab hidden"></div>
+  </main>
+</div>
+
+<div id="toasts"></div>
+<script src="/admin/app.js"></script>
+</body>
+</html>

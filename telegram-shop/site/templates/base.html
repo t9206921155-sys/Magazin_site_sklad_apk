@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{ title }}</title>
+  <meta name="description" content="{{ description }}">
+  {% if canonical %}<link rel="canonical" href="{{ canonical }}">{% endif %}
+  {% if noindex %}<meta name="robots" content="noindex,nofollow">{% endif %}
+
+  <!-- Open Graph (соцсети) -->
+  <meta property="og:type" content="{{ og_type | default('website') }}">
+  <meta property="og:site_name" content="{{ shop }}">
+  <meta property="og:title" content="{{ title }}">
+  <meta property="og:description" content="{{ description }}">
+  {% if og_image %}<meta property="og:image" content="{{ og_image }}">{% endif %}
+  <meta property="og:url" content="{{ canonical or '' }}">
+  <meta property="og:locale" content="ru_RU">
+
+  <!-- Twitter/X -->
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="{{ title }}">
+  <meta name="twitter:description" content="{{ description }}">
+  {% if og_image %}<meta name="twitter:image" content="{{ og_image }}">{% endif %}
+
+  <meta name="theme-color" content="#4f46e5">
+  <link rel="icon" type="image/svg+xml" href="/site/img/favicon.svg">
+  {% if jsonld %}<script type="application/ld+json">{{ jsonld | safe }}</script>{% endif %}
+  <link rel="stylesheet" href="/site/styles.css">
+</head>
+<body>
+{% if announcement %}
+<div class="ann-bar">
+  <div class="wrap ann-in">{{ announcement }}</div>
+</div>
+{% endif %}
+
+<header class="top">
+  <div class="wrap top-in">
+    <a class="brand" href="/"><span class="brand-logo">🛍️</span><span>{{ shop }}</span></a>
+    <nav class="nav" id="nav">
+      <a href="/catalog">Каталог</a>
+      <a href="/sellers">Продавцы</a>
+      <a href="/favorites">❤ Избранное</a>
+      <a href="/blog">Блог</a>
+      <a href="/shop#/delivery">Доставка</a>
+      <a href="/shop#/payments">Оплата</a>
+      <a href="/shop#/orders">Мои заказы</a>
+      <a href="/shop#/about">О магазине</a>
+    </nav>
+    <div class="top-right">
+      <a class="icon-link" href="/shop#/orders">📦 Заказы</a>
+      <a class="cart-btn" href="/shop#/cart">🛒 Корзина <span class="pill" id="cart-count">0</span></a>
+      <button class="burger" id="burger" aria-label="Меню">☰</button>
+    </div>
+  </div>
+</header>
+
+<main class="wrap">
+{% block content %}{% endblock %}
+</main>
+
+<footer class="foot">
+  <div class="wrap foot-top">
+    <div class="foot-sub">
+      <b>📬 Подпишитесь на акции и новинки</b>
+      <p>Никакого спама — только скидки, промокоды и полезные подборки.</p>
+      <form class="sub-form" id="sub-form">
+        <input type="email" class="field" id="sub-email" placeholder="ваш@email.ru" required>
+        <button class="btn primary" type="submit" style="width:auto; padding:12px 22px">Подписаться</button>
+      </form>
+      <div class="hint" id="sub-note" style="margin-top:8px"></div>
+    </div>
+    {% if social_links.tg or social_links.vk or social_links.wa or social_links.ok %}
+    <div class="foot-social">
+      <b>Мы в соцсетях</b>
+      <div class="soc-row">
+        {% if social_links.tg %}<a class="soc" href="{{ social_links.tg }}" target="_blank" rel="noopener" title="Telegram">✈️</a>{% endif %}
+        {% if social_links.vk %}<a class="soc" href="{{ social_links.vk }}" target="_blank" rel="noopener" title="VK">🅥</a>{% endif %}
+        {% if social_links.wa %}<a class="soc" href="{{ social_links.wa }}" target="_blank" rel="noopener" title="WhatsApp">💬</a>{% endif %}
+        {% if social_links.ok %}<a class="soc" href="{{ social_links.ok }}" target="_blank" rel="noopener" title="Одноклассники">🟠</a>{% endif %}
+        {% if social_links.ig %}<a class="soc" href="{{ social_links.ig }}" target="_blank" rel="noopener" title="Instagram">📸</a>{% endif %}
+      </div>
+    </div>
+    {% endif %}
+  </div>
+  <div class="wrap foot-in">
+    <div>
+      <b>{{ shop }}</b>
+      <p>{{ contacts }}</p>
+    </div>
+    <div class="foot-links">
+      <a href="/catalog">Каталог</a>
+      <a href="/sellers">Продавцы</a>
+      <a href="/blog">Блог</a>
+      <a href="/shop#/delivery">Доставка</a>
+      <a href="/shop#/payments">Оплата</a>
+      <a href="/shop#/orders">Мои заказы</a>
+      <a href="/sitemap.xml">Карта сайта</a>
+    </div>
+  </div>
+</footer>
+
+<script>
+// корзина на SSR-страницах: тот же localStorage, что и в Mini App/SPA
+(function () {
+  var CART_KEY = 'tgshop_cart';
+  function load() { try { return JSON.parse(localStorage.getItem(CART_KEY) || '{}'); } catch (e) { return {}; } }
+  function save(c) { localStorage.setItem(CART_KEY, JSON.stringify(c)); }
+  function count() { var c = load(), n = 0; for (var k in c) n += c[k]; return n; }
+  function render() { var el = document.getElementById('cart-count'); if (el) el.textContent = count(); }
+  document.addEventListener('click', function (e) {
+    var btn = e.target.closest('[data-add]');
+    if (!btn) return;
+    var c = load();
+    c[btn.dataset.add] = (c[btn.dataset.add] || 0) + 1;
+    save(c); render();
+    btn.textContent = '✓';
+    setTimeout(function () { btn.textContent = '＋'; }, 900);
+  });
+  render();
+})();
+// мобильное меню
+document.getElementById('burger').addEventListener('click', function () {
+  document.getElementById('nav').classList.toggle('open');
+});
+// подписка на рассылку
+document.getElementById('sub-form').addEventListener('submit', async function (e) {
+  e.preventDefault();
+  var note = document.getElementById('sub-note');
+  note.style.color = '';
+  note.textContent = 'Подписываем…';
+  try {
+    var res = await fetch('/api/subscribe', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: document.getElementById('sub-email').value }),
+    });
+    var data = await res.json();
+    if (!res.ok) throw new Error(data.detail || 'Ошибка');
+    note.textContent = data['new'] ? '✅ Вы подписаны! Добро пожаловать в клуб выгодных покупок.'
+                                  : '✅ Этот email уже подписан — спасибо!';
+    note.style.color = '#10b981';
+    document.getElementById('sub-email').value = '';
+  } catch (err) {
+    note.textContent = '❌ ' + err.message;
+    note.style.color = '#ef4444';
+  }
+});
+// недавно просмотренные товары
+(function () {
+  if (document.body.dataset.product) {
+    var key = 'tgshop_recent';
+    var seen = JSON.parse(localStorage.getItem(key) || '[]');
+    var id = +document.body.dataset.product;
+    seen = seen.filter(function (x) { return x !== id; });
+    seen.unshift(id);
+    localStorage.setItem(key, JSON.stringify(seen.slice(0, 12)));
+  }
+})();
+</script>
+</body>
+</html>

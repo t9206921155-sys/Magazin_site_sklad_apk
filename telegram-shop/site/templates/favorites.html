@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+{% block content %}
+<nav class="crumbs">
+  <a href="/">Главная</a> <span>›</span> <span>Избранное</span>
+</nav>
+
+<section class="catalog-head">
+  <h1>❤ Избранное</h1>
+  <p>Сохранённые товары этого устройства</p>
+</section>
+
+<div class="grid" id="fav-grid">
+  <div class="empty">Загрузка…</div>
+</div>
+
+<script>
+(function () {
+  var KEY = 'tgshop_fav';
+  var grid = document.getElementById('fav-grid');
+  var esc = function (s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); };
+  var fmt = function (n) { return new Intl.NumberFormat('ru-RU').format(n) + ' ₽'; };
+  function card(p) {
+    return '<article class="card"><a href="/p/' + p.id + '" class="card-img">' +
+      '<img src="' + esc(p.photo) + '" alt="' + esc(p.name) + '" loading="lazy">' +
+      (p.condition === 'used' ? '<div class="b-chips"><span class="b-chip used">↻ Б/у</span></div>' : '') +
+      '</a><div class="card-body"><div class="card-cat">' + esc(p.category || '') + '</div>' +
+      '<a href="/p/' + p.id + '" class="card-name">' + esc(p.name) + '</a>' +
+      '<div class="card-foot"><div class="price"><span class="now">' + fmt(p.price) + '</span></div>' +
+      '<button class="fav-remove" data-id="' + p.id + '" aria-label="Убрать">✕</button></div></div></article>';
+  }
+  function load() {
+    var favs = [];
+    try { favs = JSON.parse(localStorage.getItem(KEY) || '[]'); } catch (e) {}
+    if (!favs.length) {
+      grid.innerHTML = '<div class="empty">Пока пусто ❤<br>Открывайте товары и нажимайте «В избранное».</div>';
+      return;
+    }
+    var ids = favs.map(function (f) { return f.id; }).join(',');
+    fetch('/api/favorites?ids=' + ids)
+      .then(function (r) { return r.json(); })
+      .then(function (d) {
+        var order = {};
+        favs.forEach(function (f, i) { order[f.id] = i; });
+        var ps = (d.products || []).sort(function (a, b) { return (order[a.id] ?? 99) - (order[b.id] ?? 99); });
+        grid.innerHTML = ps.length ? ps.map(card).join('')
+          : '<div class="empty">Сохранённые товары больше не в продаже</div>';
+      })
+      .catch(function () { grid.innerHTML = '<div class="empty">Не удалось загрузить</div>'; });
+  }
+  grid.addEventListener('click', function (e) {
+    var b = e.target.closest('.fav-remove');
+    if (!b) return;
+    var favs = [];
+    try { favs = JSON.parse(localStorage.getItem(KEY) || '[]'); } catch (e) {}
+    favs = favs.filter(function (f) { return f.id !== b.dataset.id; });
+    localStorage.setItem(KEY, JSON.stringify(favs));
+    load();
+  });
+  load();
+})();
+</script>
+{% endblock %}

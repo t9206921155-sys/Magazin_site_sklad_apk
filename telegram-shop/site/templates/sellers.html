@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% block content %}
+<nav class="crumbs">
+  <a href="/">Главная</a> <span>›</span> <span>Продавцы</span>
+</nav>
+
+<section class="catalog-head">
+  <h1>Продавцы на {{ shop }}</h1>
+  <p>{% if mp_enabled %}Покупайте напрямую у продавцов маркетплейса: у каждого — своя витрина, ассортимент и акции.{% else %}Раздел продавцов скоро откроется.{% endif %}</p>
+</section>
+
+{% if sellers %}
+<div class="sellers-grid">
+  {% for sl in sellers %}
+  <a class="seller-card" href="/seller/{{ sl.slug }}">
+    <div class="seller-ava">{{ sl.store_name[:1] | upper }}</div>
+    <div class="seller-info">
+      <b>{{ sl.store_name }}</b>
+      {% if sl.description %}<p>{{ sl.description[:120] }}</p>{% endif %}
+      <small>Открыть витрину →</small>
+    </div>
+  </a>
+  {% endfor %}
+</div>
+{% else %}
+<div class="empty">Продавцов пока нет — станьте первым! 🙌</div>
+{% endif %}
+
+{% if mp_enabled %}
+<section class="comm-cta">
+  <div class="comm-cta-txt">
+    <div class="comm-cta-badge">🏪 Маркетплейс для продавцов</div>
+    <h2>Откройте свою витрину на {{ shop }}</h2>
+    <p>Свои товары, акции и статистика в личном кабинете. Покупатели, оплата и доставка — уже настроены. Площадка берёт небольшую комиссию с продаж.</p>
+    <a class="btn-light" href="/become-seller">Стать продавцом</a>
+  </div>
+  <div class="comm-cta-side">
+    <div class="comm-step"><b>1</b><span>Регистрация — 2 минуты</span></div>
+    <div class="comm-step"><b>2</b><span>Товары и акции в кабинете</span></div>
+    <div class="comm-step"><b>3</b><span>Деньги — на баланс продавца</span></div>
+  </div>
+</section>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,8 @@
+.env
+.git
+data/
+__pycache__/
+*.pyc
+screenshots/
+backups/
+.arena/

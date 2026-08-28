@@ -1,0 +1,457 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<form:Form xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:form="http://v8.1c.ru/8.2/managed-application/logform" xmlns:ent="http://v8.1c.ru/8.1/data/enterprise" xmlns:v8="http://v8.1c.ru/8.1/data/core">
+	<WindowOpeningMode>Normal</WindowOpeningMode>
+	<AutoCommandBar name="ФормаКоманднаяПанель" id="-1">
+		<Autofill>true</Autofill>
+		<Customizable>false</Customizable>
+		<Visible>true</Visible>
+	</AutoCommandBar>
+	<Attributes>
+		<Attribute name="АдресМагазина" id="1">
+			<Type>
+				<v8:Type>xs:string</v8:Type>
+				<StringQualifiers>
+					<Length>500</Length>
+					<AllowedLength>Variable</AllowedLength>
+				</StringQualifiers>
+			</Type>
+			<View>
+				<Common>true</Common>
+				<FormField>true</FormField>
+			</View>
+			<EditType>
+				<EnterByString>true</EnterByString>
+				<TextEdit>true</TextEdit>
+			</EditType>
+			<MainAttribute>true</MainAttribute>
+			<SavedData>true</SavedData>
+			<SettingsData>true</SettingsData>
+		</Attribute>
+		<Attribute name="Токен1С" id="2">
+			<Type>
+				<v8:Type>xs:string</v8:Type>
+				<StringQualifiers>
+					<Length>150</Length>
+					<AllowedLength>Variable</AllowedLength>
+				</StringQualifiers>
+			</Type>
+			<View>
+				<Common>true</Common>
+				<FormField>true</FormField>
+			</View>
+			<EditType>
+				<EnterByString>true</EnterByString>
+				<TextEdit>true</TextEdit>
+			</EditType>
+			<MainAttribute>true</MainAttribute>
+			<SavedData>true</SavedData>
+			<SettingsData>true</SettingsData>
+		</Attribute>
+		<Attribute name="СправочникНоменклатуры" id="3">
+			<Type>
+				<v8:Type>xs:string</v8:Type>
+				<StringQualifiers>
+					<Length>100</Length>
+					<AllowedLength>Variable</AllowedLength>
+				</StringQualifiers>
+			</Type>
+			<View>
+				<Common>true</Common>
+				<FormField>true</FormField>
+			</View>
+			<EditType>
+				<EnterByString>true</EnterByString>
+				<TextEdit>true</TextEdit>
+			</EditType>
+			<MainAttribute>true</MainAttribute>
+			<SavedData>true</SavedData>
+			<SettingsData>true</SettingsData>
+		</Attribute>
+		<Attribute name="ДокументЗаказ" id="4">
+			<Type>
+				<v8:Type>xs:string</v8:Type>
+				<StringQualifiers>
+					<Length>100</Length>
+					<AllowedLength>Variable</AllowedLength>
+				</StringQualifiers>
+			</Type>
+			<View>
+				<Common>true</Common>
+				<FormField>true</FormField>
+			</View>
+			<EditType>
+				<EnterByString>true</EnterByString>
+				<TextEdit>true</TextEdit>
+			</EditType>
+			<MainAttribute>true</MainAttribute>
+			<SavedData>true</SavedData>
+			<SettingsData>true</SettingsData>
+		</Attribute>
+		<Attribute name="СправочникКонтрагенты" id="5">
+			<Type>
+				<v8:Type>xs:string</v8:Type>
+				<StringQualifiers>
+					<Length>100</Length>
+					<AllowedLength>Variable</AllowedLength>
+				</StringQualifiers>
+			</Type>
+			<View>
+				<Common>true</Common>
+				<FormField>true</FormField>
+			</View>
+			<EditType>
+				<EnterByString>true</EnterByString>
+				<TextEdit>true</TextEdit>
+			</EditType>
+			<MainAttribute>true</MainAttribute>
+			<SavedData>true</SavedData>
+			<SettingsData>true</SettingsData>
+		</Attribute>
+		<Attribute name="ТЧТовары" id="6">
+			<Type>
+				<v8:Type>xs:string</v8:Type>
+				<StringQualifiers>
+					<Length>100</Length>
+					<AllowedLength>Variable</AllowedLength>
+				</StringQualifiers>
+			</Type>
+			<View>
+				<Common>true</Common>
+				<FormField>true</FormField>
+			</View>
+			<EditType>
+				<EnterByString>true</EnterByString>
+				<TextEdit>true</TextEdit>
+			</EditType>
+			<MainAttribute>true</MainAttribute>
+			<SavedData>true</SavedData>
+			<SettingsData>true</SettingsData>
+		</Attribute>
+		<Attribute name="РегистрЦен" id="7">
+			<Type>
+				<v8:Type>xs:string</v8:Type>
+				<StringQualifiers>
+					<Length>100</Length>
+					<AllowedLength>Variable</AllowedLength>
+				</StringQualifiers>
+			</Type>
+			<View>
+				<Common>true</Common>
+				<FormField>true</FormField>
+			</View>
+			<EditType>
+				<EnterByString>true</EnterByString>
+				<TextEdit>true</TextEdit>
+			</EditType>
+			<MainAttribute>true</MainAttribute>
+			<SavedData>true</SavedData>
+			<SettingsData>true</SettingsData>
+		</Attribute>
+		<Attribute name="РеквизитВнешнийНомер" id="8">
+			<Type>
+				<v8:Type>xs:string</v8:Type>
+				<StringQualifiers>
+					<Length>100</Length>
+					<AllowedLength>Variable</AllowedLength>
+				</StringQualifiers>
+			</Type>
+			<View>
+				<Common>true</Common>
+				<FormField>true</FormField>
+			</View>
+			<EditType>
+				<EnterByString>true</EnterByString>
+				<TextEdit>true</TextEdit>
+			</EditType>
+			<MainAttribute>true</MainAttribute>
+			<SavedData>true</SavedData>
+			<SettingsData>true</SettingsData>
+		</Attribute>
+		<Attribute name="Журнал" id="9">
+			<Type>
+				<v8:Type>xs:string</v8:Type>
+				<StringQualifiers>
+					<Length>0</Length>
+					<AllowedLength>Variable</AllowedLength>
+				</StringQualifiers>
+			</Type>
+			<View>
+				<Common>true</Common>
+				<FormField>true</FormField>
+			</View>
+			<EditType>
+				<EnterByString>true</EnterByString>
+				<TextEdit>true</TextEdit>
+			</EditType>
+			<MainAttribute>true</MainAttribute>
+			<SavedData>true</SavedData>
+			<SettingsData>true</SettingsData>
+		</Attribute>
+	</Attributes>
+	<Commands>
+		<Command name="ВыгрузитьКаталог" id="10">
+			<Title>
+				<v8:item>
+					<v8:lang>ru</v8:lang>
+					<v8:content>Выгрузить каталог в магазин</v8:content>
+				</v8:item>
+			</Title>
+			<Shortcut/>
+			<Representation>Auto</Representation>
+			<Type>Command</Type>
+		</Command>
+		<Command name="ЗагрузитьЗаказы" id="11">
+			<Title>
+				<v8:item>
+					<v8:lang>ru</v8:lang>
+					<v8:content>Загрузить заказы из магазина</v8:content>
+				</v8:item>
+			</Title>
+			<Shortcut/>
+			<Representation>Auto</Representation>
+			<Type>Command</Type>
+		</Command>
+		<Command name="ОтметитьОтгруженные" id="12">
+			<Title>
+				<v8:item>
+					<v8:lang>ru</v8:lang>
+					<v8:content>Передать статусы отгрузки</v8:content>
+				</v8:item>
+			</Title>
+			<Shortcut/>
+			<Representation>Auto</Representation>
+			<Type>Command</Type>
+		</Command>
+		<Command name="СохранитьНастройки" id="13">
+			<Title>
+				<v8:item>
+					<v8:lang>ru</v8:lang>
+					<v8:content>Сохранить настройки</v8:content>
+				</v8:item>
+			</Title>
+			<Shortcut/>
+			<Representation>Auto</Representation>
+			<Type>Command</Type>
+		</Command>
+		<Command name="ОчиститьЖурнал" id="14">
+			<Title>
+				<v8:item>
+					<v8:lang>ru</v8:lang>
+					<v8:content>Очистить журнал</v8:content>
+				</v8:item>
+			</Title>
+			<Shortcut/>
+			<Representation>Auto</Representation>
+			<Type>Command</Type>
+		</Command>
+	</Commands>
+	<Form>
+		<Group>Vertical</Group>
+		<Items>
+			<UsualGroup name="ГруппаПодключение" id="20">
+				<Title>
+					<v8:item>
+						<v8:lang>ru</v8:lang>
+						<v8:content>Подключение к магазину</v8:content>
+					</v8:item>
+				</Title>
+				<Representation>StrongSeparation</Representation>
+				<ShowTitle>true</ShowTitle>
+				<Group>Vertical</Group>
+				<Items>
+					<InputField name="АдресМагазина" id="21">
+						<DataPath>АдресМагазина</DataPath>
+						<LabelLocation>Top</LabelLocation>
+						<AutoMaxWidth>true</AutoMaxWidth>
+						<Visible>true</Visible>
+						<Enabled>true</Enabled>
+						<Title>
+							<v8:item>
+								<v8:lang>ru</v8:lang>
+								<v8:content>Адрес магазина (https://…)</v8:content>
+							</v8:item>
+						</Title>
+					</InputField>
+					<InputField name="Токен1С" id="22">
+						<DataPath>Токен1С</DataPath>
+						<LabelLocation>Top</LabelLocation>
+						<AutoMaxWidth>true</AutoMaxWidth>
+						<Visible>true</Visible>
+						<Enabled>true</Enabled>
+						<Title>
+							<v8:item>
+								<v8:lang>ru</v8:lang>
+								<v8:content>Токен 1С (из админ-панели магазина)</v8:content>
+							</v8:item>
+						</Title>
+					</InputField>
+				</Items>
+				<Visible>true</Visible>
+				<Enabled>true</Enabled>
+			</UsualGroup>
+			<UsualGroup name="ГруппаСоответствия" id="30">
+				<Title>
+					<v8:item>
+						<v8:lang>ru</v8:lang>
+						<v8:content>Соответствия объектов вашей конфигурации</v8:content>
+					</v8:item>
+				</Title>
+				<Representation>StrongSeparation</Representation>
+				<ShowTitle>true</ShowTitle>
+				<Group>Vertical</Group>
+				<Items>
+					<InputField name="СправочникНоменклатуры" id="31">
+						<DataPath>СправочникНоменклатуры</DataPath>
+						<LabelLocation>Top</LabelLocation>
+						<AutoMaxWidth>true</AutoMaxWidth>
+						<Visible>true</Visible>
+						<Enabled>true</Enabled>
+						<Title>
+							<v8:item>
+								<v8:lang>ru</v8:lang>
+								<v8:content>Справочник номенклатуры</v8:content>
+							</v8:item>
+						</Title>
+					</InputField>
+					<InputField name="ДокументЗаказ" id="32">
+						<DataPath>ДокументЗаказ</DataPath>
+						<LabelLocation>Top</LabelLocation>
+						<AutoMaxWidth>true</AutoMaxWidth>
+						<Visible>true</Visible>
+						<Enabled>true</Enabled>
+						<Title>
+							<v8:item>
+								<v8:lang>ru</v8:lang>
+								<v8:content>Документ заказа</v8:content>
+							</v8:item>
+						</Title>
+					</InputField>
+					<InputField name="СправочникКонтрагенты" id="33">
+						<DataPath>СправочникКонтрагенты</DataPath>
+						<LabelLocation>Top</LabelLocation>
+						<AutoMaxWidth>true</AutoMaxWidth>
+						<Visible>true</Visible>
+						<Enabled>true</Enabled>
+						<Title>
+							<v8:item>
+								<v8:lang>ru</v8:lang>
+								<v8:content>Справочник контрагентов</v8:content>
+							</v8:item>
+						</Title>
+					</InputField>
+					<InputField name="ТЧТовары" id="34">
+						<DataPath>ТЧТовары</DataPath>
+						<LabelLocation>Top</LabelLocation>
+						<AutoMaxWidth>true</AutoMaxWidth>
+						<Visible>true</Visible>
+						<Enabled>true</Enabled>
+						<Title>
+							<v8:item>
+								<v8:lang>ru</v8:lang>
+								<v8:content>Табличная часть товаров</v8:content>
+							</v8:item>
+						</Title>
+					</InputField>
+					<InputField name="РегистрЦен" id="35">
+						<DataPath>РегистрЦен</DataPath>
+						<LabelLocation>Top</LabelLocation>
+						<AutoMaxWidth>true</AutoMaxWidth>
+						<Visible>true</Visible>
+						<Enabled>true</Enabled>
+						<Title>
+							<v8:item>
+								<v8:lang>ru</v8:lang>
+								<v8:content>Регистр цен (пусто — без цен)</v8:content>
+							</v8:item>
+						</Title>
+					</InputField>
+					<InputField name="РеквизитВнешнийНомер" id="36">
+						<DataPath>РеквизитВнешнийНомер</DataPath>
+						<LabelLocation>Top</LabelLocation>
+						<AutoMaxWidth>true</AutoMaxWidth>
+						<Visible>true</Visible>
+						<Enabled>true</Enabled>
+						<Title>
+							<v8:item>
+								<v8:lang>ru</v8:lang>
+								<v8:content>Реквизит документа для номера заказа (пусто — без)</v8:content>
+							</v8:item>
+						</Title>
+					</InputField>
+				</Items>
+				<Visible>true</Visible>
+				<Enabled>true</Enabled>
+			</UsualGroup>
+			<UsualGroup name="ГруппаКнопки" id="40">
+				<Group>Vertical</Group>
+				<Items>
+					<Button name="ВыгрузитьКаталог" id="41">
+						<CommandName>Form.Command.ВыгрузитьКаталог</CommandName>
+						<Representation>Auto</Representation>
+						<AutoMaxWidth>true</AutoMaxWidth>
+						<Visible>true</Visible>
+						<Enabled>true</Enabled>
+					</Button>
+					<Button name="ЗагрузитьЗаказы" id="42">
+						<CommandName>Form.Command.ЗагрузитьЗаказы</CommandName>
+						<Representation>Auto</Representation>
+						<AutoMaxWidth>true</AutoMaxWidth>
+						<Visible>true</Visible>
+						<Enabled>true</Enabled>
+					</Button>
+					<Button name="ОтметитьОтгруженные" id="43">
+						<CommandName>Form.Command.ОтметитьОтгруженные</CommandName>
+						<Representation>Auto</Representation>
+						<AutoMaxWidth>true</AutoMaxWidth>
+						<Visible>true</Visible>
+						<Enabled>true</Enabled>
+					</Button>
+					<Button name="СохранитьНастройки" id="44">
+						<CommandName>Form.Command.СохранитьНастройки</CommandName>
+						<Representation>Auto</Representation>
+						<AutoMaxWidth>true</AutoMaxWidth>
+						<Visible>true</Visible>
+						<Enabled>true</Enabled>
+					</Button>
+				</Items>
+				<Visible>true</Visible>
+				<Enabled>true</Enabled>
+			</UsualGroup>
+			<UsualGroup name="ГруппаЖурнал" id="50">
+				<Title>
+					<v8:item>
+						<v8:lang>ru</v8:lang>
+						<v8:content>Журнал обмена</v8:content>
+					</v8:item>
+				</Title>
+				<Representation>StrongSeparation</Representation>
+				<ShowTitle>true</ShowTitle>
+				<Group>Vertical</Group>
+				<Items>
+					<InputField name="Журнал" id="51">
+						<DataPath>Журнал</DataPath>
+						<MultiLine>true</MultiLine>
+						<ReadOnly>true</ReadOnly>
+						<Height>12</Height>
+						<AutoMaxWidth>true</AutoMaxWidth>
+						<Visible>true</Visible>
+						<Enabled>true</Enabled>
+					</InputField>
+					<Button name="ОчиститьЖурнал" id="52">
+						<CommandName>Form.Command.ОчиститьЖурнал</CommandName>
+						<Representation>Auto</Representation>
+						<AutoMaxWidth>true</AutoMaxWidth>
+						<Visible>true</Visible>
+						<Enabled>true</Enabled>
+					</Button>
+				</Items>
+				<Visible>true</Visible>
+				<Enabled>true</Enabled>
+			</UsualGroup>
+		</Items>
+		<CommandBar>
+			<Items/>
+			<Filling>Auto</Filling>
+		</CommandBar>
+	</Form>
+</form:Form>

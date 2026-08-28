@@ -1,0 +1,61 @@
+{% extends "base.html" %}
+{% block content %}
+<nav class="crumbs">
+  <a href="/">Главная</a> <span>›</span> <span>Стать продавцом</span>
+</nav>
+
+{% if mp_enabled %}
+<section class="sect">
+  <div class="sect-head"><h1 style="font-size:30px; margin:0">Откройте свою витрину 🏪</h1></div>
+  <div class="benefits">
+    <div class="benefit"><div class="ico ico-1">📦</div><b>Свои товары</b><p>Загружайте товары с фото, ценами и описаниями в личном кабинете.</p></div>
+    <div class="benefit"><div class="ico ico-2">🎟</div><b>Свои акции</b><p>Создавайте промокоды для своих товаров — только на вашей витрине.</p></div>
+    <div class="benefit"><div class="ico ico-3">📈</div><b>Статистика</b><p>Заказы, продажи и баланс — всё в личном кабинете продавца.</p></div>
+    <div class="benefit"><div class="ico ico-4">💰</div><b>Выплаты</b><p>Комиссия площадки — всего {{ commission }}%. Остальное — вам.</p></div>
+  </div>
+</section>
+
+<div class="seller-form-wrap">
+  <div class="panel" style="max-width:560px; margin:0 auto">
+    <h3>Регистрация продавца</h3>
+    <input class="field" id="sf-name" placeholder="Название вашего магазина *">
+    <input class="field" id="sf-phone" placeholder="Телефон *">
+    <input class="field" id="sf-email" type="email" placeholder="Email (для уведомлений о заказах и выплатах)">
+    <input class="field" id="sf-slug" placeholder="Адрес витрины (латиницей, необязательно)">
+    <textarea class="field" id="sf-desc" placeholder="О вашем магазине (необязательно)"></textarea>
+    <button class="btn primary" id="sf-submit" type="button">Создать витрину</button>
+    <div class="hint" id="sf-note" style="margin-top:10px"></div>
+  </div>
+</div>
+
+<script>
+document.getElementById('sf-submit').addEventListener('click', async function () {
+  var note = document.getElementById('sf-note');
+  var btn = this;
+  var name = document.getElementById('sf-name').value.trim();
+  var phone = document.getElementById('sf-phone').value.trim();
+  if (name.length < 2) { note.textContent = '❌ Укажите название магазина'; note.style.color = '#ef4444'; return; }
+  if (phone.length < 6) { note.textContent = '❌ Укажите телефон'; note.style.color = '#ef4444'; return; }
+  btn.disabled = true; note.textContent = 'Создаём витрину…'; note.style.color = '';
+  try {
+    var res = await fetch('/api/seller/register', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ store_name: name, phone: phone, email: document.getElementById('sf-email').value, slug: document.getElementById('sf-slug').value, description: document.getElementById('sf-desc').value }),
+    });
+    var data = await res.json();
+    if (!res.ok) throw new Error(data.detail || 'Ошибка');
+    note.innerHTML = data.status === 'active'
+      ? '✅ Витрина создана!<br><b>Ваш ключ доступа:</b> <code>' + data.key + '</code><br><b>Витрина:</b> <a href="/seller/' + data.slug + '">/seller/' + data.slug + '</a><br><a href="/seller/">Открыть личный кабинет продавца</a>'
+      : '✅ Заявка принята! Мы подтвердим витрину и свяжемся с вами.';
+    note.style.color = '#10b981';
+  } catch (err) {
+    note.textContent = '❌ ' + err.message;
+    note.style.color = '#ef4444';
+  }
+  btn.disabled = false;
+});
+</script>
+{% else %}
+<div class="empty">Регистрация продавцов временно закрыта. Загляните позже!</div>
+{% endif %}
+{% endblock %}

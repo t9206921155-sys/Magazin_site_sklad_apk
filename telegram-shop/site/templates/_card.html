@@ -1,0 +1,24 @@
+<article class="card">
+  <a href="/p/{{ p.id }}" class="card-img">
+    <img src="{{ p.photo }}" alt="{{ p.name }} — купить с доставкой" loading="lazy">
+    <div class="b-chips">
+      {% if 'hit' in p.badges %}<span class="b-chip hot">🔥 Хит</span>{% endif %}
+      {% if 'new' in p.badges %}<span class="b-chip new">✨ Новинка</span>{% endif %}
+      {% if p.old_price and p.old_price > p.price %}<span class="b-chip disc">−{{ ((1 - p.price / p.old_price) * 100) | round | int }}%</span>{% endif %}
+      {% if p.condition == 'used' %}<span class="b-chip used">↻ Б/у</span>{% elif p.condition == 'defect' %}<span class="b-chip defect">⚠ С дефектами</span>{% endif %}
+    </div>
+    <span class="quick-view">Быстрый просмотр</span>
+  </a>
+  <div class="card-body">
+    <div class="card-cat">{{ p.category }}{% if p.subcategory %} · {{ p.subcategory }}{% endif %}{% if p.seller_name %} · <a href="/seller/{{ p.seller_slug }}">{{ p.seller_name }}</a>{% endif %}</div>
+    <a href="/p/{{ p.id }}" class="card-name">{{ p.name }}</a>
+    {% if p.stock >= 0 and p.stock <= 5 %}<div class="low-stock">Осталось {{ p.stock }} шт.</div>{% endif %}
+    <div class="card-foot">
+      <div class="price">
+        {% if p.old_price and p.old_price > p.price %}<span class="old-price">{{ p.old_price }} ₽</span>{% endif %}
+        <span class="now">{{ p.price }} ₽</span>
+      </div>
+      <button class="add-btn" data-add="{{ p.id }}" data-name="{{ p.name }}" data-price="{{ p.price }}" aria-label="В корзину">＋</button>
+    </div>
+  </div>
+</article>

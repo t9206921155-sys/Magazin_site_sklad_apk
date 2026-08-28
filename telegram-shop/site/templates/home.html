@@ -1,0 +1,229 @@
+{% extends "base.html" %}
+{% block content %}
+
+<!-- Слайдер-баннер (как в шаблонах InSales: Vibe / Cream / Grand) -->
+<section class="slider" id="main-slider">
+  <div class="slide active" data-slide="0">
+    <div class="slide-inner slide-1">
+      <div class="slide-txt">
+        <div class="hero-badge">🚚 Доставка по всей стране · 💳 Оплата картой, СБП, криптой</div>
+        <h1>{{ hero_title }}</h1>
+        <p>{{ hero_sub }}</p>
+        <div class="hero-cta">
+          <a class="btn-light" href="/catalog">Перейти в каталог</a>
+          <a class="btn-ghost" href="/shop#/delivery">Условия доставки</a>
+        </div>
+        <div class="hero-stats">
+          <div><b>{{ product_count }}+</b><span>товаров в каталоге</span></div>
+          <div><b>1–2 дня</b><span>отправка после оплаты</span></div>
+          <div><b>{% if free_delivery_from %}от {{ free_delivery_from }} ₽{% else %}любая{% endif %}</b><span>бесплатная доставка</span></div>
+        </div>
+      </div>
+      <div class="hero-visual">
+        {% for p in hero_products[:4] %}
+        <a class="hv-card hv-{{ loop.index }}" href="/p/{{ p.id }}">
+          <img src="{{ p.photo }}" alt="{{ p.name }}" loading="lazy">
+          <span class="hv-price">{{ p.price }} ₽</span>
+        </a>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+
+  <div class="slide" data-slide="1">
+    <div class="slide-inner slide-2">
+      <div class="slide-txt">
+        <div class="hero-badge">🎟 Скидки, акции и бонусы</div>
+        <h1>Выгодные покупки каждый день</h1>
+        <p>Промокод SALE20 даёт скидку 20% на всё, за каждый заказ начисляются бонусные баллы, а при заказе от 3 000 ₽ доставка бесплатна.</p>
+        <div class="hero-cta">
+          <a class="btn-light" href="/catalog">К акциям</a>
+          <a class="btn-ghost" href="/catalog">Распродажа</a>
+        </div>
+        <div class="hero-stats">
+          <div><b>−20%</b><span>промокод SALE20</span></div>
+          <div><b>от 3 000 ₽</b><span>бесплатная доставка</span></div>
+          <div><b>5%</b><span>бонусами за заказы</span></div>
+        </div>
+      </div>
+      <div class="hero-visual">
+        <a class="hv-card hv-1" href="/p/4"><img src="/webapp/img/products/p4.jpg" alt="Скидка" loading="lazy"><span class="hv-price">1 290 ₽ −19%</span></a>
+        <a class="hv-card hv-2" href="/p/1"><img src="/webapp/img/products/p1.jpg" alt="Хит" loading="lazy"><span class="hv-price">🔥 Хит продаж</span></a>
+        <a class="hv-card hv-3" href="/p/3"><img src="/webapp/img/products/p3.jpg" alt="Новинка" loading="lazy"><span class="hv-price">✨ Новинка</span></a>
+        <a class="hv-card hv-4" href="/p/8"><img src="/webapp/img/products/p8.jpg" alt="Подарок" loading="lazy"><span class="hv-price">🎁 Идея подарка</span></a>
+      </div>
+    </div>
+  </div>
+
+  <div class="slide" data-slide="2">
+    <div class="slide-inner slide-3">
+      <div class="slide-txt">
+        <div class="hero-badge">🚚 Пять способов получить заказ</div>
+        <h1>Доставка, которая подстраивается под вас</h1>
+        <p>Курьер до двери, постаматы 5POST в «Пятёрочке» и «Перекрёстке», пункты СДЭК, Яндекс Доставка и почта. Стоимость считается онлайн — выбирайте, где удобнее забрать.</p>
+        <div class="hero-cta">
+          <a class="btn-light" href="/catalog">Выбрать товар</a>
+          <a class="btn-ghost" href="/shop#/delivery">Все способы доставки</a>
+        </div>
+        <div class="hero-stats">
+          <div><b>5POST</b><span>постаматы у дома</span></div>
+          <div><b>СДЭК</b><span>пункты в каждом городе</span></div>
+          <div><b>Яндекс</b><span>курьер в день заказа</span></div>
+        </div>
+      </div>
+      <div class="hero-visual">
+        <a class="hv-card hv-1" href="/shop#/delivery"><img src="/webapp/img/products/p4.jpg" alt="Доставка" loading="lazy"><span class="hv-price">🅿️ 5POST — постаматы X5</span></a>
+        <a class="hv-card hv-2" href="/shop#/delivery"><img src="/webapp/img/products/p7.jpg" alt="Доставка" loading="lazy"><span class="hv-price">📦 СДЭК по всей стране</span></a>
+        <a class="hv-card hv-3" href="/shop#/delivery"><img src="/webapp/img/products/p3.jpg" alt="Доставка" loading="lazy"><span class="hv-price">🚕 Яндекс Доставка</span></a>
+        <a class="hv-card hv-4" href="/shop#/delivery"><img src="/webapp/img/products/p2.jpg" alt="Доставка" loading="lazy"><span class="hv-price">🚚 Курьер до двери</span></a>
+      </div>
+    </div>
+  </div>
+
+  <div class="slider-nav">
+    <button class="sl-dot active" data-dot="0" aria-label="Слайд 1"></button>
+    <button class="sl-dot" data-dot="1" aria-label="Слайд 2"></button>
+    <button class="sl-dot" data-dot="2" aria-label="Слайд 3"></button>
+  </div>
+</section>
+
+<section class="trust-strip">
+  <div class="trust-item">🔒 <span><b>Безопасная оплата</b><small>карта, СБП, крипта</small></span></div>
+  <div class="trust-item">🚚 <span><b>Быстрая доставка</b><small>СДЭК · 5POST · Яндекс</small></span></div>
+  <div class="trust-item">↩️ <span><b>Возврат 14 дней</b><small>без лишних вопросов</small></span></div>
+  <div class="trust-item">🎁 <span><b>Акции и бонусы</b><small>промокоды и кэшбэк</small></span></div>
+</section>
+
+<section class="sect">
+  <div class="sect-head"><h2>Почему выбирают нас</h2><span class="sect-sub">четыре причины сделать заказ сегодня</span></div>
+  <div class="benefits">
+    <div class="benefit"><div class="ico ico-1">🚚</div><b>Быстрая доставка</b><p>Курьер, почта, СДЭК, постаматы 5POST и Яндекс Доставка — стоимость считается онлайн при оформлении.</p></div>
+    <div class="benefit"><div class="ico ico-2">💳</div><b>Любая оплата</b><p>Карты (ЮKassa, Т-Банк), СБП-перевод, криптовалюта и Telegram Stars — выбирайте удобный способ.</p></div>
+    <div class="benefit"><div class="ico ico-3">✅</div><b>Проверенное качество</b><p>Каждый товар проверяется перед отправкой: бережно упаковываем и отвечаем за качество.</p></div>
+    <div class="benefit"><div class="ico ico-4">🎟</div><b>Скидки и бонусы</b><p>Промокоды, распродажи и бонусные баллы за каждый оплаченный заказ — экономьте с нами.</p></div>
+  </div>
+</section>
+
+<!-- Табы «Хиты / Новинки / Распродажа» (как в Grand / Newtone) -->
+<section class="sect">
+  <div class="sect-head">
+    <h2>Популярное в магазине</h2>
+    <a class="see-all" href="/catalog">Весь каталог →</a>
+  </div>
+  <div class="tabs">
+    <button class="tab active" data-tab="hits">🔥 Хиты продаж</button>
+    <button class="tab" data-tab="new">✨ Новинки</button>
+    <button class="tab" data-tab="sale">💸 Распродажа</button>
+  </div>
+  <div class="tab-panel active" id="tab-hits">
+    <div class="grid">{% for p in top_sellers %}{% include "_card.html" %}{% endfor %}</div>
+  </div>
+  <div class="tab-panel" id="tab-new">
+    {% if new_products %}
+    <div class="grid">{% for p in new_products %}{% include "_card.html" %}{% endfor %}</div>
+    {% else %}
+    <div class="empty">Новинки скоро появятся — загляните позже! ✨</div>
+    {% endif %}
+  </div>
+  <div class="tab-panel" id="tab-sale">
+    {% if discount_products %}
+    <div class="grid">{% for p in discount_products %}{% include "_card.html" %}{% endfor %}</div>
+    {% else %}
+    <div class="empty">Сейчас распродажи нет, но промокоды работают! 🎟</div>
+    {% endif %}
+  </div>
+</section>
+
+<section class="sect">
+  <div class="sect-head"><h2>Категории</h2><span class="sect-sub">найдите нужное за пару секунд</span></div>
+  <div class="cat-grid">
+    {% for c in categories %}
+    <a class="cat-card" href="/catalog?cat={{ c | urlencode }}">
+      <span class="cat-emoji">{{ cat_emojis.get(c, '🛍️') }}</span>
+      <span>{{ c }}</span>
+      <small>в каталоге →</small>
+    </a>
+    {% endfor %}
+  </div>
+</section>
+
+{% if reviews %}
+<section class="sect">
+  <div class="sect-head"><h2>⭐ Что говорят покупатели</h2><a class="see-all" href="/catalog">Купить так же →</a></div>
+  <div class="reviews-strip">
+    {% for r in reviews %}
+    <div class="rev-card">
+      <div class="rev-top">
+        <span class="rev-avatar">{{ r.author[:1] | upper }}</span>
+        <div class="rev-who">
+          <b>{{ r.author }}</b>
+          <span class="rev-stars">{{ '★' * r.rating }}{{ '☆' * (5 - r.rating) }}</span>
+        </div>
+      </div>
+      <p>«{{ r.text }}»</p>
+      <a class="rev-product" href="/p/{{ r.product_id }}">{{ r.product_name }}</a>
+    </div>
+    {% endfor %}
+  </div>
+</section>
+{% endif %}
+
+{% if faq %}
+<section class="sect">
+  <div class="sect-head"><h2>❓ Частые вопросы</h2><span class="sect-sub">ответили заранее, чтобы вам было проще</span></div>
+  <div class="faq-list">
+    {% for item in faq %}
+    <details class="faq-item">
+      <summary>{{ item.q }}<span class="faq-arrow">＋</span></summary>
+      <div class="faq-answer">{{ item.a }}</div>
+    </details>
+    {% endfor %}
+  </div>
+</section>
+{% endif %}
+
+<section class="sect seo-text">
+  <h2>Интернет-магазин {{ shop }}</h2>
+  <p>{{ seo_text }}</p>
+  <p>Оформляйте заказ онлайн за пару минут: добавьте товары в корзину, выберите удобную доставку — курьером до двери, в постамат или пункт выдачи — и оплатите картой, по СБП или криптовалютой. Каждый заказ мы бережно упаковываем и отправляем в течение 1–2 дней, а статус можно отслеживать в личном кабинете.</p>
+</section>
+
+<script>
+// слайдер: авто-переключение + точки
+(function () {
+  var slides = document.querySelectorAll('#main-slider .slide');
+  var dots = document.querySelectorAll('#main-slider .sl-dot');
+  var cur = 0, timer = null;
+  function go(i) {
+    cur = (i + slides.length) % slides.length;
+    slides.forEach(function (s, k) { s.classList.toggle('active', k === cur); });
+    dots.forEach(function (d, k) { d.classList.toggle('active', k === cur); });
+  }
+  function start() { timer = setInterval(function () { go(cur + 1); }, 6000); }
+  function restart() { clearInterval(timer); start(); }
+  dots.forEach(function (d) {
+    d.addEventListener('click', function () { go(+d.dataset.dot); restart(); });
+  });
+  var sl = document.getElementById('main-slider');
+  var x0 = null;
+  sl.addEventListener('touchstart', function (e) { x0 = e.touches[0].clientX; });
+  sl.addEventListener('touchend', function (e) {
+    if (x0 === null) return;
+    var dx = e.changedTouches[0].clientX - x0;
+    if (Math.abs(dx) > 40) { go(cur + (dx < 0 ? 1 : -1)); restart(); }
+    x0 = null;
+  });
+  start();
+  // табы
+  var tabs = document.querySelectorAll('.tabs .tab');
+  tabs.forEach(function (t) {
+    t.addEventListener('click', function () {
+      tabs.forEach(function (x) { x.classList.remove('active'); });
+      t.classList.add('active');
+      document.querySelectorAll('.tab-panel').forEach(function (p) { p.classList.remove('active'); });
+      document.getElementById('tab-' + t.dataset.tab).classList.add('active');
+    });
+  });
+})();
+</script>
+{% endblock %}

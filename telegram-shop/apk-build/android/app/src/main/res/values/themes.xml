@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="Theme.Sklad" parent="Theme.AppCompat.Light.NoActionBar">
+        <item name="colorPrimary">@color/teal</item>
+        <item name="colorPrimaryDark">#0B5C55</item>
+        <item name="colorAccent">@color/teal</item>
+        <item name="android:statusBarColor">#0B5C55</item>
+        <item name="android:windowBackground">#FFFFFF</item>
+    </style>
+</resources>

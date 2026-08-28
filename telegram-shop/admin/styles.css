@@ -1,0 +1,95 @@
+* { box-sizing: border-box; }
+:root {
+  --brand: #1e88ff; --bg: #f2f4f7; --card: #fff; --text: #17181c;
+  --hint: #7a7e87; --line: #e4e7ec; --ok: #2ecc71; --err: #e5484d;
+}
+body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif; background: var(--bg); color: var(--text); font-size: 14.5px; }
+.hidden { display: none !important; }
+a { color: var(--brand); text-decoration: none; }
+h2 { margin: 0 0 16px; font-size: 20px; }
+h3 { margin: 18px 0 10px; font-size: 15px; }
+
+/* ---------- логин ---------- */
+.login { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; }
+.login-box { background: var(--card); border-radius: 18px; padding: 34px; width: 360px; text-align: center; box-shadow: 0 20px 50px rgba(20,30,60,.15); }
+.login-logo { font-size: 44px; }
+.login h2 { margin: 10px 0 6px; }
+.field {
+  width: 100%; border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px;
+  font: inherit; margin: 10px 0; outline: none;
+}
+.field:focus { border-color: var(--brand); }
+textarea.field { min-height: 90px; resize: vertical; }
+select.field { background: #fff; }
+.btn {
+  display: inline-block; border: none; border-radius: 12px; padding: 12px 20px;
+  font: inherit; font-weight: 700; cursor: pointer; background: var(--brand); color: #fff;
+}
+.btn.ghost { background: var(--bg); color: var(--text); }
+.btn.danger { background: var(--err); }
+.btn.small { padding: 7px 12px; font-size: 13px; border-radius: 9px; }
+.btn:disabled { opacity: .5; cursor: default; }
+.err { color: var(--err); font-size: 13px; margin-top: 8px; }
+.hint { color: var(--hint); font-size: 13px; }
+
+/* ---------- раскладка ---------- */
+#app { display: flex; min-height: 100vh; }
+.side { width: 230px; background: #171b24; color: #cdd3de; display: flex; flex-direction: column; padding: 18px 12px; position: sticky; top: 0; height: 100vh; }
+.side-brand { font-size: 17px; color: #fff; padding: 6px 10px 20px; }
+.side nav { display: flex; flex-direction: column; gap: 4px; flex: 1; }
+.side nav button {
+  text-align: left; border: none; background: none; color: inherit; font: inherit;
+  padding: 11px 12px; border-radius: 10px; cursor: pointer;
+}
+.side nav button:hover { background: rgba(255,255,255,.06); }
+.side nav button.active { background: var(--brand); color: #fff; font-weight: 600; }
+.side-foot { display: flex; flex-direction: column; gap: 10px; padding: 10px; }
+.side-foot a, .side-foot button { color: #9aa3b2; background: none; border: none; font: inherit; cursor: pointer; text-align: left; padding: 0; }
+.content { flex: 1; padding: 26px 30px; max-width: 1100px; }
+
+/* ---------- карточки ---------- */
+.cards { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-bottom: 22px; }
+.stat { background: var(--card); border-radius: 16px; padding: 18px; }
+.stat .v { font-size: 26px; font-weight: 800; }
+.stat .l { color: var(--hint); font-size: 13px; margin-top: 3px; }
+
+/* ---------- таблицы ---------- */
+.table { width: 100%; border-collapse: collapse; background: var(--card); border-radius: 14px; overflow: hidden; }
+.table th { text-align: left; font-size: 12px; text-transform: uppercase; letter-spacing: .4px; color: var(--hint); padding: 12px 14px; background: #f8f9fb; }
+.table td { padding: 11px 14px; border-top: 1px solid var(--line); vertical-align: middle; }
+.table img { width: 42px; height: 42px; border-radius: 8px; object-fit: cover; }
+.row-actions { display: flex; gap: 8px; }
+
+/* ---------- панели/формы ---------- */
+.panel { background: var(--card); border-radius: 16px; padding: 20px; margin-bottom: 16px; }
+.form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.form-grid .full { grid-column: 1 / -1; }
+label.fld { display: block; font-size: 12.5px; color: var(--hint); margin-bottom: 4px; }
+.switch-row { display: flex; align-items: center; gap: 10px; padding: 6px 0; }
+.switch-row input[type=checkbox] { width: 18px; height: 18px; accent-color: var(--brand); }
+
+.del-row { display: flex; gap: 10px; align-items: center; margin-bottom: 8px; }
+.del-row .field { margin: 0; }
+.del-row .w-label { flex: 2; }
+.del-row .w-price { flex: 0 0 110px; }
+.del-row .w-prov { flex: 0 0 130px; }
+
+.tabs-line { display: flex; gap: 10px; margin-bottom: 16px; flex-wrap: wrap; }
+
+/* ---------- тосты ---------- */
+#toasts { position: fixed; top: 20px; right: 20px; z-index: 100; display: flex; flex-direction: column; gap: 8px; }
+.toast { background: #23272f; color: #fff; padding: 11px 18px; border-radius: 12px; font-size: 14px; max-width: 340px; }
+.toast.err { background: var(--err); }
+
+/* ---------- модалка ---------- */
+.modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.45); display: flex; align-items: center; justify-content: center; z-index: 90; padding: 20px; }
+.modal { background: var(--card); border-radius: 18px; padding: 24px; width: 640px; max-height: 88vh; overflow-y: auto; }
+
+@media (max-width: 900px) {
+  #app { flex-direction: column; }
+  .side { width: auto; height: auto; position: static; flex-direction: row; align-items: center; gap: 8px; overflow-x: auto; }
+  .side nav { flex-direction: row; }
+  .side-foot { flex-direction: row; }
+  .cards { grid-template-columns: repeat(2, 1fr); }
+  .content { padding: 16px; }
+}

@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+  <meta name="theme-color" content="#f2f3f5">
+  <title>Telegram Shop</title>
+  <link rel="icon" type="image/svg+xml" href="/site/img/favicon.svg">
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <link rel="stylesheet" href="/webapp/styles.css">
+</head>
+<body>
+<div id="app">
+
+  <header class="header">
+    <div class="header-left">
+      <div class="logo">🛍️</div>
+      <div>
+        <div id="shop-name" class="shop-name">Telegram Shop</div>
+        <div id="preview-badge" class="badge hidden">превью · без Telegram</div>
+      </div>
+    </div>
+    <button class="icon-btn" data-action="chat-open" aria-label="Сообщения" style="font-size:18px">💬
+      <span id="chat-badge" class="badge-count hidden">0</span>
+    </button>
+    <button class="icon-btn" data-action="cart-open" aria-label="Корзина">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="9" cy="21" r="1"></circle><circle cx="20" cy="21" r="1"></circle>
+        <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"></path>
+      </svg>
+      <span id="cart-badge" class="badge-count hidden">0</span>
+    </button>
+  </header>
+
+  <main>
+    <!-- Каталог -->
+    <section id="screen-catalog" class="screen">
+      <div id="chips" class="chips"></div>
+      <div id="grid" class="grid"></div>
+      <div class="catalog-foot">
+        <button class="link" data-action="favorites-open">❤ Избранное <span id="fav-count" class="hint"></span></button>
+        <button class="link" data-action="orders-open">📦 Мои заказы</button>
+      </div>
+    </section>
+
+    <!-- Избранное -->
+    <section id="screen-favorites" class="screen hidden">
+      <div class="topbar">
+        <button class="back" data-action="fav-back">←</button>
+        <h2>❤ Избранное</h2>
+        <span class="back-spacer"></span>
+      </div>
+      <div id="fav-list"></div>
+    </section>
+
+    <!-- Оформление -->
+    <section id="screen-checkout" class="screen hidden">
+      <div class="topbar">
+        <button class="back" data-action="co-back">←</button>
+        <h2>Оформление заказа</h2>
+        <span class="back-spacer"></span>
+      </div>
+      <div class="panel">
+        <h3 class="panel-title">👤 Получатель</h3>
+        <input id="co-name" class="field" placeholder="Имя *" autocomplete="name">
+        <input id="co-phone" class="field" type="tel" placeholder="Телефон *" autocomplete="tel">
+        <input id="co-city" class="field" placeholder="Город" autocomplete="address-level2">
+        <input id="co-address" class="field" placeholder="Адрес доставки *" autocomplete="street-address">
+        <select id="co-point" class="field hidden"><option value="">— выберите постамат 5POST —</option></select>
+        <div id="co-addr-hint" class="hint">Адрес нужен для курьера и почты</div>
+        <input id="co-comment" class="field" placeholder="Комментарий к заказу">
+      </div>
+      <div class="panel">
+        <h3 class="panel-title">🚚 Доставка</h3>
+        <div id="delivery-list"></div>
+      </div>
+      <div class="panel">
+        <h3 class="panel-title">🧾 Ваш заказ</h3>
+        <div id="co-items" class="sum-list"></div>
+        <div class="promo-row">
+          <input id="co-promo" class="field" placeholder="🎟 Промокод" autocomplete="off">
+          <button class="btn" data-action="promo-apply">ОК</button>
+        </div>
+        <div id="co-promo-info" class="hint hidden"></div>
+        <div id="co-bonus-block" class="hidden">
+          <label class="drow">
+            <input type="checkbox" id="co-bonus-check">
+            <span class="dlabel">💎 Списать бонусные баллы</span>
+            <span class="dprice" id="co-bonus-amount">—</span>
+          </label>
+        </div>
+        <div class="sum-row discount hidden"><span>Скидка</span><span id="co-discount">—</span></div>
+        <div class="sum-row discount hidden" id="co-bonus-row"><span>Бонусы</span><span id="co-bonus-disc">—</span></div>
+        <div class="sum-row"><span>Доставка</span><span id="co-delivery">—</span></div>
+        <div id="co-free-hint" class="free-hint hidden"></div>
+        <div class="sum-row total"><span>Итого</span><span id="co-total">—</span></div>
+      </div>
+      <button id="co-submit-btn" class="btn primary" data-action="co-submit">Перейти к оплате</button>
+      <button id="co-manager-btn" class="btn hidden" data-action="manager" style="background:transparent;color:var(--accent)">💬 Связаться с менеджером</button>
+    </section>
+
+    <!-- Оплата -->
+    <section id="screen-payment" class="screen hidden">
+      <div class="topbar">
+        <button class="back" data-action="pay-back">←</button>
+        <h2>Оплата</h2>
+        <span class="back-spacer"></span>
+      </div>
+      <div class="panel center">
+        <div id="pay-total-label" class="pay-total-label">Сумма к оплате</div>
+        <div id="pay-total" class="pay-total">—</div>
+        <div class="hint">Заказ <span id="pay-id">—</span></div>
+      </div>
+      <div class="panel">
+        <h3 class="panel-title">💳 Способ оплаты</h3>
+        <div id="pay-methods"></div>
+      </div>
+      <div id="card-panel" class="panel">
+        <h3 class="panel-title">💳 Банковская карта</h3>
+        <input id="card-number" class="field" value="4242 4242 4242 4242" inputmode="numeric">
+        <div class="row2">
+          <input id="card-exp" class="field" value="12/28" inputmode="numeric">
+          <input id="card-cvc" class="field" value="123" inputmode="numeric">
+        </div>
+        <div id="test-note" class="hint">🧪 Тестовый режим: данные карты никуда не отправляются, деньги не списываются.</div>
+      </div>
+      <div id="transfer-panel" class="panel hidden">
+        <h3 class="panel-title">💸 Оплата переводом</h3>
+        <div class="hint">Переведите сумму по реквизитам ниже и нажмите «Я оплатил(а)» — мы проверим поступление и подтвердим заказ.</div>
+        <div id="transfer-details" class="sum-list" style="margin-top:10px"></div>
+      </div>
+      <div id="pay-note" class="hint panel hidden"></div>
+      <button id="btn-pay" class="btn primary" data-action="pay-now">
+        <span class="pay-label">Оплатить</span>
+      </button>
+    </section>
+
+    <!-- Успех -->
+    <section id="screen-success" class="screen hidden">
+      <div class="panel center ok-panel">
+        <svg class="check" viewBox="0 0 52 52">
+          <circle cx="26" cy="26" r="24" fill="none" stroke="#34c759" stroke-width="3"></circle>
+          <path fill="none" stroke="#34c759" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" d="M14 27l8 8 16-17"></path>
+        </svg>
+        <div class="ok-title">Заказ оплачен! 🎉</div>
+        <div class="hint">Заказ <b id="ok-id">—</b> на сумму</div>
+        <div id="ok-total" class="pay-total">—</div>
+        <div class="hint ok-note">Мы свяжемся с вами для подтверждения доставки.<br>Статус заказа можно смотреть в разделе «Мои заказы».</div>
+        <button class="btn primary" data-action="ok-catalog">Вернуться в каталог</button>
+      </div>
+    </section>
+
+    <!-- Мои заказы -->
+    <section id="screen-orders" class="screen hidden">
+      <div class="topbar">
+        <button class="back" data-action="orders-back">←</button>
+        <h2>Мои заказы</h2>
+        <span class="back-spacer"></span>
+      </div>
+      <div id="orders-list" class="panel orders-list"></div>
+    </section>
+  </main>
+
+  <!-- Корзина (нижний лист) -->
+  <div id="cart" class="sheet-overlay">
+    <div class="sheet">
+      <div class="sheet-head">
+        <h2>Корзина</h2>
+        <button class="icon-btn" data-action="cart-close">✕</button>
+      </div>
+      <div id="cart-items" class="cart-items"></div>
+      <div id="cart-foot" class="cart-foot hidden">
+        <div class="sum-row"><span>Товары</span><span id="cart-subtotal">—</span></div>
+        <button class="btn primary" data-action="checkout">Оформить заказ</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Карточка товара -->
+  <div id="pm" class="sheet-overlay">
+    <div class="sheet">
+      <img id="pm-img" class="pm-img" alt="">
+      <div class="pm-body">
+        <div class="pm-head">
+          <h2 id="pm-name"></h2>
+          <button class="icon-btn" data-action="pm-close">✕</button>
+        </div>
+        <div id="pm-badges" style="margin-bottom:8px"></div>
+        <div id="pm-cond" style="margin-bottom:8px"></div>
+        <div id="pm-params" class="pm-params" style="margin-bottom:8px"></div>
+        <div id="pm-desc" class="pm-desc"></div>
+        <div class="pm-foot">
+          <div class="price-block">
+            <span id="pm-old-price" class="old-price hidden"></span>
+            <span id="pm-price" class="pm-price"></span>
+          </div>
+          <div class="stepper">
+            <button data-action="pm-dec">−</button>
+            <span id="pm-qty">1</span>
+            <button data-action="pm-inc">＋</button>
+          </div>
+        </div>
+        <div id="pm-stock" class="low-stock" style="margin-bottom:10px"></div>
+        <button class="btn primary" data-action="pm-add">Добавить в корзину</button>
+        <button class="btn" id="pm-fav" data-action="pm-fav" style="background:transparent;color:#f43f5e;margin-top:6px;border:1px solid #f43f5e">❤ В избранное</button>
+        <button class="btn hidden" id="pm-chat" data-action="pm-chat" style="background:transparent;color:var(--accent);margin-top:6px;border:1px solid var(--accent)">💬 Спросить продавца</button>
+        <button class="btn hidden" data-action="pm-buy" style="background:transparent;color:var(--accent);margin-top:6px">⚡ Купить сейчас</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Чат с продавцами -->
+  <div id="chat" class="sheet-overlay">
+    <div class="sheet" style="display:flex; flex-direction:column; height:86vh">
+      <div class="pm-head">
+        <button class="icon-btn" data-action="chat-back">←</button>
+        <h2 id="chat-title" style="flex:1">Сообщения</h2>
+        <button class="icon-btn" data-action="chat-close">✕</button>
+      </div>
+      <div id="chat-body" style="flex:1; overflow-y:auto; padding:12px"></div>
+      <div id="chat-input-row" style="display:none; padding:10px 12px; border-top:1px solid var(--border, #eee); display:none; gap:8px">
+        <input id="chat-input" class="field" placeholder="Ваше сообщение…" style="margin:0; flex:1" onkeydown="if(event.key==='Enter')sendChat()">
+        <button class="btn primary small" onclick="sendChat()">➤</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Нижняя панель корзины -->
+  <div id="cart-bar" class="cart-bar hidden">
+    <div class="bar-info">
+      <div id="bar-total" class="bar-total">—</div>
+      <div class="hint"><span id="bar-count">0</span> шт.</div>
+    </div>
+    <button class="btn primary small" data-action="checkout">Оформить</button>
+  </div>
+
+  <div id="toasts"></div>
+</div>
+<script src="/webapp/app.js"></script>
+</body>
+</html>

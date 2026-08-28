@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% block content %}
+<nav class="crumbs">
+  <a href="/">Главная</a> <span>›</span>
+  <a href="/sellers">Продавцы</a> <span>›</span>
+  <span>{{ seller.store_name }}</span>
+</nav>
+
+<section class="seller-hero">
+  <div class="seller-ava big">{{ seller.store_name[:1] | upper }}</div>
+  <div>
+    <h1>{{ seller.store_name }}{% if seller.verification_status == 'verified' %} <span title="Проверенный продавец">✅</span>{% endif %}</h1>
+    {% if seller.description %}<p>{{ seller.description }}</p>{% endif %}
+    <div class="seller-meta">🏪 Продавец на {{ shop }} · с {{ seller.created_at[:10] }} · {{ seller.products | length }} товаров{% if seller.verification_status == 'verified' %} · <b>✅ проверенный продавец</b>{% endif %}</div>
+  </div>
+</section>
+
+{% if seller.products %}
+<section class="sect">
+  <div class="sect-head"><h2>Товары продавца</h2><a class="see-all" href="/catalog?seller={{ seller.slug | urlencode }}">В каталоге →</a></div>
+  <div class="grid">
+    {% for p in seller.products %}
+    {% with p=p %}{% include "_card.html" %}{% endwith %}
+    {% endfor %}
+  </div>
+</section>
+{% else %}
+<div class="empty">У продавца пока нет товаров — загляните позже! 🛍️</div>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,16 @@
+{
+  "name": "Склад — учёт товаров",
+  "short_name": "Склад",
+  "description": "Мобильный складской учёт: фото до 20 шт, артикулы, места хранения, владельцы, сканер штрих-кодов, печать наклеек, ИИ-генерация, выкладка на витрину Telegram-магазина.",
+  "start_url": "/warehouse/",
+  "scope": "/warehouse/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#f1f5f4",
+  "theme_color": "#0f766e",
+  "lang": "ru",
+  "icons": [
+    { "src": "/warehouse/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "/warehouse/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+  ]
+}
