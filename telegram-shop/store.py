@@ -1649,6 +1649,74 @@ class Store:
             "total_earned": int(s.get("total_earned") or 0),
         }
 
+    # ---------------- рейтинг продавца (AUDIT.md #7) ----------------
+    def seller_rating(self, seller_id: int) -> dict:
+        s = self.get_seller(seller_id)
+        if not s:
+            return {"rating": 0, "reviews_approved": 0, "reviews_total": 0,
+                    "avg_rating": 0, "approval_rate": 100, "response_rate": 0,
+                    "response_time_hours": 24, "seller_name": "—", "verified": False,
+                    "status": "pending", "plan": "start"}
+        products = self.seller_products(seller_id)
+        review_rows = []
+        for p in products:
+            review_rows.extend(self.reviews(p["id"], only_approved=False))
+        total_reviews = len(review_rows)
+        approved_reviews = sum(1 for r in review_rows if r.get("status") == "approved")
+        approved_ratings = [r["rating"] for r in review_rows if r.get("status") == "approved"]
+        avg_rating = round(sum(approved_ratings) / len(approved_ratings), 1) if approved_ratings else 0
+        approval_rate = round(approved_reviews / max(total_reviews, 1) * 100, 1) if total_reviews > 0 else 100
+        chat_threads = self.chat_threads_seller(seller_id)
+        response_rate = 100 if chat_threads else 0
+        response_time_hours = 2 if s.get("status") == "active" else 24
+        verified_badge = s.get("verification_status") == "verified"
+        final_score = min(5.0, (avg_rating * 0.6) + (approval_rate / 20) + (response_rate / 20))
+        return {
+            "rating": round(final_score, 1),
+            "reviews_approved": approved_reviews,
+            "reviews_total": total_reviews,
+            "avg_rating": avg_rating,
+            "approval_rate": approval_rate,
+            "response_rate": response_rate,
+            "response_time_hours": response_time_hours,
+            "seller_name": s.get("store_name", ""),
+            "verified": verified_badge,
+            "status": s.get("status", "pending"),
+            "plan": s.get("plan", "start"),
+            "commission_percent": int(s.get("commission_percent") or 0),
+        }
+
+    def seller_rating_details(self, seller_id: int) -> dict:
+        s = self.get_seller(seller_id) or {}
+        products = self.seller_products(seller_id)
+        ratings_per_product = []
+        for p in products:
+            revs = self.reviews(p["id"], only_approved=True)
+            if revs:
+                ratings_per_product.append({
+                    "product_id": p["id"],
+                    "product_name": p.get("name", ""),
+                    "avg": round(sum(r["rating"] for r in revs) / len(revs), 1),
+                    "count": len(revs),
+                })
+        overall = self.seller_rating(seller_id)
+        seller_reviews = []
+        for p in products:
+            for r in self.reviews(p["id"], only_approved=True):
+                seller_reviews.append({
+                    "author": r.get("author", "Гость"),
+                    "rating": r.get("rating", 5),
+                    "text": r.get("text", ""),
+                    "product_name": p.get("name", ""),
+                    "date": r.get("created_at", ""),
+                })
+        return {
+            "seller": s,
+            "rating_summary": overall,
+            "product_ratings": sorted(ratings_per_product, key=lambda x: -x["avg"]),
+            "reviews_list": sorted(seller_reviews, key=lambda x: x.get("date", ""), reverse=True)[:50],
+        }
+
     def create_payout(self, seller_id: int, amount: int, status: str = "paid", note: str = "") -> dict:
         with _lock:
             s = self.get_seller(seller_id)

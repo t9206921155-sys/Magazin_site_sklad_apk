@@ -1,0 +1,3 @@
+2026-08-28 09:01:59,706 WARNING shop: BOT_TOKEN не задан — бот отключён. Работают сайт /, витрина /app и админка /admin.
+2026-08-28 09:01:59,812 INFO shop: Сайт: http://0.0.0.0:8000/ | Mini App: /app | Админка: /admin
+ERROR:    [Errno 98] error while attempting to bind on address ('0.0.0.0', 8000): address already in use

@@ -2389,6 +2389,8 @@ def create_app(store, providers: dict, bot=None, notify_new_order=None, notify_o
     async def seller_me(x_seller_key: str = Header(default="")):
         seller = require_seller(x_seller_key)
         return {**seller, "stats": store.seller_stats(seller["id"]),
+                "rating": store.seller_rating(seller["id"]),
+                "rating_details": store.seller_rating_details(seller["id"]),
                 "limits": store.seller_limits(seller),
                 "verification": store.seller_verification(seller),
                 "unread_chat": store.chat_unread_seller(seller["id"]),
