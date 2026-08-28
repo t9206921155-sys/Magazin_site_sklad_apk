@@ -472,10 +472,12 @@ class Store:
                 self._settings["1c_token"] = secrets.token_hex(16)
                 self._save_settings_to_db()
             if self._count("SELECT COUNT(*) c FROM products") == 0:
+                self._migrate_columns()  # добавляем колонки до вставки демо-товаров
                 for p in DEMO_PRODUCTS:
                     self._insert_product(p)
                 self._conn.commit()
-        self._migrate_columns()
+            else:
+                self._migrate_columns()
         with _lock:
             if self._count("SELECT COUNT(*) c FROM wh_users") == 0:
                 import hashlib
