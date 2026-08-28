@@ -2675,6 +2675,67 @@ def create_app(store, providers: dict, bot=None, notify_new_order=None, notify_o
         buyer_key = _buyer_key(request)
         return {"unread": store.chat_unread_buyer(buyer_key) if buyer_key else 0}
 
+    # ------------------------------------------------------------------ торг / предложения цены (#9)
+    @app.post("/api/offers")
+    async def create_offer(body: dict, request: Request):
+        product_id = int(body.get("product_id") or 0)
+        buyer_key = _buyer_key(request)
+        if not buyer_key:
+            raise HTTPException(403, "Необходимо авторизоваться или иметь сессию")
+        try:
+            return store.create_offer(
+                product_id=product_id,
+                buyer_key=buyer_key,
+                buyer_name=str(body.get("buyer_name") or ""),
+                proposed_price=int(body.get("proposed_price") or 0),
+                message=str(body.get("message") or ""),
+            )
+        except ValueError as e:
+            raise HTTPException(422, str(e))
+
+    @app.get("/api/offers")
+    async def list_offers(seller_id: int = 0, buyer_key: str = "", product_id: int = 0,
+                          status: str = "", request: Request = None):
+        if not seller_id:
+            # для покупателя — его ключ из запроса
+            buyer_key = buyer_key or _buyer_key(request)
+        return store.get_offers(seller_id=seller_id, buyer_key=buyer_key, product_id=product_id, status=status)
+
+    @app.get("/api/offers/{offer_id}")
+    async def get_offer(offer_id: int):
+        r = store.offer_by_id(offer_id)
+        if not r:
+            raise HTTPException(404, "Предложение не найдено")
+        return r
+
+    @app.post("/api/offers/{offer_id}/respond")
+    async def respond_offer(offer_id: int, body: dict, x_seller_key: str = Header(default="")):
+        seller = require_seller(x_seller_key)
+        offer = store.offer_by_id(offer_id)
+        if not offer:
+            raise HTTPException(404, "Предложение не найдено")
+        if int(offer.get("seller_id") or 0) != int(seller["id"]):
+            raise HTTPException(403, "Это не ваше предложение")
+        try:
+            return store.respond_to_offer(
+                offer_id=offer_id,
+                status=str(body.get("status") or ""),
+                seller_response_price=int(body.get("seller_response_price") or 0),
+                seller_note=str(body.get("seller_note") or ""),
+            )
+        except ValueError as e:
+            raise HTTPException(422, str(e))
+
+    @app.post("/api/offers/{offer_id}/cancel")
+    async def cancel_offer_endpoint(offer_id: int, request: Request):
+        buyer_key = _buyer_key(request)
+        if not buyer_key:
+            raise HTTPException(403, "Необходимо авторизоваться или иметь сессию")
+        try:
+            return store.cancel_offer(offer_id=offer_id, buyer_key=buyer_key)
+        except ValueError as e:
+            raise HTTPException(422, str(e))
+
     # ------------------------------------------------------------------ админ: продавцы
     @app.get("/admin/api/sellers")
     async def admin_sellers(x_admin_token: str = Header(default="")):

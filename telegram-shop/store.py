@@ -234,6 +234,13 @@ CREATE TABLE IF NOT EXISTS chat_messages(
   sender TEXT DEFAULT 'buyer', text TEXT DEFAULT '', ts TEXT DEFAULT '',
   read_buyer INTEGER DEFAULT 0, read_seller INTEGER DEFAULT 0
 );
+CREATE TABLE IF NOT EXISTS offers(
+  id INTEGER PRIMARY KEY AUTOINCREMENT, product_id INTEGER DEFAULT 0,
+  seller_id INTEGER DEFAULT 0, buyer_key TEXT DEFAULT '', buyer_name TEXT DEFAULT '',
+  proposed_price INTEGER DEFAULT 0, seller_response_price INTEGER DEFAULT 0,
+  status TEXT DEFAULT 'pending', message TEXT DEFAULT '',
+  seller_note TEXT DEFAULT '', created_at TEXT DEFAULT '', updated_at TEXT DEFAULT ''
+);
 CREATE TABLE IF NOT EXISTS wh_push_subs(
   id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER DEFAULT 0,
   sub TEXT DEFAULT '', created_at TEXT DEFAULT ''
@@ -2274,6 +2281,73 @@ class Store:
         r = self._q1("SELECT COUNT(*) c FROM chat_messages WHERE seller_id=? AND sender='buyer' AND read_seller=0",
                      (int(seller_id),))
         return int(r["c"]) if r else 0
+
+    # ---------------- торг / предложение цены (#9) ----------------
+    def create_offer(self, product_id: int, buyer_key: str, buyer_name: str = "",
+                     proposed_price: int = 0, message: str = "") -> dict:
+        product = self.get_product(product_id)
+        if not product:
+            raise ValueError("Товар не найден")
+        seller_id = int(product.get("seller_id") or 0)
+        proposed_price = max(1, int(proposed_price or 0))
+        with _lock:
+            self._conn.execute(
+                "INSERT INTO offers(product_id, seller_id, buyer_key, buyer_name, proposed_price, message, status, created_at, updated_at) VALUES(?,?,?,?,?,?,?,?,?)",
+                (int(product_id), seller_id, str(buyer_key or ""), str(buyer_name or ""),
+                 proposed_price, str(message or ""), "pending", _now_iso(), _now_iso()))
+            self._conn.commit()
+            r = self._q1("SELECT * FROM offers ORDER BY id DESC LIMIT 1")
+            return dict(r)
+
+    def get_offers(self, seller_id: int = 0, buyer_key: str = "", product_id: int = 0, status: str = "") -> list:
+        sql = "SELECT * FROM offers WHERE 1=1"
+        args = []
+        if seller_id:
+            sql += " AND seller_id=?"
+            args.append(int(seller_id))
+        if buyer_key:
+            sql += " AND buyer_key=?"
+            args.append(str(buyer_key))
+        if product_id:
+            sql += " AND product_id=?"
+            args.append(int(product_id))
+        if status:
+            sql += " AND status=?"
+            args.append(str(status))
+        sql += " ORDER BY created_at DESC"
+        return [dict(r) for r in self._q(sql, tuple(args))]
+
+    def offer_by_id(self, offer_id: int) -> dict:
+        r = self._q1("SELECT * FROM offers WHERE id=?", (int(offer_id),))
+        return dict(r) if r else None
+
+    def respond_to_offer(self, offer_id: int, status: str, seller_response_price: int = 0, seller_note: str = "") -> dict:
+        allowed = {"accepted", "rejected", "countered", "cancelled"}
+        status = str(status or "").lower()
+        if status not in allowed:
+            raise ValueError("Недопустимый статус ответа: " + status)
+        with _lock:
+            r = self.offer_by_id(offer_id)
+            if not r:
+                raise ValueError("Предложение не найдено")
+            self._conn.execute(
+                "UPDATE offers SET status=?, seller_response_price=?, seller_note=?, updated_at=? WHERE id=?",
+                (status, int(seller_response_price or 0), str(seller_note or ""), _now_iso(), int(offer_id)))
+            self._conn.commit()
+            return self.offer_by_id(offer_id)
+
+    def cancel_offer(self, offer_id: int, buyer_key: str) -> dict:
+        with _lock:
+            r = self.offer_by_id(offer_id)
+            if not r:
+                raise ValueError("Предложение не найдено")
+            if str(r.get("buyer_key") or "") != str(buyer_key or ""):
+                raise ValueError("Нет прав на отмену")
+            self._conn.execute(
+                "UPDATE offers SET status='cancelled', updated_at=? WHERE id=? AND status='pending'",
+                (_now_iso(), int(offer_id)))
+            self._conn.commit()
+            return self.offer_by_id(offer_id)
 
     # ---------------- push-подписки склада ----------------
     def wh_push_add(self, user_id: int, sub: dict):

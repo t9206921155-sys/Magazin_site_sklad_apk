@@ -65,6 +65,23 @@ function addToCart(id, qty = 1) {
   toast('Товар добавлен в корзину 🛒');
   logEvent('add_to_cart', { id });
 }
+function showOfferForm(productId, currentPrice) {
+  const msg = prompt('💬 Предложите свою цену для этого товара (оставьте поле пустым или нажмите Отмена, чтобы не отправлять):');
+  if (msg === null) return; // отмена
+  const priceStr = prompt('💰 Ваша предложенная цена (₽):', String(currentPrice > 0 ? Math.round(currentPrice * 0.8) : ''));
+  if (priceStr === null) return;
+  const proposed = parseInt(priceStr.replace(/\D/g, '') || '0');
+  if (!proposed || proposed <= 0) { toast('❌ Укажите положительную цену'); return; }
+  fetch('/api/offers', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ product_id: productId, proposed_price: proposed, message: msg })
+  }).then(async r => {
+    const data = await r.json();
+    if (!r.ok) throw new Error(data.detail || 'Ошибка');
+    toast('✅ Предложение цены отправлено! Продавец ответит.');
+    logEvent('create_offer', { product_id: productId, proposed_price: proposed });
+  }).catch(e => { toast('❌ ' + e.message); });
+}
 function setQty(id, qty) {
   if (qty <= 0) delete S.cart[id]; else S.cart[id] = Math.min(99, qty);
   saveCart(); renderCount();
@@ -194,6 +211,8 @@ function renderProduct(id) {
           <button onclick="pqty(-1)">−</button><span id="pq">1</span><button onclick="pqty(1)">＋</button>
         </div>
         <button class="buy-btn" id="buybtn" onclick="addToCart(${p.id}, +document.getElementById('pq').textContent); location.hash='#/cart'">В корзину</button>
+        <button class="btn ghost" style="display:inline-block;width:auto;margin-left:10px;padding:14px 22px"
+                onclick="showOfferForm(${p.id}, ${p.price})">💬 Предложить цену</button>
         <button class="btn ghost" style="display:inline-block;width:auto;margin-left:10px;padding:14px 22px"
                 onclick="addToCart(${p.id}, +document.getElementById('pq').textContent); location.hash='#/cart'">⚡ Купить сейчас</button>
       </div>
