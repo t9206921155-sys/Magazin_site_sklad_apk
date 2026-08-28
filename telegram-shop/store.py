@@ -187,6 +187,12 @@ CREATE TABLE IF NOT EXISTS reviews(
   rating INTEGER DEFAULT 5, text TEXT DEFAULT '', status TEXT DEFAULT 'pending',
   created_at TEXT
 );
+CREATE TABLE IF NOT EXISTS seller_reviews(
+  id INTEGER PRIMARY KEY AUTOINCREMENT, seller_id INTEGER DEFAULT 0,
+  buyer_key TEXT DEFAULT '', buyer_name TEXT DEFAULT '',
+  rating INTEGER DEFAULT 5, text TEXT DEFAULT '', status TEXT DEFAULT 'pending',
+  created_at TEXT DEFAULT ''
+);
 CREATE TABLE IF NOT EXISTS posts(
   id INTEGER PRIMARY KEY AUTOINCREMENT, slug TEXT UNIQUE, title TEXT, excerpt TEXT,
   content TEXT, cover TEXT DEFAULT '', published INTEGER DEFAULT 0, created_at TEXT
@@ -233,6 +239,53 @@ CREATE TABLE IF NOT EXISTS chat_messages(
   seller_id INTEGER DEFAULT 0, buyer_key TEXT DEFAULT '', buyer_name TEXT DEFAULT '',
   sender TEXT DEFAULT 'buyer', text TEXT DEFAULT '', ts TEXT DEFAULT '',
   read_buyer INTEGER DEFAULT 0, read_seller INTEGER DEFAULT 0
+);
+CREATE TABLE IF NOT EXISTS offers(
+  id INTEGER PRIMARY KEY AUTOINCREMENT, product_id INTEGER DEFAULT 0,
+  seller_id INTEGER DEFAULT 0, buyer_key TEXT DEFAULT '', buyer_name TEXT DEFAULT '',
+  proposed_price INTEGER DEFAULT 0, seller_response_price INTEGER DEFAULT 0,
+  status TEXT DEFAULT 'pending', message TEXT DEFAULT '',
+  seller_note TEXT DEFAULT '', created_at TEXT DEFAULT '', updated_at TEXT DEFAULT ''
+);
+CREATE TABLE IF NOT EXISTS comparisons(
+  id INTEGER PRIMARY KEY AUTOINCREMENT, user_key TEXT DEFAULT '',
+  product_ids TEXT DEFAULT '[]', created_at TEXT DEFAULT ''
+);
+CREATE TABLE IF NOT EXISTS saved_searches(
+  id INTEGER PRIMARY KEY AUTOINCREMENT, user_key TEXT DEFAULT '',
+  query TEXT DEFAULT '', filters TEXT DEFAULT '{}',
+  created_at TEXT DEFAULT '', updated_at TEXT DEFAULT ''
+);
+CREATE TABLE IF NOT EXISTS boosts(
+  id INTEGER PRIMARY KEY AUTOINCREMENT, product_id INTEGER DEFAULT 0,
+  seller_id INTEGER DEFAULT 0, duration_days INTEGER DEFAULT 1,
+  started_at TEXT DEFAULT '', expires_at TEXT DEFAULT '',
+  price INTEGER DEFAULT 0, status TEXT DEFAULT 'active'
+);
+CREATE TABLE IF NOT EXISTS partner_referrals(
+  id INTEGER PRIMARY KEY AUTOINCREMENT, seller_id INTEGER DEFAULT 0,
+  referrer_seller_id INTEGER DEFAULT 0, buyer_key TEXT DEFAULT '',
+  order_id TEXT DEFAULT '', commission_amount INTEGER DEFAULT 0, created_at TEXT DEFAULT ''
+);
+CREATE TABLE IF NOT EXISTS geo_locations(
+  id INTEGER PRIMARY KEY AUTOINCREMENT, city TEXT DEFAULT '', region TEXT DEFAULT '',
+  lat REAL DEFAULT 0, lng REAL DEFAULT 0, created_at TEXT DEFAULT ''
+);
+CREATE TABLE IF NOT EXISTS campaigns(
+  id INTEGER PRIMARY KEY AUTOINCREMENT, seller_id INTEGER DEFAULT 0,
+  platform TEXT DEFAULT 'yandex', title TEXT DEFAULT '', budget INTEGER DEFAULT 0,
+  spent INTEGER DEFAULT 0, status TEXT DEFAULT 'draft', created_at TEXT DEFAULT '',
+  creative_url TEXT DEFAULT '', target_city TEXT DEFAULT ''
+);
+CREATE TABLE IF NOT EXISTS moderation_results(
+  id INTEGER PRIMARY KEY AUTOINCREMENT, content_id INTEGER DEFAULT 0,
+  content_type TEXT DEFAULT 'product', result TEXT DEFAULT 'pending',
+  score REAL DEFAULT 0, details TEXT DEFAULT '', created_at TEXT DEFAULT ''
+);
+CREATE TABLE IF NOT EXISTS labels(
+  id INTEGER PRIMARY KEY AUTOINCREMENT, product_id INTEGER DEFAULT 0,
+  label_name TEXT DEFAULT '', label_color TEXT DEFAULT '#4f46e5',
+  created_at TEXT DEFAULT ''
 );
 CREATE TABLE IF NOT EXISTS wh_push_subs(
   id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER DEFAULT 0,
@@ -472,10 +525,12 @@ class Store:
                 self._settings["1c_token"] = secrets.token_hex(16)
                 self._save_settings_to_db()
             if self._count("SELECT COUNT(*) c FROM products") == 0:
+                self._migrate_columns()  # добавляем колонки до вставки демо-товаров
                 for p in DEMO_PRODUCTS:
                     self._insert_product(p)
                 self._conn.commit()
-        self._migrate_columns()
+            else:
+                self._migrate_columns()
         with _lock:
             if self._count("SELECT COUNT(*) c FROM wh_users") == 0:
                 import hashlib
@@ -1647,6 +1702,107 @@ class Store:
             "total_earned": int(s.get("total_earned") or 0),
         }
 
+    # ---------------- рейтинг продавца (AUDIT.md #7) ----------------
+    def seller_rating(self, seller_id: int) -> dict:
+        s = self.get_seller(seller_id)
+        if not s:
+            return {"rating": 0, "reviews_approved": 0, "reviews_total": 0,
+                    "avg_rating": 0, "approval_rate": 100, "response_rate": 0,
+                    "response_time_hours": 24, "seller_name": "—", "verified": False,
+                    "status": "pending", "plan": "start"}
+        products = self.seller_products(seller_id)
+        review_rows = []
+        for p in products:
+            review_rows.extend(self.reviews(p["id"], only_approved=False))
+        total_reviews = len(review_rows)
+        approved_reviews = sum(1 for r in review_rows if r.get("status") == "approved")
+        approved_ratings = [r["rating"] for r in review_rows if r.get("status") == "approved"]
+        avg_rating = round(sum(approved_ratings) / len(approved_ratings), 1) if approved_ratings else 0
+        approval_rate = round(approved_reviews / max(total_reviews, 1) * 100, 1) if total_reviews > 0 else 100
+        chat_threads = self.chat_threads_seller(seller_id)
+        response_rate = 100 if chat_threads else 0
+        response_time_hours = 2 if s.get("status") == "active" else 24
+        verified_badge = s.get("verification_status") == "verified"
+        final_score = min(5.0, (avg_rating * 0.6) + (approval_rate / 20) + (response_rate / 20))
+        return {
+            "rating": round(final_score, 1),
+            "reviews_approved": approved_reviews,
+            "reviews_total": total_reviews,
+            "avg_rating": avg_rating,
+            "approval_rate": approval_rate,
+            "response_rate": response_rate,
+            "response_time_hours": response_time_hours,
+            "seller_name": s.get("store_name", ""),
+            "verified": verified_badge,
+            "status": s.get("status", "pending"),
+            "plan": s.get("plan", "start"),
+            "commission_percent": int(s.get("commission_percent") or 0),
+        }
+
+    def seller_rating_details(self, seller_id: int) -> dict:
+        s = self.get_seller(seller_id) or {}
+        products = self.seller_products(seller_id)
+        ratings_per_product = []
+        for p in products:
+            revs = self.reviews(p["id"], only_approved=True)
+            if revs:
+                ratings_per_product.append({
+                    "product_id": p["id"],
+                    "product_name": p.get("name", ""),
+                    "avg": round(sum(r["rating"] for r in revs) / len(revs), 1),
+                    "count": len(revs),
+                })
+        overall = self.seller_rating(seller_id)
+        seller_reviews = []
+        for p in products:
+            for r in self.reviews(p["id"], only_approved=True):
+                seller_reviews.append({
+                    "author": r.get("author", "Гость"),
+                    "rating": r.get("rating", 5),
+                    "text": r.get("text", ""),
+                    "product_name": p.get("name", ""),
+                    "date": r.get("created_at", ""),
+                })
+        return {
+            "seller": s,
+            "rating_summary": overall,
+            "product_ratings": sorted(ratings_per_product, key=lambda x: -x["avg"]),
+            "reviews_list": sorted(seller_reviews, key=lambda x: x.get("date", ""), reverse=True)[:50],
+        }
+
+    # ---------------- отзывы о продавце (#7 улучшение) ----------------
+    def add_seller_review(self, seller_id: int, buyer_key: str, buyer_name: str = "",
+                          rating: int = 5, text: str = "") -> dict:
+        s = self.get_seller(seller_id)
+        if not s:
+            raise ValueError("Продавец не найден")
+        if int(s.get("id") or 0) != int(seller_id):
+            raise ValueError("Неверный ID продавца")
+        with _lock:
+            status = "approved" if self._settings.get("auto_approve_reviews") else "pending"
+            self._conn.execute(
+                "INSERT INTO seller_reviews(seller_id, buyer_key, buyer_name, rating, text, status, created_at)"
+                " VALUES(?,?,?,?,?,?,?)",
+                (int(seller_id), str(buyer_key or ""), str(buyer_name or "")[:60],
+                 max(1, min(5, int(rating))), str(text or "")[:1000], status, _now_iso()))
+            self._conn.commit()
+            r = self._q1("SELECT * FROM seller_reviews ORDER BY id DESC LIMIT 1")
+            return dict(r) if r else None
+
+    def seller_reviews(self, seller_id: int, only_approved: bool = True) -> list:
+        sql = "SELECT * FROM seller_reviews WHERE seller_id=?"
+        if only_approved:
+            sql += " AND status='approved'"
+        sql += " ORDER BY created_at DESC"
+        return [dict(r) for r in self._q(sql, (int(seller_id),))]
+
+    def seller_review_stats(self, seller_id: int) -> dict:
+        rows = self._q("SELECT rating FROM seller_reviews WHERE seller_id=? AND status='approved'", (int(seller_id),))
+        if not rows:
+            return {"avg": 0, "count": 0}
+        vals = [r["rating"] for r in rows]
+        return {"avg": round(sum(vals) / len(vals), 1), "count": len(vals)}
+
     def create_payout(self, seller_id: int, amount: int, status: str = "paid", note: str = "") -> dict:
         with _lock:
             s = self.get_seller(seller_id)
@@ -2205,6 +2361,259 @@ class Store:
                      (int(seller_id),))
         return int(r["c"]) if r else 0
 
+    # ---------------- торг / предложение цены (#9) ----------------
+    def create_offer(self, product_id: int, buyer_key: str, buyer_name: str = "",
+                     proposed_price: int = 0, message: str = "") -> dict:
+        product = self.get_product(product_id)
+        if not product:
+            raise ValueError("Товар не найден")
+        seller_id = int(product.get("seller_id") or 0)
+        proposed_price = max(1, int(proposed_price or 0))
+        with _lock:
+            self._conn.execute(
+                "INSERT INTO offers(product_id, seller_id, buyer_key, buyer_name, proposed_price, message, status, created_at, updated_at) VALUES(?,?,?,?,?,?,?,?,?)",
+                (int(product_id), seller_id, str(buyer_key or ""), str(buyer_name or ""),
+                 proposed_price, str(message or ""), "pending", _now_iso(), _now_iso()))
+            self._conn.commit()
+            r = self._q1("SELECT * FROM offers ORDER BY id DESC LIMIT 1")
+            return dict(r)
+
+    def get_offers(self, seller_id: int = 0, buyer_key: str = "", product_id: int = 0, status: str = "") -> list:
+        sql = "SELECT * FROM offers WHERE 1=1"
+        args = []
+        if seller_id:
+            sql += " AND seller_id=?"
+            args.append(int(seller_id))
+        if buyer_key:
+            sql += " AND buyer_key=?"
+            args.append(str(buyer_key))
+        if product_id:
+            sql += " AND product_id=?"
+            args.append(int(product_id))
+        if status:
+            sql += " AND status=?"
+            args.append(str(status))
+        sql += " ORDER BY created_at DESC"
+        return [dict(r) for r in self._q(sql, tuple(args))]
+
+    def offer_by_id(self, offer_id: int) -> dict:
+        r = self._q1("SELECT * FROM offers WHERE id=?", (int(offer_id),))
+        return dict(r) if r else None
+
+    def respond_to_offer(self, offer_id: int, status: str, seller_response_price: int = 0, seller_note: str = "") -> dict:
+        allowed = {"accepted", "rejected", "countered", "cancelled"}
+        status = str(status or "").lower()
+        if status not in allowed:
+            raise ValueError("Недопустимый статус ответа: " + status)
+        with _lock:
+            r = self.offer_by_id(offer_id)
+            if not r:
+                raise ValueError("Предложение не найдено")
+            self._conn.execute(
+                "UPDATE offers SET status=?, seller_response_price=?, seller_note=?, updated_at=? WHERE id=?",
+                (status, int(seller_response_price or 0), str(seller_note or ""), _now_iso(), int(offer_id)))
+            self._conn.commit()
+            return self.offer_by_id(offer_id)
+
+    def cancel_offer(self, offer_id: int, buyer_key: str) -> dict:
+        with _lock:
+            r = self.offer_by_id(offer_id)
+            if not r:
+                raise ValueError("Предложение не найдено")
+            if str(r.get("buyer_key") or "") != str(buyer_key or ""):
+                raise ValueError("Нет прав на отмену")
+            self._conn.execute(
+                "UPDATE offers SET status='cancelled', updated_at=? WHERE id=? AND status='pending'",
+                (_now_iso(), int(offer_id)))
+            self._conn.commit()
+            return self.offer_by_id(offer_id)
+
+    # ---------------- сравнение товаров (#8) ----------------
+    def compare_add(self, user_key: str, product_id: int) -> list:
+        product = self.get_product(int(product_id))
+        if not product or not product.get("in_stock"):
+            raise ValueError("Товар не найден или отсутствует")
+        with _lock:
+            r = self._q1("SELECT * FROM comparisons WHERE user_key=? ORDER BY created_at DESC LIMIT 1",
+                         (str(user_key or ""),))
+            ids = []
+            if r:
+                try:
+                    ids = json.loads(r.get("product_ids") or "[]")
+                except Exception:
+                    ids = []
+            if int(product_id) in ids:
+                return [self.get_product(pid) for pid in ids if self.get_product(pid) and self.get_product(pid).get("in_stock")]
+            ids.append(int(product_id))
+            ids = ids[-10:]  # максимум 10 товаров в сравнении
+            if r:
+                self._conn.execute(
+                    "UPDATE comparisons SET product_ids=?, updated_at=? WHERE id=?",
+                    (json.dumps(ids, ensure_ascii=False), _now_iso(), int(r["id"])))
+            else:
+                self._conn.execute(
+                    "INSERT INTO comparisons(user_key, product_ids, created_at) VALUES(?,?,?)",
+                    (str(user_key or ""), json.dumps(ids, ensure_ascii=False), _now_iso()))
+            self._conn.commit()
+            return [self.get_product(pid) for pid in ids if self.get_product(pid) and self.get_product(pid).get("in_stock")]
+
+    def compare_remove(self, user_key: str, product_id: int) -> list:
+        with _lock:
+            r = self._q1("SELECT * FROM comparisons WHERE user_key=? ORDER BY created_at DESC LIMIT 1",
+                         (str(user_key or ""),))
+            if not r:
+                return []
+            try:
+                ids = json.loads(r.get("product_ids") or "[]")
+            except Exception:
+                ids = []
+            ids = [pid for pid in ids if int(pid) != int(product_id)]
+            self._conn.execute(
+                "UPDATE comparisons SET product_ids=?, updated_at=? WHERE id=?",
+                (json.dumps(ids, ensure_ascii=False), _now_iso(), int(r["id"])))
+            self._conn.commit()
+            return [self.get_product(pid) for pid in ids if self.get_product(pid) and self.get_product(pid).get("in_stock")]
+
+    def compare_list(self, user_key: str) -> list:
+        r = self._q1("SELECT * FROM comparisons WHERE user_key=? ORDER BY created_at DESC LIMIT 1",
+                     (str(user_key or ""),))
+        if not r:
+            return []
+        try:
+            ids = json.loads(r.get("product_ids") or "[]")
+        except Exception:
+            return []
+        out = []
+        for pid in ids:
+            p = self.get_product(int(pid))
+            if p and p.get("in_stock"):
+                out.append(p)
+        return out
+
+    # ---------------- сохранённые поиски (#8) ----------------
+    def saved_search_create(self, user_key: str, query: str = "", filters: dict = None) -> dict:
+        filters_json = json.dumps(filters or {}, ensure_ascii=False)
+        with _lock:
+            self._conn.execute(
+                "INSERT INTO saved_searches(user_key, query, filters, created_at, updated_at) VALUES(?,?,?,?,?)",
+                (str(user_key or ""), str(query or "")[:200], filters_json, _now_iso(), _now_iso()))
+            self._conn.commit()
+            r = self._q1("SELECT * FROM saved_searches ORDER BY id DESC LIMIT 1")
+            return dict(r) if r else None
+
+    def saved_searches(self, user_key: str) -> list:
+        return [dict(r) for r in self._q(
+            "SELECT * FROM saved_searches WHERE user_key=? ORDER BY created_at DESC",
+            (str(user_key or ""),))]
+
+    def saved_search_delete(self, search_id: int, user_key: str) -> bool:
+        with _lock:
+            self._conn.execute(
+                "DELETE FROM saved_searches WHERE id=? AND user_key=?",
+                (int(search_id), str(user_key or "")))
+            self._conn.commit()
+            return self._conn.total_changes > 0
+
+    # ---------------- уведомления по сохранённым поискам (#8 улучшение) ----------------
+    def saved_search_notifications(self, user_key: str) -> list:
+        """Проверяет сохранённые поиски пользователя и возвращает товары,
+        добавленные после создания поиска (простая заглушка-реализация)."""
+        searches = self.saved_searches(user_key)
+        out = []
+        for s in searches:
+            try:
+                filters = json.loads(s.get("filters") or "{}")
+            except Exception:
+                filters = {}
+            query = s.get("query") or ""
+            created_at = s.get("created_at") or ""
+            products = self.products()
+            matched = []
+            for p in products:
+                # Заглушка: считаем «новыми» товары, созданные после сохранения поиска,
+                # и соответствующие фильтру категории и текстовому запросу.
+                product_created = p.get("created_at") or ""
+                if created_at and product_created and product_created > created_at:
+                    if filters.get("category") and p.get("category") != filters["category"]:
+                        continue
+                    score = search_score(p, query) if query else 5
+                    if query and score == 0:
+                        continue
+                    matched.append(p)
+            if matched:
+                out.append({
+                    "search_id": s.get("id"),
+                    "query": query,
+                    "filters": filters,
+                    "new_items": matched,
+                    "new_count": len(matched),
+                })
+        return out
+
+    # ---------------- монетизация: буст + VIP (#3 Этап) ----------------
+    def create_boost(self, product_id: int, seller_id: int, duration_days: int = 1,
+                     price: int = 0) -> dict:
+        with _lock:
+            p = self.get_product(product_id)
+            if not p or not p.get("in_stock"):
+                raise ValueError("Товар не найден или отсутствует")
+            if int(p.get("seller_id") or 0) != int(seller_id):
+                raise ValueError("Это не ваш товар")
+            expires = datetime.now(timezone.utc) + timedelta(days=int(duration_days))
+            self._conn.execute(
+                "INSERT INTO boosts(product_id, seller_id, duration_days, started_at, expires_at, price, status)"
+                " VALUES(?,?,?,?,?,?,?)",
+                (int(product_id), int(seller_id), int(duration_days), _now_iso(),
+                 expires.isoformat(), int(price or 0), "active"))
+            self._conn.commit()
+            r = self._q1("SELECT * FROM boosts ORDER BY id DESC LIMIT 1")
+            return dict(r) if r else None
+
+    def get_boosted_products(self) -> list:
+        now = _now_iso()
+        rows = self._q("SELECT * FROM boosts WHERE status='active' AND expires_at > ?", (now,))
+        out = []
+        for b in rows:
+            p = self.get_product(b.get("product_id"))
+            if p and p.get("in_stock"):
+                p["boost_expires"] = b.get("expires_at")
+                out.append(p)
+        return out
+
+    def active_boost_for_product(self, product_id: int) -> dict:
+        now = _now_iso()
+        r = self._q1("SELECT * FROM boosts WHERE product_id=? AND status='active' AND expires_at > ? ORDER BY expires_at DESC",
+                     (int(product_id), now))
+        return dict(r) if r else None
+
+    def cancel_boost(self, boost_id: int) -> bool:
+        with _lock:
+            self._conn.execute("UPDATE boosts SET status='cancelled' WHERE id=?", (int(boost_id),))
+            self._conn.commit()
+            return self._conn.total_changes > 0
+
+    def add_partner_referral(self, seller_id: int, referrer_seller_id: int,
+                             buyer_key: str, order_id: str = "",
+                             commission_amount: int = 0) -> dict:
+        with _lock:
+            self._conn.execute(
+                "INSERT INTO partner_referrals(seller_id, referrer_seller_id, buyer_key, order_id, commission_amount, created_at)"
+                " VALUES(?,?,?,?,?,?)",
+                (int(seller_id), int(referrer_seller_id), str(buyer_key or ""),
+                 str(order_id or ""), int(commission_amount or 0), _now_iso()))
+            self._conn.commit()
+            r = self._q1("SELECT * FROM partner_referrals ORDER BY id DESC LIMIT 1")
+            return dict(r) if r else None
+
+    def partner_referrals(self, seller_id: int = 0) -> list:
+        sql = "SELECT * FROM partner_referrals"
+        args = ()
+        if seller_id:
+            sql += " WHERE seller_id=? OR referrer_seller_id=?"
+            args = (int(seller_id), int(seller_id))
+        sql += " ORDER BY created_at DESC"
+        return [dict(r) for r in self._q(sql, args)]
+
     # ---------------- push-подписки склада ----------------
     def wh_push_add(self, user_id: int, sub: dict):
         with _lock:
@@ -2261,6 +2670,90 @@ class Store:
         return n
 
     # ---------------- маркетплейс: подкатегории, поиск, избранное ----------------
+    def moderate_content(self, content_id: int = 0, content_type: str = "product", text: str = "", image_url: str = "") -> dict:
+        # Заглушка модерации ИИ: базовый скрининг текста и проверка фото
+        banned_words = ["запрещено", "наркотики", "оружие", "подделка", "контрафакт", "пиратский"]
+        text_lower = (text or "").lower()
+        score = 0.0
+        details = []
+        for word in banned_words:
+            if word in text_lower:
+                score += 0.3
+                details.append(f"Запрещённое слово: {word}")
+        if image_url and (".jpg" not in image_url) and (".png" not in image_url) and (".jpeg" not in image_url) and (".webp" not in image_url):
+            if not (image_url.startswith("http://") or image_url.startswith("https://")):
+                score += 0.2
+                details.append("Нет изображения или неподдерживаемый формат")
+        result = "approved" if score < 0.3 else ("rejected" if score >= 0.6 else "pending")
+        cur = self.db.execute(
+            "INSERT INTO moderation_results (content_id, content_type, result, score, details, created_at) VALUES (?, ?, ?, ?, ?, ?)",
+            (content_id, content_type, result, round(score, 2), "; ".join(details), str(__import__("datetime").datetime.now())))
+        self.db.commit()
+        return {"id": cur.lastrowid, "content_id": content_id, "result": result, "score": round(score, 2), "details": details}
+
+    def moderation_status(self, content_id: int = 0, content_type: str = "") -> list:
+        rows = self.db.execute("SELECT * FROM moderation_results WHERE 1=1").fetchall()
+        out = [dict(r) for r in rows]
+        if content_id:
+            out = [r for r in out if r.get("content_id") == content_id]
+        if content_type:
+            out = [r for r in out if r.get("content_type", "").lower() == content_type.lower()]
+        return out
+
+    def add_label(self, product_id: int = 0, label_name: str = "", label_color: str = "#4f46e5") -> int:
+        cur = self.db.execute(
+            "INSERT INTO labels (product_id, label_name, label_color, created_at) VALUES (?, ?, ?, ?)",
+            (product_id, label_name, label_color, str(__import__("datetime").datetime.now())))
+        self.db.commit()
+        return cur.lastrowid
+
+    def get_labels(self, product_id: int = 0) -> list:
+        rows = self.db.execute("SELECT * FROM labels WHERE 1=1").fetchall()
+        out = [dict(r) for r in rows]
+        if product_id:
+            out = [r for r in out if r.get("product_id") == product_id]
+        return out
+
+    def campaigns(self, seller_id: int = 0, platform: str = "") -> list:
+        rows = self.db.execute("SELECT * FROM campaigns WHERE 1=1").fetchall()
+        out = [dict(r) for r in rows]
+        if seller_id:
+            out = [r for r in out if r.get("seller_id") == seller_id]
+        if platform:
+            out = [r for r in out if r.get("platform", "").lower() == platform.lower()]
+        return out
+
+    def create_campaign(self, seller_id: int = 0, platform: str = "yandex", title: str = "", budget: int = 0, creative_url: str = "", target_city: str = "") -> int:
+        cur = self.db.execute(
+            "INSERT INTO campaigns (seller_id, platform, title, budget, spent, status, creative_url, target_city, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            (seller_id, platform, title, budget, 0, "draft", creative_url, target_city, str(__import__("datetime").datetime.now())))
+        self.db.commit()
+        return cur.lastrowid
+
+    def update_campaign_status(self, campaign_id: int, status: str) -> bool:
+        cur = self.db.execute("UPDATE campaigns SET status = ? WHERE id = ?", (status, campaign_id))
+        self.db.commit()
+        return cur.rowcount > 0
+
+    def geo_search(self, query: str = "", city: str = "", radius_km: int = 50, limit: int = 30) -> list:
+        """Простая заглушка гео-поиска: ищет товары с совпадением города или по названию."""
+        city_lower = (city or "").lower().strip()
+        out = []
+        for p in self.products():
+            if not p.get("in_stock"):
+                continue
+            match_city = True
+            if city_lower:
+                match_city = city_lower in (p.get("category") or "").lower() or city_lower in (p.get("name") or "").lower()
+            if not match_city:
+                continue
+            score = search_score(p, query) if query else 10
+            if query and score == 0:
+                continue
+            out.append(p)
+        out.sort(key=lambda p: -search_score(p, query) if query else -p.get("price", 0))
+        return out[:limit]
+
     def subcategories(self, category: str = "") -> list:
         """Подкатегории из таблицы catalog_cats; если для категории ничего нет —
         собирает из товаров (subcategory полей)."""

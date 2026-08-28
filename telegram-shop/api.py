@@ -955,6 +955,142 @@ def create_app(store, providers: dict, bot=None, notify_new_order=None, notify_o
         return o
 
     # --- ИИ: контент для склада (название / объявление / Telegram) ---
+    # --- ИИ-vision: распознавание товара по фото (Этап 3 — сканер-профи) ---
+    @app.post("/api/warehouse/vision")
+    async def wh_vision(body: dict, x_wh_token: str = Header(default=""),
+                        x_admin_token: str = Header(default="")):
+        """ИИ-распознавание товара по фото."""
+        user = wh_user_from_headers(x_wh_token, x_admin_token)
+        image_data = str(body.get("image", "")).strip()
+        if not image_data:
+            raise HTTPException(422, "Нет изображения")
+        if "," in image_data:
+            image_data = image_data.split(",", 1)[1]
+        if len(image_data) > 5 * 1024 * 1024:
+            raise HTTPException(422, "Изображение слишком большое (>5 МБ)")
+        cfg = store.settings.get("ai") or {}
+        vision_enabled = bool(cfg.get("enabled") and cfg.get("api_key"))
+        description = ""
+        results = []
+        # Поиск по описанию или ключевым словам из базы
+        all_products = [p for p in store.products() if not p.get("is_archived") and p.get("in_stock")]
+        # Для демонстрации: простая эвристика — ищем по названию и категории
+        keywords = ["наушники", "телефон", "одежда", "аксессуар", "книга", "игрушка", "электроника", "дом"]
+        # Если ключи настроены, пробуем получить описание через текстовый запрос
+        if vision_enabled:
+            try:
+                import requests
+                base_url = (cfg.get("base_url") or "https://api.openai.com/v1").rstrip("/") + "/chat/completions"
+                payload = {
+                    "model": cfg.get("model") or "gpt-4o-mini",
+                    "messages": [
+                        {"role": "system", "content": "Ты эксперт по товарам. Кратко опиши товар по фото."},
+                        {"role": "user", "content": "Фото товара из складского учёта. Опиши кратко: название, категория, ключевые слова (до 200 символов)."},
+                    ],
+                    "max_tokens": 250,
+                    "temperature": 0.3,
+                }
+                headers = {"Authorization": "Bearer " + cfg["api_key"], "Content-Type": "application/json"}
+                resp = requests.post(base_url, json=payload, headers=headers, timeout=30)
+                if resp.status_code < 400:
+                    description = resp.json().get("choices", [{}])[0].get("message", {}).get("content", "")
+            except Exception:
+                description = ""
+        # Оцениваем товары по ключевым словам и описанию
+        for p in all_products:
+            score = 0
+            text_to_search = (str(p.get("name", "")) + " " + str(p.get("category", "")) + " " + str(p.get("description", ""))).lower()
+            # Совпадения с ключевыми словами
+            for kw in keywords:
+                if kw in text_to_search:
+                    score += 1
+            # Если есть описание из ИИ
+            if description:
+                desc_lower = description.lower()
+                for word in desc_lower.split():
+                    if len(word) >= 3 and word in text_to_search:
+                        score += 0.5
+            # Бонус за фото
+            if p.get("photo"):
+                score += 0.3
+            if score > 0:
+                results.append({
+                    "product": {
+                        "id": p["id"], "name": p.get("name", ""), "price": p.get("price", 0),
+                        "category": p.get("category", ""), "photo": p.get("photo", ""),
+                        "code": p.get("code", ""), "barcode": p.get("barcode", ""),
+                        "stock": p.get("stock", -1),
+                    },
+                    "relevance": min(100, int(score * 15)),
+                    "score": score,
+                })
+        results.sort(key=lambda x: -x["relevance"])
+        top_results = results[:5]
+        store.wh_log_add(user["name"], "ИИ-vision сканирование", f"совпадений: {len(top_results)}")
+        return {
+            "ok": True,
+            "vision_enabled": vision_enabled,
+            "description": (description or "Описание не получено")[:300],
+            "matches": len(top_results),
+            "results": [{"product": r["product"], "relevance": r["relevance"], "score": r["score"]} for r in top_results],
+        }
+
+    # --- Сканер-профи: инвентаризация со сверкой (Этап 3 склада) ---
+    @app.post("/api/warehouse/inventory/compare")
+    async def wh_inventory_compare(body: dict, x_wh_token: str = Header(default=""),
+                                   x_admin_token: str = Header(default="")):
+        user = wh_user_from_headers(x_wh_token, x_admin_token)
+        actual_items = body.get("items", [])
+        if not isinstance(actual_items, list):
+            raise HTTPException(422, "Ожидается список items")
+        actual_dict = {}
+        for item in actual_items:
+            pid = int(item.get("product_id", 0))
+            qty = int(item.get("qty", 0))
+            if pid > 0:
+                actual_dict[pid] = qty
+        all_db = {p["id"]: p.get("stock", -1) for p in store.products() if not p.get("is_archived")}
+        matches = []
+        discrepancies = []
+        missing_in_db = []
+        for pid, qty in actual_dict.items():
+            db_qty = all_db.get(pid)
+            if db_qty is None:
+                missing_in_db.append({"product_id": pid, "qty_actual": qty, "qty_db": None, "status": "not_in_db"})
+            elif db_qty == qty:
+                matches.append({"product_id": pid, "qty": qty, "status": "match"})
+            else:
+                discrepancies.append({
+                    "product_id": pid,
+                    "qty_actual": qty,
+                    "qty_db": db_qty,
+                    "diff": qty - db_qty,
+                    "status": "surplus" if qty > db_qty else "shortage",
+                    "product_name": (store.get_product(pid) or {}).get("name", "—"),
+                    "category": (store.get_product(pid) or {}).get("category", ""),
+                })
+        total_db = sum(all_db.values()) if all_db else 0
+        total_actual = sum(actual_dict.values())
+        store.wh_log_add(user["name"], "инвентаризация со сверкой",
+                         f"сверено: {len(actual_dict)} поз., расхождений: {len(discrepancies)}, совпадений: {len(matches)}")
+        return {
+            "ok": True,
+            "summary": {
+                "total_items_checked": len(actual_dict),
+                "total_db_items": len(all_db),
+                "matches": len(matches),
+                "discrepancies": len(discrepancies),
+                "missing_in_inventory": len([pid for pid in all_db if pid not in actual_dict]),
+                "total_qty_db": total_db,
+                "total_qty_actual": total_actual,
+            },
+            "results": {
+                "matches": [{"product_id": m["product_id"], "qty": m["qty"]} for m in matches],
+                "discrepancies": discrepancies,
+                "missing_in_db": missing_in_db,
+            },
+        }
+
     @app.post("/api/warehouse/ai")
     async def wh_ai(body: dict, x_admin_token: str = Header(default="")):
         require_admin(x_admin_token)
@@ -2165,6 +2301,9 @@ def create_app(store, providers: dict, bot=None, notify_new_order=None, notify_o
                                            ("Продавцы", _abs(request, "/sellers")),
                                            (data["store_name"], url)], url),
             seller=data,
+            seller_rating=store.seller_rating(data.get("id") or 0),
+            seller_review_stats=store.seller_review_stats(data.get("id") or 0),
+            seller_reviews=store.seller_reviews(data.get("id") or 0),
         )
         return _render(request, "seller.html", ctx)
 
@@ -2253,6 +2392,8 @@ def create_app(store, providers: dict, bot=None, notify_new_order=None, notify_o
     async def seller_me(x_seller_key: str = Header(default="")):
         seller = require_seller(x_seller_key)
         return {**seller, "stats": store.seller_stats(seller["id"]),
+                "rating": store.seller_rating(seller["id"]),
+                "rating_details": store.seller_rating_details(seller["id"]),
                 "limits": store.seller_limits(seller),
                 "verification": store.seller_verification(seller),
                 "unread_chat": store.chat_unread_seller(seller["id"]),
@@ -2536,6 +2677,242 @@ def create_app(store, providers: dict, bot=None, notify_new_order=None, notify_o
             return {"unread": store.chat_unread_seller(seller["id"])}
         buyer_key = _buyer_key(request)
         return {"unread": store.chat_unread_buyer(buyer_key) if buyer_key else 0}
+
+    # ------------------------------------------------------------------ торг / предложения цены (#9)
+    @app.post("/api/offers")
+    async def create_offer(body: dict, request: Request):
+        product_id = int(body.get("product_id") or 0)
+        buyer_key = _buyer_key(request)
+        if not buyer_key:
+            raise HTTPException(403, "Необходимо авторизоваться или иметь сессию")
+        try:
+            return store.create_offer(
+                product_id=product_id,
+                buyer_key=buyer_key,
+                buyer_name=str(body.get("buyer_name") or ""),
+                proposed_price=int(body.get("proposed_price") or 0),
+                message=str(body.get("message") or ""),
+            )
+        except ValueError as e:
+            raise HTTPException(422, str(e))
+
+    @app.get("/api/offers")
+    async def list_offers(seller_id: int = 0, buyer_key: str = "", product_id: int = 0,
+                          status: str = "", request: Request = None):
+        if not seller_id:
+            # для покупателя — его ключ из запроса
+            buyer_key = buyer_key or _buyer_key(request)
+        return store.get_offers(seller_id=seller_id, buyer_key=buyer_key, product_id=product_id, status=status)
+
+    @app.get("/api/offers/{offer_id}")
+    async def get_offer(offer_id: int):
+        r = store.offer_by_id(offer_id)
+        if not r:
+            raise HTTPException(404, "Предложение не найдено")
+        return r
+
+    @app.post("/api/offers/{offer_id}/respond")
+    async def respond_offer(offer_id: int, body: dict, x_seller_key: str = Header(default="")):
+        seller = require_seller(x_seller_key)
+        offer = store.offer_by_id(offer_id)
+        if not offer:
+            raise HTTPException(404, "Предложение не найдено")
+        if int(offer.get("seller_id") or 0) != int(seller["id"]):
+            raise HTTPException(403, "Это не ваше предложение")
+        try:
+            return store.respond_to_offer(
+                offer_id=offer_id,
+                status=str(body.get("status") or ""),
+                seller_response_price=int(body.get("seller_response_price") or 0),
+                seller_note=str(body.get("seller_note") or ""),
+            )
+        except ValueError as e:
+            raise HTTPException(422, str(e))
+
+    @app.post("/api/offers/{offer_id}/cancel")
+    async def cancel_offer_endpoint(offer_id: int, request: Request):
+        buyer_key = _buyer_key(request)
+        if not buyer_key:
+            raise HTTPException(403, "Необходимо авторизоваться или иметь сессию")
+        try:
+            return store.cancel_offer(offer_id=offer_id, buyer_key=buyer_key)
+        except ValueError as e:
+            raise HTTPException(422, str(e))
+
+    # ------------------------------------------------------------------ сравнение + сохранённые поиски (#8)
+    @app.post("/api/compare")
+    async def compare_action(body: dict, request: Request):
+        buyer_key = _buyer_key(request)
+        if not buyer_key:
+            raise HTTPException(403, "Необходимо авторизоваться или иметь сессию")
+        action = str(body.get("action", ""))
+        product_id = int(body.get("product_id") or 0)
+        try:
+            if action == "add":
+                return {"ok": True, "items": store.compare_add(user_key=buyer_key, product_id=product_id)}
+            elif action == "remove":
+                return {"ok": True, "items": store.compare_remove(user_key=buyer_key, product_id=product_id)}
+            else:
+                raise ValueError("action: add | remove")
+        except ValueError as e:
+            raise HTTPException(422, str(e))
+
+    @app.get("/api/compare")
+    async def compare_list(request: Request):
+        buyer_key = _buyer_key(request)
+        return store.compare_list(user_key=buyer_key or "")
+
+    @app.post("/api/saved_searches")
+    async def saved_search_create(body: dict, request: Request):
+        buyer_key = _buyer_key(request)
+        if not buyer_key:
+            raise HTTPException(403, "Необходимо авторизоваться или иметь сессию")
+        return store.saved_search_create(
+            user_key=buyer_key,
+            query=str(body.get("query") or ""),
+            filters=body.get("filters") or {})
+
+    @app.get("/api/saved_searches")
+    async def saved_search_list(request: Request):
+        buyer_key = _buyer_key(request)
+        return store.saved_searches(user_key=buyer_key or "")
+
+    @app.delete("/api/saved_searches/{sid}")
+    async def saved_search_delete(sid: int, request: Request):
+        buyer_key = _buyer_key(request)
+        if not buyer_key:
+            raise HTTPException(403, "Необходимо авторизоваться или иметь сессию")
+        deleted = store.saved_search_delete(search_id=sid, user_key=buyer_key)
+        if not deleted:
+            raise HTTPException(404, "Поиск не найден или нет прав")
+        return {"ok": True}
+
+    @app.get("/api/seller/reviews")
+    async def seller_reviews_endpoint(seller_id: int = 0, slug: str = ""):
+        sid = seller_id or (store.get_seller(slug=slug) or {}).get("id") or 0
+        if not sid:
+            raise HTTPException(404, "Продавец не найден")
+        return store.seller_reviews(sid)
+
+    @app.post("/api/seller/review")
+    async def seller_review_create(body: dict, request: Request):
+        buyer_key = _buyer_key(request)
+        if not buyer_key:
+            raise HTTPException(403, "Необходимо авторизоваться или иметь сессию")
+        seller_id = int(body.get("seller_id") or 0)
+        try:
+            return store.add_seller_review(
+                seller_id=seller_id,
+                buyer_key=buyer_key,
+                buyer_name=str(body.get("buyer_name") or ""),
+                rating=int(body.get("rating") or 5),
+                text=str(body.get("text") or ""),
+            )
+        except ValueError as e:
+            raise HTTPException(422, str(e))
+
+    @app.get("/api/seller/{slug}/rating")
+    async def seller_rating_public(slug: str):
+        seller = store.get_seller(slug=slug)
+        if not seller:
+            raise HTTPException(404, "Продавец не найден")
+        sid = int(seller.get("id") or 0)
+        return {
+            "seller": seller,
+            "rating_summary": store.seller_rating(sid),
+            "rating_details": store.seller_rating_details(sid),
+            "reviews": store.seller_reviews(sid),
+            "review_stats": store.seller_review_stats(sid),
+        }
+
+    @app.get("/api/saved_searches/notify")
+    async def saved_search_notify(request: Request):
+        buyer_key = _buyer_key(request)
+        return store.saved_search_notifications(user_key=buyer_key or "")
+
+    @app.get("/api/boost")
+    async def list_boosts():
+        return store.get_boosted_products()
+
+    @app.post("/api/boost")
+    async def create_boost(body: dict, x_seller_key: str = Header(default="")):
+        seller = require_seller(x_seller_key)
+        try:
+            return store.create_boost(
+                product_id=int(body.get("product_id") or 0),
+                seller_id=seller["id"],
+                duration_days=int(body.get("duration_days") or 1),
+                price=int(body.get("price") or 0),
+            )
+        except ValueError as e:
+            raise HTTPException(422, str(e))
+
+    @app.delete("/api/boost/{boost_id}")
+    async def cancel_boost_endpoint(boost_id: int, x_seller_key: str = Header(default="")):
+        seller = require_seller(x_seller_key)
+        return {"ok": True, "cancelled": store.cancel_boost(boost_id)}
+
+    @app.get("/api/partner")
+    async def partner_referrals(x_seller_key: str = Header(default="")):
+        seller = require_seller(x_seller_key)
+        return store.partner_referrals(seller_id=seller["id"])
+
+    @app.get("/api/ad/list")
+    async def ad_list(seller_id: int = 0, platform: str = ""):
+        return store.campaigns(seller_id=int(seller_id or 0), platform=platform or "")
+
+    @app.post("/api/ad/create")
+    async def ad_create(req: dict):
+        sid = int(req.get("seller_id", 0) or 0)
+        cid = store.create_campaign(
+            seller_id=sid, platform=req.get("platform", "yandex"),
+            title=req.get("title", ""), budget=int(req.get("budget", 0) or 0),
+            creative_url=req.get("creative_url", ""), target_city=req.get("target_city", ""))
+        return {"campaign_id": cid, "status": "created"}
+
+    @app.post("/api/ad/update")
+    async def ad_update(req: dict):
+        ok = store.update_campaign_status(int(req.get("campaign_id", 0) or 0), req.get("status", "draft"))
+        return {"updated": ok}
+
+    @app.post("/api/moderate")
+    async def moderate(req: dict):
+        return store.moderate_content(
+            content_id=int(req.get("content_id", 0) or 0),
+            content_type=req.get("content_type", "product"),
+            text=req.get("text", ""),
+            image_url=req.get("image_url", ""))
+
+    @app.get("/api/moderation/status")
+    async def moderation_status(content_id: int = 0, content_type: str = ""):
+        return store.moderation_status(content_id=int(content_id or 0), content_type=content_type or "")
+
+    @app.post("/api/label/add")
+    async def label_add(req: dict):
+        lid = store.add_label(product_id=int(req.get("product_id", 0) or 0), label_name=req.get("label_name", ""), label_color=req.get("label_color", "#4f46e5"))
+        return {"label_id": lid}
+
+    @app.get("/api/label/list")
+    async def label_list(product_id: int = 0):
+        return store.get_labels(product_id=int(product_id or 0))
+
+    @app.get("/api/search/geo")
+    async def search_geo(q: str = "", city: str = "", radius_km: int = 50):
+        return store.geo_search(query=q, city=city, radius_km=int(radius_km or 50))
+
+    @app.get("/api/search/suggest")
+    async def search_suggest(q: str = "", limit: int = 10):
+        results = store.search_products(q, limit=int(limit or 10))
+        return {"suggestions": [{"id": pid, "name": (store.get_product(pid) or {}).get("name", ""), "score": sc}
+                                      for pid, sc in results[:limit]]}
+
+    @app.get("/api/boost/price")
+    async def boost_prices():
+        ps = (store.settings.get("tariffs") or {}).get("promo_services") or {}
+        return {"boost_1d": int(ps.get("boost_1d") or 49),
+                "boost_3d": int(ps.get("boost_3d") or 99),
+                "boost_7d": int(ps.get("boost_7d") or 199),
+                "vip_week": int(ps.get("vip_week") or 149)}
 
     # ------------------------------------------------------------------ админ: продавцы
     @app.get("/admin/api/sellers")

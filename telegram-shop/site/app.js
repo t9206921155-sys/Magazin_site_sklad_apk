@@ -58,12 +58,44 @@ const lines = () => Object.entries(S.cart)
 const count = () => lines().reduce((s, l) => s + l.qty, 0);
 const subtotal = () => lines().reduce((s, l) => s + l.p.price * l.qty, 0);
 
-function addToCart(id, qty = 1) {
-  if (!S.catalog.find(x => x.id == id)) return;
-  S.cart[id] = (S.cart[id] || 0) + qty;
-  saveCart(); renderCount();
-  toast('Товар добавлен в корзину 🛒');
-  logEvent('add_to_cart', { id });
+function saveSearch() {
+  const q = ($('#search')?.value || '').trim();
+  const cat = $('#cat')?.value || '';
+  const sort = $('#sort')?.value || 'def';
+  fetch('/api/saved_searches', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ query: q, filters: { category: cat, sort: sort } })
+  }).then(async r => {
+    const data = await r.json();
+    if (!r.ok) throw new Error(data.detail || 'Ошибка');
+    toast('✅ Поиск сохранён');
+  }).catch(e => { toast('❌ ' + e.message); });
+}
+function boostProduct(productId, currentPrice) {
+  const days = prompt('🚀 Выберите срок продвижения (1, 3 или 7 дней):', '3');
+  if (!days || !['1','3','7'].includes(days)) { toast('Отменено'); return; }
+  const price = parseInt(days) === 1 ? 49 : parseInt(days) === 3 ? 99 : 199;
+  fetch('/api/boost', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ product_id: productId, duration_days: parseInt(days), price })
+  }).then(async r => {
+    const data = await r.json();
+    if (!r.ok) throw new Error(data.detail || 'Ошибка');
+    toast(`✅ Продвижение активировано на ${days} дн.`);
+  }).catch(e => { toast('❌ ' + e.message); });
+}
+function addCompare(id) {
+  const proposed = parseInt(priceStr.replace(/\D/g, '') || '0');
+  if (!proposed || proposed <= 0) { toast('❌ Укажите положительную цену'); return; }
+  fetch('/api/offers', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ product_id: productId, proposed_price: proposed, message: msg })
+  }).then(async r => {
+    const data = await r.json();
+    if (!r.ok) throw new Error(data.detail || 'Ошибка');
+    toast('✅ Предложение цены отправлено! Продавец ответит.');
+    logEvent('create_offer', { product_id: productId, proposed_price: proposed });
+  }).catch(e => { toast('❌ ' + e.message); });
 }
 function setQty(id, qty) {
   if (qty <= 0) delete S.cart[id]; else S.cart[id] = Math.min(99, qty);
@@ -78,6 +110,8 @@ function parseRoute() {
   if (!parts.length) return { name: 'home' };
   if (parts[0] === 'p') return { name: 'product', id: +parts[1] };
   if (parts[0] === 'pay') return { name: 'pay', orderId: parts[1] };
+  if (parts[0] === 'seller' && parts[2] === 'rating') return { name: 'seller_rating', slug: parts[1] };
+  if (parts[0] === 'compare') return { name: 'compare' };
   if (parts[0] === 'success') return { name: 'success', orderId: parts[1] };
   return { name: parts[0] };
 }
@@ -93,6 +127,8 @@ async function router() {
     else if (r.name === 'cart') { v.innerHTML = renderCart(); bindCheckout(); }
     else if (r.name === 'pay') await renderPay(r.orderId);
     else if (r.name === 'success') await renderSuccess(r.orderId);
+    else if (r.name === 'seller_rating') v.innerHTML = await renderSellerRating(r.slug);
+    else if (r.name === 'compare') v.innerHTML = renderCompare();
     else if (r.name === 'orders') { v.innerHTML = renderOrdersShell(); await loadOrders(); }
     else if (r.name === 'delivery') v.innerHTML = renderStatic('🚚 Доставка', S.config.texts?.delivery);
     else if (r.name === 'payments') v.innerHTML = renderStatic('💳 Оплата', S.config.texts?.payments);
@@ -116,6 +152,8 @@ function cardHtml(p) {
       <div class="card-foot">
         <div class="price">${priceHtml(p)}</div>
         <button class="add-btn" onclick="event.stopPropagation(); addToCart(${p.id})">＋</button>
+        <button class="btn ghost" style="padding:6px 10px;font-size:12px;margin-left:4px"
+                onclick="event.stopPropagation(); addCompare(${p.id})">⚖️</button>
       </div>
     </div>
   </div>`;
@@ -158,6 +196,9 @@ function renderCatalogShell() {
         <option value="price_asc">Сначала дешевле</option>
         <option value="price_desc">Сначала дороже</option>
       </select>
+      <input class="search" id="geo-city" placeholder="🏙️ Город…" oninput="renderCatalogList()" style="width:140px">
+      <button class="btn ghost" onclick="saveSearch()">💾 Сохранить поиск</button>
+      <button class="btn ghost" onclick="showSavedSearchNotify()">📬 Уведомления</button>
     </div>
     <div class="grid" id="grid"></div>
   </div>`;
@@ -167,8 +208,14 @@ function renderCatalogList() {
   const q = ($('#search')?.value || '').toLowerCase();
   const cat = $('#cat')?.value || '';
   const sort = $('#sort')?.value || 'def';
+  const geoCity = ($('#geo-city')?.value || '').trim();
   let list = S.catalog.filter(p =>
-    (!q || p.name.toLowerCase().includes(q)) && (!cat || p.category === cat));
+    (!q || p.name.toLowerCase().includes(q) || p.category.toLowerCase().includes(q)) && (!cat || p.category === cat));
+  if (geoCity) {
+    // Заглушка: фильтруем товары, в названии/категории которых есть город
+    const gc = geoCity.toLowerCase();
+    list = list.filter(p => p.name.toLowerCase().includes(gc) || (p.category || '').toLowerCase().includes(gc));
+  }
   if (sort === 'price_asc') list = [...list].sort((a, b) => a.price - b.price);
   if (sort === 'price_desc') list = [...list].sort((a, b) => b.price - a.price);
   $('#grid').innerHTML = list.length ? list.map(cardHtml).join('') : '<div class="empty">Ничего не найдено 🔍</div>';
@@ -195,11 +242,82 @@ function renderProduct(id) {
         </div>
         <button class="buy-btn" id="buybtn" onclick="addToCart(${p.id}, +document.getElementById('pq').textContent); location.hash='#/cart'">В корзину</button>
         <button class="btn ghost" style="display:inline-block;width:auto;margin-left:10px;padding:14px 22px"
+                onclick="showOfferForm(${p.id}, ${p.price})">💬 Предложить цену</button>
+        <button class="btn ghost" style="display:inline-block;width:auto;margin-left:10px;padding:14px 22px"
                 onclick="addToCart(${p.id}, +document.getElementById('pq').textContent); location.hash='#/cart'">⚡ Купить сейчас</button>
+        <button class="btn ghost" onclick="boostProduct(${p.id}, ${p.price})" style="padding:14px 22px">🚀 Продвинуть</button>
+        ${Array.isArray(p.labels) && p.labels.length ? `<span class="label" style="margin-left:8px;padding:2px 8px;border-radius:4px;background:${p.labels[0]?.label_color || '#4f46e5'};color:#fff;font-size:11px">${esc(p.labels[0]?.label_name || '')}</span>` : ''}
       </div>
       <div class="hint" style="margin-top:16px">Доставка рассчитывается при оформлении. Оплата: карта, СБП, криптовалюта.</div>
     </div>
   </div>`;
+}
+function renderCompare() {
+  fetch('/api/compare', { headers: { 'Content-Type': 'application/json' } }).then(async r => {
+    const data = await r.json();
+    const items = data || [];
+    const v = $('#view');
+    if (!items.length) {
+      v.innerHTML = '<div class="empty">Сравнение пусто. Добавьте товары через кнопку ⚖️ в карточках.</div>';
+      return;
+    }
+    const headers = ['Параметр', ...items.map(p => p.name || '—')];
+    const rows = [
+      ['Фото', ...items.map(p => `<img src="${esc(p.photo)}" alt="${esc(p.name)}" style="max-width:120px;max-height:100px;">`)],
+      ['Категория', ...items.map(p => esc(p.category || ''))],
+      ['Цена', ...items.map(p => fmt(p.price))],
+      ['Старая цена', ...items.map(p => p.old_price > 0 ? fmt(p.old_price) : '—')],
+      ['Наличие', ...items.map(p => p.stock >= 0 ? `${p.stock} шт.` : '—')],
+      ['Артикул', ...items.map(p => esc(p.code || '—'))],
+      ['Описание', ...items.map(p => `<div style="font-size:13px;color:#555">${esc(p.description || '').slice(0, 120)}${(p.description || '').length > 120 ? '…' : ''}</div>`)],
+    ];
+    v.innerHTML = `
+    <div class="sect">
+      <h2>⚖️ Сравнение товаров (${items.length})</h2>
+      <div style="overflow:auto">
+        <table style="width:100%;border-collapse:collapse;font-size:14px">
+          <thead><tr style="background:#f6f7fb">${headers.map(h => `<th style="padding:10px;text-align:left;border-bottom:2px solid #d1d5db">${esc(typeof h === 'string' ? h : '')}</th>`).join('')}</tr></thead>
+          <tbody>${rows.map(row => `<tr style="border-bottom:1px solid #eaeaea">${row.map(cell => `<td style="padding:10px;vertical-align:top">${cell}</td>`).join('')}</tr>`).join('')}</tbody>
+        </table>
+      </div>
+      <div style="margin-top:12px">${items.map(p => `<button class="btn ghost" onclick="location.hash='#/p/${p.id}'">${esc(p.name)}</button>`).join(' ')}</div>
+    </div>`;
+  }).catch(e => {
+    $('#view').innerHTML = '<div class="empty">Не удалось загрузить сравнение</div>';
+  });
+}
+
+async function renderSellerRating(slug) {
+  const v = $('#view');
+  v.innerHTML = '<div class="empty">Загружаем рейтинг продавца…</div>';
+  try {
+    const data = await api('/api/seller/' + encodeURIComponent(slug) + '/rating');
+    const s = data.seller || {};
+    const rating = data.rating_summary || {};
+    const reviews = data.reviews || [];
+    const stats = data.review_stats || { avg: 0, count: 0 };
+    const details = data.rating_details || {};
+    v.innerHTML = `
+    <div class="sect">
+      <a class="back-link" href="#/catalog">← Назад в каталог</a>
+      <h2>⭐ Рейтинг продавца: ${esc(s.store_name || s.slug || slug)}</h2>
+      <div style="margin-top:14px">
+        <div style="font-size:48px;font-weight:bold;color:#4f46e5">${rating.rating ? rating.rating.toFixed(1) : '—'}/5.0</div>
+        <div class="hint">Средняя оценка: ${stats.avg ? stats.avg.toFixed(1) : '—'} из 5 (${stats.count || 0} отзывов о продавце)</div>
+        <div class="hint">Одобрено отзывов: ${rating.reviews_approved || 0} / Всего: ${rating.reviews_total || 0} (${rating.approval_rate ? rating.approval_rate.toFixed(1) + '%' : '—'})</div>
+        <div class="hint">Ответов в чатах: ${rating.response_rate || 0}% • Скорость ответа: ${rating.response_time_hours || 24} ч</div>
+        <div class="hint">Статус: ${rating.status || '—'} • Тариф: ${(rating.plan || '—')}</div>
+      </div>
+      <h3 style="margin-top:22px">Отзывы о продавце</h3>
+      ${reviews.length ? reviews.map(r => `
+        <div style="border:1px solid #eaeaea;padding:14px;margin:8px 0;border-radius:8px;background:#fafbfc">
+          <div><b>${esc(r.author || 'Гость')}</b> · <span style="color:#f59e0b">${'★'.repeat(r.rating || 5)}${'☆'.repeat(5 - (r.rating || 5))}</span> · ${esc(r.created_at ? r.created_at.slice(0, 10) : '')}</div>
+          <div style="margin-top:6px;color:#333">${esc(r.text || '')}</div>
+        </div>`).join('') : '<div class="empty">Отзывов о продавце пока нет.</div>'}
+    </div>`;
+  } catch (e) {
+    v.innerHTML = '<div class="empty">Не удалось загрузить рейтинг продавца</div>';
+  }
 }
 window.pqty = d => { const el = $('#pq'); el.textContent = Math.min(99, Math.max(1, +el.textContent + d)); };
 

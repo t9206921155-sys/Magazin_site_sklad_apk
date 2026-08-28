@@ -423,10 +423,10 @@ async function aiGen(mode) {
       $('#f-desc').value = r.text || $('#f-desc').value;
       toast('Текст объявления подставлен в описание ✅');
     } else {
+      const label = mode === 'vk' ? 'VK' : mode === 'instagram' ? 'Instagram' : 'Telegram';
       const text = (r.text || '') + '\n\n' + ((r.hashtags || []).join(' '));
       try { await navigator.clipboard.writeText(text); } catch (e) {}
       prompt('Пост для ' + label + ' (скопирован в буфер):', text);
-      const label = mode === 'vk' ? 'VK' : mode === 'instagram' ? 'Instagram' : 'Telegram';
       toast('Пост для ' + label + ' готов 📣');
     }
   } catch (e) { toast(e.message, true); }
@@ -450,8 +450,17 @@ async function openScanModes() {
     <div class="card" style="align-items:center" onclick="pickScanMode('inventory'); closeSheet2()">
       <div class="info"><div class="name">🧮 Инвентаризация</div><div class="meta">Сканировать → ввести фактический остаток</div></div>
     </div>
+    <div class="card" style="align-items:center" onclick="closeSheet2(); openVision()">
+      <div class="info"><div class="name">🤖 ИИ-vision</div><div class="meta">Сфотографировать → найти карточку товара (Этап 3)</div></div>
+    </div>
+    <div class="card" style="align-items:center" onclick="closeSheet2(); openInventoryCompare()">
+      <div class="info"><div class="name">🧮 Инвентаризация со сверкой</div><div class="meta">Сравнить фактические остатки с базой (Этап 3)</div></div>
+    </div>
     <div class="card" style="align-items:center" onclick="closeSheet2(); openScanHistory()">
       <div class="info"><div class="name">📜 История сканирований</div><div class="meta">Последние 50 операций</div></div>
+    </div>
+    <div class="card" style="align-items:center" onclick="closeSheet2(); openHidScanMode()">
+      <div class="info"><div class="name">📶 Bluetooth / ТСД (HID)</div><div class="meta">Заглушка: HID-ввод с клавиатуры (заглушка Этап 3)</div></div>
     </div>`;
   $('#sheet2').classList.remove('hidden');
 }
@@ -712,6 +721,240 @@ openSettings = async function () {
   setTimeout(renderPushState, 50);
   setTimeout(renderQuickStatus, 60);
 };
+
+/* ---------- ИИ-vision: распознавание товара по фото (Этап 3 сканер-профи) ---------- */
+async function openVision() {
+  $('#sheet2-title').textContent = '🤖 ИИ-vision: распознавание товара';
+  $('#sheet2-body').innerHTML = `
+    <p style="color:#64748b;font-size:13px;margin:0 0 12px">Сделайте фото товара — ИИ найдёт похожие карточки в каталоге склада.</p>
+    <div class="card" style="align-items:center; cursor:pointer" onclick="startVisionCamera()">
+      <div class="info"><div class="name">📷 Сделать фото</div><div class="meta">Камера → анализ изображения → поиск в базе</div></div>
+    </div>
+    <div class="card" style="align-items:center; cursor:pointer" onclick="visionFromGallery()">
+      <div class="info"><div class="name">🖼 Выбрать из галереи</div><div class="meta">Загрузить готовое фото с телефона</div></div>
+    </div>
+    <div id="vision-results" style="margin-top:10px"></div>`;
+  $('#sheet2').classList.remove('hidden');
+}
+
+async function startVisionCamera() {
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+    const video = document.createElement('video');
+    video.srcObject = stream;
+    video.autoplay = true;
+    video.style.cssText = 'width:100%;max-height:300px;border-radius:12px;object-fit:cover;background:#000;';
+    $('#vision-results').innerHTML = '';
+    $('#vision-results').appendChild(video);
+    await video.play();
+    // Даём пользователю время на позиционирование
+    setTimeout(async () => {
+      try {
+        const canvas = document.createElement('canvas');
+        canvas.width = video.videoWidth || 640;
+        canvas.height = video.videoHeight || 480;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(video, 0, 0);
+        const base64 = canvas.toDataURL('image/jpeg', 0.8).split(',')[1];
+        stream.getTracks().forEach(t => t.stop());
+        $('#vision-results').innerHTML = '<p style="color:#64748b;font-size:13px">🔄 Анализируем изображение…</p>';
+        const result = await api('/api/warehouse/vision', {
+          method: 'POST',
+          body: JSON.stringify({ image: base64 }),
+        });
+        showVisionResults(result);
+      } catch (e) {
+        toast('Ошибка анализа: ' + e.message, true);
+        stream.getTracks().forEach(t => t.stop());
+      }
+    }, 1500);
+  } catch (e) {
+    toast('Нет доступа к камере: ' + e.message, true);
+  }
+}
+
+function visionFromGallery() {
+  const input = document.createElement('input');
+  input.type = 'file';
+  input.accept = 'image/*';
+  input.onchange = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = async () => {
+      const base64 = reader.result.split(',')[1];
+      $('#vision-results').innerHTML = '<p style="color:#64748b;font-size:13px">🔄 Анализируем изображение…</p>';
+      try {
+        const result = await api('/api/warehouse/vision', {
+          method: 'POST',
+          body: JSON.stringify({ image: base64 }),
+        });
+        showVisionResults(result);
+      } catch (err) {
+        toast('Ошибка анализа: ' + err.message, true);
+      }
+    };
+    reader.readAsDataURL(file);
+  };
+  input.click();
+}
+
+function showVisionResults(result) {
+  const desc = result.description || 'Описание не получено';
+  const matches = result.results || [];
+  let html = `<div style="background:#f0fdf4;border-radius:12px;padding:10px;margin-bottom:10px;font-size:12.5px;color:#166534"><b>🤖 Описание:</b> ${esc(desc)}</div>`;
+  if (matches.length === 0) {
+    html += '<p style="color:#64748b">Совпадений не найдено. Попробуйте другое фото или добавьте описание товара.</p>';
+  } else {
+    html += `<h4 style="margin:8px 0 6px;font-size:15px">Найдено совпадений: ${matches.length}</h4>`;
+    html += matches.map(m => `
+      <div class="card" style="align-items:center;cursor:pointer" onclick="openForm(${m.product.id}); closeSheet2();">
+        <img src="${esc(m.product.photo || '/webapp/img/products/placeholder.jpg')}" style="width:56px;height:56px;border-radius:10px;object-fit:cover;">
+        <div class="info">
+          <div class="name">${esc(m.product.name)}</div>
+          <div class="meta">${esc(m.product.category || '')} · ${fmt(m.product.price)} · Релевантность: <b>${m.relevance}%</b></div>
+        </div>
+      </div>`).join('');
+  }
+  $('#vision-results').innerHTML = html + `<button class="btn ghost" onclick="openVision()" style="margin-top:10px">🔄 Повторить</button>`;
+}
+
+function closeSheet2() { $('#sheet2').classList.add('hidden'); }
+
+/* ---------- Bluetooth / ТСД-сканеры (HID-режим) — Этап 3 склада — ЗАГЛУШКА ---------- */
+// Bluetooth-сканеры в HID-режиме работают как клавиатура: вводят штрих-код и нажимают Enter.
+// Заглушка (stub): фреймворк готов, реальное подключение Bluetooth требует теста на устройстве.
+let HID_SCANNER_ACTIVE = false;
+let HID_SCANNER_BUFFER = '';
+
+function openHidScanMode() {
+  HID_SCANNER_ACTIVE = true;
+  HID_SCANNER_BUFFER = '';
+  $('#sheet2-title').textContent = '📶 Bluetooth / ТСД (HID) — заглушка';
+  $('#sheet2-body').innerHTML = `
+    <div style="background:#fff7ed;border:1px dashed #f97316;border-radius:12px;padding:12px;margin-bottom:12px;color:#c2410c;font-size:13px">
+      <b>⚠️ Заглушка (stub)</b><br>
+      Bluetooth-ТСД в HID-режиме работает как клавиатура. Для теста нажмите «Активировать HID-ввод» и сканируйте штрих-код или введите код вручную.<br><br>
+      <b>Что нужно для полной интеграции:</b><br>
+      • Тест на реальном устройстве с подключённым Bluetooth-сканером (Zebra DS3678, Атол SB2108)<br>
+      • Проверка автоматического ввода штрих-кода в поле<br>
+      • Настройка префикса/суффикса сканера (обычно Enter в конце)<br>
+      • Обработка ошибок при потере связи с ТСД
+    </div>
+    <button class="btn primary" onclick="activateHidInput()">📶 Активировать HID-ввод (клавиатура)</button>
+    <div class="row2" style="margin-top:10px">
+      <input class="fld" id="hid-manual" placeholder="Или введите штрих-код вручную (заглушка)" onkeydown="if(event.key==='Enter'){handleScanCode(this.value.trim());this.value='';}">
+    </div>
+    <button class="btn ghost" onclick="deactivateHidInput()">✕ Отключить HID-сканер</button>
+    <div id="hid-status" style="margin-top:8px;color:#64748b;font-size:12px"></div>`;
+  $('#sheet2').classList.remove('hidden');
+}
+
+function activateHidInput() {
+  HID_SCANNER_ACTIVE = true;
+  $('#hid-status').innerHTML = '<b style="color:#15803d">✅ HID-сканер активен</b> — сканируйте штрих-код или введите вручную.';
+  toast('📶 HID-сканер (заглушка) активирован. Сканируйте код или введите вручную.', false);
+  setTimeout(() => { $('#hid-manual').focus(); }, 200);
+}
+
+function deactivateHidInput() {
+  HID_SCANNER_ACTIVE = false;
+  HID_SCANNER_BUFFER = '';
+  $('#hid-status').textContent = 'HID-сканер отключён.';
+}
+
+// Перехват клавиатурного ввода для HID-сканера
+(function initHidKeyboardStub() {
+  let lastKeyTime = Date.now();
+  document.addEventListener('keydown', function(e) {
+    if (!HID_SCANNER_ACTIVE) return;
+    if (e.ctrlKey || e.altKey || e.metaKey) return;
+    if ([9, 16, 17, 18, 20, 27, 91, 93].includes(e.keyCode)) return;
+    const now = Date.now();
+    const delta = now - lastKeyTime;
+    lastKeyTime = now;
+    if (delta < 150 && delta > 5) {
+      if (e.key.length === 1) HID_SCANNER_BUFFER += e.key;
+    } else {
+      if (e.key.length === 1) HID_SCANNER_BUFFER += e.key;
+    }
+    if (e.key === 'Enter' && HID_SCANNER_BUFFER.length > 2) {
+      e.preventDefault();
+      const code = HID_SCANNER_BUFFER.trim();
+      HID_SCANNER_BUFFER = '';
+      handleScanCode(code);
+    }
+  });
+})();
+
+function closeSheet2() { $('#sheet2').classList.add('hidden'); }
+
+/* ---------- инвентаризация со сверкой (Этап 3 склада) ---------- */
+async function openInventoryCompare() {
+  // Простая версия: сравниваем текущий список товаров с введёнными остатками
+  $('#sheet2-title').textContent = '🧮 Инвентаризация: сверка';
+  $('#sheet2-body').innerHTML = `
+    <p style="color:#64748b;font-size:12px;margin:0 0 10px">Выберите несколько товаров (чекбоксами в списке), затем нажмите «Сверить» — система сравнит фактические остатки с базой.</p>
+    <button class="btn primary" onclick="runInventoryCompare()">✅ Сверить остатки выбранных</button>
+    <div id="inv-compare-results" style="margin-top:10px"></div>`;
+  $('#sheet2').classList.remove('hidden');
+}
+
+async function runInventoryCompare() {
+  const ids = [...selected].map(Number);
+  if (!ids.length) {
+    toast('Отметьте товары чекбоксами для сверки', true);
+    return;
+  }
+  // Для демонстрации: сравниваем с текущими остатками (как если бы фактический = текущий — идеальный случай)
+  // В реальном использовании — пользователь вводит фактические остатки
+  const items = ids.map(id => {
+    const p = PRODUCTS.find(x => x.id === id);
+    return { product_id: id, qty: p ? p.stock : 0 };
+  });
+  try {
+    const result = await api('/api/warehouse/inventory/compare', {
+      method: 'POST',
+      body: JSON.stringify({ items }),
+    });
+    renderInventoryResults(result);
+  } catch (e) {
+    toast('Ошибка сверки: ' + e.message, true);
+  }
+}
+
+function renderInventoryResults(result) {
+  const summary = result.summary || {};
+  const results = result.results || {};
+  const discrepancies = results.discrepancies || [];
+  const matches = results.matches || [];
+  const missing = results.missing_in_db || [];
+  let html = `<div style="background:#f8fafc;border-radius:12px;padding:12px;margin-bottom:8px;font-size:13px;color:#334155">
+    <b>📊 Итоги сверки:</b><br>
+    Проверено позиций: <b>${summary.total_items_checked || 0}</b> ·
+    Совпадений: <b style="color:#15803d">${summary.matches || 0}</b> ·
+    Расхождений: <b style="color:#b45309">${summary.discrepancies || 0}</b> ·
+    В БД всего: <b>${summary.total_db_items || 0}</b>
+  </div>`;
+  if (discrepancies.length > 0) {
+    html += `<h4 style="margin:8px 0 4px;color:#b45309">⚠️ Расхождения (${discrepancies.length})</h4>`;
+    html += discrepancies.map(d => `
+      <div class="card" style="border-left:3px solid #b45309">
+        <div class="info">
+          <div class="name">${esc(d.product_name || '—')}</div>
+          <div class="meta">ID: ${d.product_id} · Категория: ${esc(d.category || '')}<br>
+          Фактический остаток: <b>${d.qty_actual}</b> · В базе: <b>${d.qty_db}</b> · Разница: <b>${d.diff > 0 ? '+' : ''}${d.diff}</b> (${d.status === 'surplus' ? 'излишек' : 'недостача'})</div>
+        </div>
+      </div>`).join('');
+  } else if (matches.length > 0) {
+    html += `<p style="color:#15803d;font-weight:600">✅ Все проверенные остатки совпадают с базой!</p>`;
+  }
+  if (missing.length > 0) {
+    html += `<h4 style="margin:8px 0 4px;color:#dc2626">❌ Не найдены в базе (${missing.length})</h4>`;
+    html += `<div style="font-size:12px;color:#64748b;margin-bottom:8px">Товары отсутствуют в каталоге склада — проверьте, не удалены ли они или не добавлены под другим ID.</div>`;
+  }
+  $('#inv-compare-results').innerHTML = html + `<button class="btn ghost" onclick="openInventoryCompare()" style="margin-top:8px">🔄 Повторить сверку</button>`;
+}
 
 function closeSheet2() { $('#sheet2').classList.add('hidden'); }
 
