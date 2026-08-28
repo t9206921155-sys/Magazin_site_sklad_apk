@@ -58,6 +58,30 @@ const lines = () => Object.entries(S.cart)
 const count = () => lines().reduce((s, l) => s + l.qty, 0);
 const subtotal = () => lines().reduce((s, l) => s + l.p.price * l.qty, 0);
 
+function saveSearch() {
+  const q = ($('#search')?.value || '').trim();
+  const cat = $('#cat')?.value || '';
+  const sort = $('#sort')?.value || 'def';
+  fetch('/api/saved_searches', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ query: q, filters: { category: cat, sort: sort } })
+  }).then(async r => {
+    const data = await r.json();
+    if (!r.ok) throw new Error(data.detail || 'Ошибка');
+    toast('✅ Поиск сохранён');
+  }).catch(e => { toast('❌ ' + e.message); });
+}
+function addCompare(id) {
+  fetch('/api/compare', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ action: 'add', product_id: id })
+  }).then(async r => {
+    const data = await r.json();
+    if (!r.ok) throw new Error(data.detail || 'Ошибка');
+    toast('✅ Добавлено в сравнение');
+    logEvent('compare_add', { product_id: id });
+  }).catch(e => { toast('❌ ' + e.message); });
+}
 function addToCart(id, qty = 1) {
   if (!S.catalog.find(x => x.id == id)) return;
   S.cart[id] = (S.cart[id] || 0) + qty;
@@ -133,6 +157,8 @@ function cardHtml(p) {
       <div class="card-foot">
         <div class="price">${priceHtml(p)}</div>
         <button class="add-btn" onclick="event.stopPropagation(); addToCart(${p.id})">＋</button>
+        <button class="btn ghost" style="padding:6px 10px;font-size:12px;margin-left:4px"
+                onclick="event.stopPropagation(); addCompare(${p.id})">⚖️</button>
       </div>
     </div>
   </div>`;
@@ -175,6 +201,7 @@ function renderCatalogShell() {
         <option value="price_asc">Сначала дешевле</option>
         <option value="price_desc">Сначала дороже</option>
       </select>
+      <button class="btn ghost" onclick="saveSearch()">💾 Сохранить поиск</button>
     </div>
     <div class="grid" id="grid"></div>
   </div>`;

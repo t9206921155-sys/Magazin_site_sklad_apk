@@ -2736,6 +2736,54 @@ def create_app(store, providers: dict, bot=None, notify_new_order=None, notify_o
         except ValueError as e:
             raise HTTPException(422, str(e))
 
+    # ------------------------------------------------------------------ сравнение + сохранённые поиски (#8)
+    @app.post("/api/compare")
+    async def compare_action(body: dict, request: Request):
+        buyer_key = _buyer_key(request)
+        if not buyer_key:
+            raise HTTPException(403, "Необходимо авторизоваться или иметь сессию")
+        action = str(body.get("action", ""))
+        product_id = int(body.get("product_id") or 0)
+        try:
+            if action == "add":
+                return {"ok": True, "items": store.compare_add(user_key=buyer_key, product_id=product_id)}
+            elif action == "remove":
+                return {"ok": True, "items": store.compare_remove(user_key=buyer_key, product_id=product_id)}
+            else:
+                raise ValueError("action: add | remove")
+        except ValueError as e:
+            raise HTTPException(422, str(e))
+
+    @app.get("/api/compare")
+    async def compare_list(request: Request):
+        buyer_key = _buyer_key(request)
+        return store.compare_list(user_key=buyer_key or "")
+
+    @app.post("/api/saved_searches")
+    async def saved_search_create(body: dict, request: Request):
+        buyer_key = _buyer_key(request)
+        if not buyer_key:
+            raise HTTPException(403, "Необходимо авторизоваться или иметь сессию")
+        return store.saved_search_create(
+            user_key=buyer_key,
+            query=str(body.get("query") or ""),
+            filters=body.get("filters") or {})
+
+    @app.get("/api/saved_searches")
+    async def saved_search_list(request: Request):
+        buyer_key = _buyer_key(request)
+        return store.saved_searches(user_key=buyer_key or "")
+
+    @app.delete("/api/saved_searches/{sid}")
+    async def saved_search_delete(sid: int, request: Request):
+        buyer_key = _buyer_key(request)
+        if not buyer_key:
+            raise HTTPException(403, "Необходимо авторизоваться или иметь сессию")
+        deleted = store.saved_search_delete(search_id=sid, user_key=buyer_key)
+        if not deleted:
+            raise HTTPException(404, "Поиск не найден или нет прав")
+        return {"ok": True}
+
     # ------------------------------------------------------------------ админ: продавцы
     @app.get("/admin/api/sellers")
     async def admin_sellers(x_admin_token: str = Header(default="")):

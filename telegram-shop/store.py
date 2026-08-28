@@ -241,6 +241,15 @@ CREATE TABLE IF NOT EXISTS offers(
   status TEXT DEFAULT 'pending', message TEXT DEFAULT '',
   seller_note TEXT DEFAULT '', created_at TEXT DEFAULT '', updated_at TEXT DEFAULT ''
 );
+CREATE TABLE IF NOT EXISTS comparisons(
+  id INTEGER PRIMARY KEY AUTOINCREMENT, user_key TEXT DEFAULT '',
+  product_ids TEXT DEFAULT '[]', created_at TEXT DEFAULT ''
+);
+CREATE TABLE IF NOT EXISTS saved_searches(
+  id INTEGER PRIMARY KEY AUTOINCREMENT, user_key TEXT DEFAULT '',
+  query TEXT DEFAULT '', filters TEXT DEFAULT '{}',
+  created_at TEXT DEFAULT '', updated_at TEXT DEFAULT ''
+);
 CREATE TABLE IF NOT EXISTS wh_push_subs(
   id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER DEFAULT 0,
   sub TEXT DEFAULT '', created_at TEXT DEFAULT ''
@@ -2348,6 +2357,92 @@ class Store:
                 (_now_iso(), int(offer_id)))
             self._conn.commit()
             return self.offer_by_id(offer_id)
+
+    # ---------------- сравнение товаров (#8) ----------------
+    def compare_add(self, user_key: str, product_id: int) -> list:
+        product = self.get_product(int(product_id))
+        if not product or not product.get("in_stock"):
+            raise ValueError("Товар не найден или отсутствует")
+        with _lock:
+            r = self._q1("SELECT * FROM comparisons WHERE user_key=? ORDER BY created_at DESC LIMIT 1",
+                         (str(user_key or ""),))
+            ids = []
+            if r:
+                try:
+                    ids = json.loads(r.get("product_ids") or "[]")
+                except Exception:
+                    ids = []
+            if int(product_id) in ids:
+                return [self.get_product(pid) for pid in ids if self.get_product(pid) and self.get_product(pid).get("in_stock")]
+            ids.append(int(product_id))
+            ids = ids[-10:]  # максимум 10 товаров в сравнении
+            if r:
+                self._conn.execute(
+                    "UPDATE comparisons SET product_ids=?, updated_at=? WHERE id=?",
+                    (json.dumps(ids, ensure_ascii=False), _now_iso(), int(r["id"])))
+            else:
+                self._conn.execute(
+                    "INSERT INTO comparisons(user_key, product_ids, created_at) VALUES(?,?,?)",
+                    (str(user_key or ""), json.dumps(ids, ensure_ascii=False), _now_iso()))
+            self._conn.commit()
+            return [self.get_product(pid) for pid in ids if self.get_product(pid) and self.get_product(pid).get("in_stock")]
+
+    def compare_remove(self, user_key: str, product_id: int) -> list:
+        with _lock:
+            r = self._q1("SELECT * FROM comparisons WHERE user_key=? ORDER BY created_at DESC LIMIT 1",
+                         (str(user_key or ""),))
+            if not r:
+                return []
+            try:
+                ids = json.loads(r.get("product_ids") or "[]")
+            except Exception:
+                ids = []
+            ids = [pid for pid in ids if int(pid) != int(product_id)]
+            self._conn.execute(
+                "UPDATE comparisons SET product_ids=?, updated_at=? WHERE id=?",
+                (json.dumps(ids, ensure_ascii=False), _now_iso(), int(r["id"])))
+            self._conn.commit()
+            return [self.get_product(pid) for pid in ids if self.get_product(pid) and self.get_product(pid).get("in_stock")]
+
+    def compare_list(self, user_key: str) -> list:
+        r = self._q1("SELECT * FROM comparisons WHERE user_key=? ORDER BY created_at DESC LIMIT 1",
+                     (str(user_key or ""),))
+        if not r:
+            return []
+        try:
+            ids = json.loads(r.get("product_ids") or "[]")
+        except Exception:
+            return []
+        out = []
+        for pid in ids:
+            p = self.get_product(int(pid))
+            if p and p.get("in_stock"):
+                out.append(p)
+        return out
+
+    # ---------------- сохранённые поиски (#8) ----------------
+    def saved_search_create(self, user_key: str, query: str = "", filters: dict = None) -> dict:
+        filters_json = json.dumps(filters or {}, ensure_ascii=False)
+        with _lock:
+            self._conn.execute(
+                "INSERT INTO saved_searches(user_key, query, filters, created_at, updated_at) VALUES(?,?,?,?,?)",
+                (str(user_key or ""), str(query or "")[:200], filters_json, _now_iso(), _now_iso()))
+            self._conn.commit()
+            r = self._q1("SELECT * FROM saved_searches ORDER BY id DESC LIMIT 1")
+            return dict(r) if r else None
+
+    def saved_searches(self, user_key: str) -> list:
+        return [dict(r) for r in self._q(
+            "SELECT * FROM saved_searches WHERE user_key=? ORDER BY created_at DESC",
+            (str(user_key or ""),))]
+
+    def saved_search_delete(self, search_id: int, user_key: str) -> bool:
+        with _lock:
+            self._conn.execute(
+                "DELETE FROM saved_searches WHERE id=? AND user_key=?",
+                (int(search_id), str(user_key or "")))
+            self._conn.commit()
+            return self._conn.total_changes > 0
 
     # ---------------- push-подписки склада ----------------
     def wh_push_add(self, user_id: int, sub: dict):
