@@ -196,6 +196,7 @@ function renderCatalogShell() {
         <option value="price_asc">Сначала дешевле</option>
         <option value="price_desc">Сначала дороже</option>
       </select>
+      <input class="search" id="geo-city" placeholder="🏙️ Город…" oninput="renderCatalogList()" style="width:140px">
       <button class="btn ghost" onclick="saveSearch()">💾 Сохранить поиск</button>
       <button class="btn ghost" onclick="showSavedSearchNotify()">📬 Уведомления</button>
     </div>
@@ -207,8 +208,14 @@ function renderCatalogList() {
   const q = ($('#search')?.value || '').toLowerCase();
   const cat = $('#cat')?.value || '';
   const sort = $('#sort')?.value || 'def';
+  const geoCity = ($('#geo-city')?.value || '').trim();
   let list = S.catalog.filter(p =>
-    (!q || p.name.toLowerCase().includes(q)) && (!cat || p.category === cat));
+    (!q || p.name.toLowerCase().includes(q) || p.category.toLowerCase().includes(q)) && (!cat || p.category === cat));
+  if (geoCity) {
+    // Заглушка: фильтруем товары, в названии/категории которых есть город
+    const gc = geoCity.toLowerCase();
+    list = list.filter(p => p.name.toLowerCase().includes(gc) || (p.category || '').toLowerCase().includes(gc));
+  }
   if (sort === 'price_asc') list = [...list].sort((a, b) => a.price - b.price);
   if (sort === 'price_desc') list = [...list].sort((a, b) => b.price - a.price);
   $('#grid').innerHTML = list.length ? list.map(cardHtml).join('') : '<div class="empty">Ничего не найдено 🔍</div>';

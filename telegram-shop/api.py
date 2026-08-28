@@ -2857,6 +2857,16 @@ def create_app(store, providers: dict, bot=None, notify_new_order=None, notify_o
         seller = require_seller(x_seller_key)
         return store.partner_referrals(seller_id=seller["id"])
 
+    @app.get("/api/search/geo")
+    async def search_geo(q: str = "", city: str = "", radius_km: int = 50):
+        return store.geo_search(query=q, city=city, radius_km=int(radius_km or 50))
+
+    @app.get("/api/search/suggest")
+    async def search_suggest(q: str = "", limit: int = 10):
+        results = store.search_products(q, limit=int(limit or 10))
+        return {"suggestions": [{"id": pid, "name": (store.get_product(pid) or {}).get("name", ""), "score": sc}
+                                      for pid, sc in results[:limit]]}
+
     @app.get("/api/boost/price")
     async def boost_prices():
         ps = (store.settings.get("tariffs") or {}).get("promo_services") or {}

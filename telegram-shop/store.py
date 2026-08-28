@@ -267,6 +267,10 @@ CREATE TABLE IF NOT EXISTS partner_referrals(
   referrer_seller_id INTEGER DEFAULT 0, buyer_key TEXT DEFAULT '',
   order_id TEXT DEFAULT '', commission_amount INTEGER DEFAULT 0, created_at TEXT DEFAULT ''
 );
+CREATE TABLE IF NOT EXISTS geo_locations(
+  id INTEGER PRIMARY KEY AUTOINCREMENT, city TEXT DEFAULT '', region TEXT DEFAULT '',
+  lat REAL DEFAULT 0, lng REAL DEFAULT 0, created_at TEXT DEFAULT ''
+);
 CREATE TABLE IF NOT EXISTS wh_push_subs(
   id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER DEFAULT 0,
   sub TEXT DEFAULT '', created_at TEXT DEFAULT ''
@@ -2650,6 +2654,25 @@ class Store:
         return n
 
     # ---------------- маркетплейс: подкатегории, поиск, избранное ----------------
+    def geo_search(self, query: str = "", city: str = "", radius_km: int = 50, limit: int = 30) -> list:
+        """Простая заглушка гео-поиска: ищет товары с совпадением города или по названию."""
+        city_lower = (city or "").lower().strip()
+        out = []
+        for p in self.products():
+            if not p.get("in_stock"):
+                continue
+            match_city = True
+            if city_lower:
+                match_city = city_lower in (p.get("category") or "").lower() or city_lower in (p.get("name") or "").lower()
+            if not match_city:
+                continue
+            score = search_score(p, query) if query else 10
+            if query and score == 0:
+                continue
+            out.append(p)
+        out.sort(key=lambda p: -search_score(p, query) if query else -p.get("price", 0))
+        return out[:limit]
+
     def subcategories(self, category: str = "") -> list:
         """Подкатегории из таблицы catalog_cats; если для категории ничего нет —
         собирает из товаров (subcategory полей)."""
