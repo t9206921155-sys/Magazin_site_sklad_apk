@@ -2301,6 +2301,9 @@ def create_app(store, providers: dict, bot=None, notify_new_order=None, notify_o
                                            ("Продавцы", _abs(request, "/sellers")),
                                            (data["store_name"], url)], url),
             seller=data,
+            seller_rating=store.seller_rating(data.get("id") or 0),
+            seller_review_stats=store.seller_review_stats(data.get("id") or 0),
+            seller_reviews=store.seller_reviews(data.get("id") or 0),
         )
         return _render(request, "seller.html", ctx)
 
