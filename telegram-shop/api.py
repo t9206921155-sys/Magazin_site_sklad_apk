@@ -2784,6 +2784,44 @@ def create_app(store, providers: dict, bot=None, notify_new_order=None, notify_o
             raise HTTPException(404, "Поиск не найден или нет прав")
         return {"ok": True}
 
+    @app.get("/api/seller/reviews")
+    async def seller_reviews_endpoint(seller_id: int = 0, slug: str = ""):
+        sid = seller_id or (store.get_seller(slug=slug) or {}).get("id") or 0
+        if not sid:
+            raise HTTPException(404, "Продавец не найден")
+        return store.seller_reviews(sid)
+
+    @app.post("/api/seller/review")
+    async def seller_review_create(body: dict, request: Request):
+        buyer_key = _buyer_key(request)
+        if not buyer_key:
+            raise HTTPException(403, "Необходимо авторизоваться или иметь сессию")
+        seller_id = int(body.get("seller_id") or 0)
+        try:
+            return store.add_seller_review(
+                seller_id=seller_id,
+                buyer_key=buyer_key,
+                buyer_name=str(body.get("buyer_name") or ""),
+                rating=int(body.get("rating") or 5),
+                text=str(body.get("text") or ""),
+            )
+        except ValueError as e:
+            raise HTTPException(422, str(e))
+
+    @app.get("/api/seller/{slug}/rating")
+    async def seller_rating_public(slug: str):
+        seller = store.get_seller(slug=slug)
+        if not seller:
+            raise HTTPException(404, "Продавец не найден")
+        sid = int(seller.get("id") or 0)
+        return {
+            "seller": seller,
+            "rating_summary": store.seller_rating(sid),
+            "rating_details": store.seller_rating_details(sid),
+            "reviews": store.seller_reviews(sid),
+            "review_stats": store.seller_review_stats(sid),
+        }
+
     @app.get("/api/saved_searches/notify")
     async def saved_search_notify(request: Request):
         buyer_key = _buyer_key(request)

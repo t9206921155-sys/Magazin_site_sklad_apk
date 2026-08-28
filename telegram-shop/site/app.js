@@ -130,6 +130,7 @@ function parseRoute() {
   if (!parts.length) return { name: 'home' };
   if (parts[0] === 'p') return { name: 'product', id: +parts[1] };
   if (parts[0] === 'pay') return { name: 'pay', orderId: parts[1] };
+  if (parts[0] === 'seller' && parts[2] === 'rating') return { name: 'seller_rating', slug: parts[1] };
   if (parts[0] === 'compare') return { name: 'compare' };
   if (parts[0] === 'success') return { name: 'success', orderId: parts[1] };
   return { name: parts[0] };
@@ -146,6 +147,7 @@ async function router() {
     else if (r.name === 'cart') { v.innerHTML = renderCart(); bindCheckout(); }
     else if (r.name === 'pay') await renderPay(r.orderId);
     else if (r.name === 'success') await renderSuccess(r.orderId);
+    else if (r.name === 'seller_rating') v.innerHTML = await renderSellerRating(r.slug);
     else if (r.name === 'compare') v.innerHTML = renderCompare();
     else if (r.name === 'orders') { v.innerHTML = renderOrdersShell(); await loadOrders(); }
     else if (r.name === 'delivery') v.innerHTML = renderStatic('🚚 Доставка', S.config.texts?.delivery);
@@ -262,6 +264,72 @@ function renderProduct(id) {
   </div>`;
 }
 function renderCompare() {
+  fetch('/api/compare', { headers: { 'Content-Type': 'application/json' } }).then(async r => {
+    const data = await r.json();
+    const items = data || [];
+    const v = $('#view');
+    if (!items.length) {
+      v.innerHTML = '<div class="empty">Сравнение пусто. Добавьте товары через кнопку ⚖️ в карточках.</div>';
+      return;
+    }
+    const headers = ['Параметр', ...items.map(p => p.name || '—')];
+    const rows = [
+      ['Фото', ...items.map(p => `<img src="${esc(p.photo)}" alt="${esc(p.name)}" style="max-width:120px;max-height:100px;">`)],
+      ['Категория', ...items.map(p => esc(p.category || ''))],
+      ['Цена', ...items.map(p => fmt(p.price))],
+      ['Старая цена', ...items.map(p => p.old_price > 0 ? fmt(p.old_price) : '—')],
+      ['Наличие', ...items.map(p => p.stock >= 0 ? `${p.stock} шт.` : '—')],
+      ['Артикул', ...items.map(p => esc(p.code || '—'))],
+      ['Описание', ...items.map(p => `<div style="font-size:13px;color:#555">${esc(p.description || '').slice(0, 120)}${(p.description || '').length > 120 ? '…' : ''}</div>`)],
+    ];
+    v.innerHTML = `
+    <div class="sect">
+      <h2>⚖️ Сравнение товаров (${items.length})</h2>
+      <div style="overflow:auto">
+        <table style="width:100%;border-collapse:collapse;font-size:14px">
+          <thead><tr style="background:#f6f7fb">${headers.map(h => `<th style="padding:10px;text-align:left;border-bottom:2px solid #d1d5db">${esc(typeof h === 'string' ? h : '')}</th>`).join('')}</tr></thead>
+          <tbody>${rows.map(row => `<tr style="border-bottom:1px solid #eaeaea">${row.map(cell => `<td style="padding:10px;vertical-align:top">${cell}</td>`).join('')}</tr>`).join('')}</tbody>
+        </table>
+      </div>
+      <div style="margin-top:12px">${items.map(p => `<button class="btn ghost" onclick="location.hash='#/p/${p.id}'">${esc(p.name)}</button>`).join(' ')}</div>
+    </div>`;
+  }).catch(e => {
+    $('#view').innerHTML = '<div class="empty">Не удалось загрузить сравнение</div>';
+  });
+}
+
+async function renderSellerRating(slug) {
+  const v = $('#view');
+  v.innerHTML = '<div class="empty">Загружаем рейтинг продавца…</div>';
+  try {
+    const data = await api('/api/seller/' + encodeURIComponent(slug) + '/rating');
+    const s = data.seller || {};
+    const rating = data.rating_summary || {};
+    const reviews = data.reviews || [];
+    const stats = data.review_stats || { avg: 0, count: 0 };
+    const details = data.rating_details || {};
+    v.innerHTML = `
+    <div class="sect">
+      <a class="back-link" href="#/catalog">← Назад в каталог</a>
+      <h2>⭐ Рейтинг продавца: ${esc(s.store_name || s.slug || slug)}</h2>
+      <div style="margin-top:14px">
+        <div style="font-size:48px;font-weight:bold;color:#4f46e5">${rating.rating ? rating.rating.toFixed(1) : '—'}/5.0</div>
+        <div class="hint">Средняя оценка: ${stats.avg ? stats.avg.toFixed(1) : '—'} из 5 (${stats.count || 0} отзывов о продавце)</div>
+        <div class="hint">Одобрено отзывов: ${rating.reviews_approved || 0} / Всего: ${rating.reviews_total || 0} (${rating.approval_rate ? rating.approval_rate.toFixed(1) + '%' : '—'})</div>
+        <div class="hint">Ответов в чатах: ${rating.response_rate || 0}% • Скорость ответа: ${rating.response_time_hours || 24} ч</div>
+        <div class="hint">Статус: ${rating.status || '—'} • Тариф: ${(rating.plan || '—')}</div>
+      </div>
+      <h3 style="margin-top:22px">Отзывы о продавце</h3>
+      ${reviews.length ? reviews.map(r => `
+        <div style="border:1px solid #eaeaea;padding:14px;margin:8px 0;border-radius:8px;background:#fafbfc">
+          <div><b>${esc(r.author || 'Гость')}</b> · <span style="color:#f59e0b">${'★'.repeat(r.rating || 5)}${'☆'.repeat(5 - (r.rating || 5))}</span> · ${esc(r.created_at ? r.created_at.slice(0, 10) : '')}</div>
+          <div style="margin-top:6px;color:#333">${esc(r.text || '')}</div>
+        </div>`).join('') : '<div class="empty">Отзывов о продавце пока нет.</div>'}
+    </div>`;
+  } catch (e) {
+    v.innerHTML = '<div class="empty">Не удалось загрузить рейтинг продавца</div>';
+  }
+}
   fetch('/api/compare', { headers: { 'Content-Type': 'application/json' } }).then(async r => {
     const data = await r.json();
     const items = data || [];

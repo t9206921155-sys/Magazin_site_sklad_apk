@@ -187,6 +187,12 @@ CREATE TABLE IF NOT EXISTS reviews(
   rating INTEGER DEFAULT 5, text TEXT DEFAULT '', status TEXT DEFAULT 'pending',
   created_at TEXT
 );
+CREATE TABLE IF NOT EXISTS seller_reviews(
+  id INTEGER PRIMARY KEY AUTOINCREMENT, seller_id INTEGER DEFAULT 0,
+  buyer_key TEXT DEFAULT '', buyer_name TEXT DEFAULT '',
+  rating INTEGER DEFAULT 5, text TEXT DEFAULT '', status TEXT DEFAULT 'pending',
+  created_at TEXT DEFAULT ''
+);
 CREATE TABLE IF NOT EXISTS posts(
   id INTEGER PRIMARY KEY AUTOINCREMENT, slug TEXT UNIQUE, title TEXT, excerpt TEXT,
   content TEXT, cover TEXT DEFAULT '', published INTEGER DEFAULT 0, created_at TEXT
@@ -1732,6 +1738,39 @@ class Store:
             "product_ratings": sorted(ratings_per_product, key=lambda x: -x["avg"]),
             "reviews_list": sorted(seller_reviews, key=lambda x: x.get("date", ""), reverse=True)[:50],
         }
+
+    # ---------------- отзывы о продавце (#7 улучшение) ----------------
+    def add_seller_review(self, seller_id: int, buyer_key: str, buyer_name: str = "",
+                          rating: int = 5, text: str = "") -> dict:
+        s = self.get_seller(seller_id)
+        if not s:
+            raise ValueError("Продавец не найден")
+        if int(s.get("id") or 0) != int(seller_id):
+            raise ValueError("Неверный ID продавца")
+        with _lock:
+            status = "approved" if self._settings.get("auto_approve_reviews") else "pending"
+            self._conn.execute(
+                "INSERT INTO seller_reviews(seller_id, buyer_key, buyer_name, rating, text, status, created_at)"
+                " VALUES(?,?,?,?,?,?,?)",
+                (int(seller_id), str(buyer_key or ""), str(buyer_name or "")[:60],
+                 max(1, min(5, int(rating))), str(text or "")[:1000], status, _now_iso()))
+            self._conn.commit()
+            r = self._q1("SELECT * FROM seller_reviews ORDER BY id DESC LIMIT 1")
+            return dict(r) if r else None
+
+    def seller_reviews(self, seller_id: int, only_approved: bool = True) -> list:
+        sql = "SELECT * FROM seller_reviews WHERE seller_id=?"
+        if only_approved:
+            sql += " AND status='approved'"
+        sql += " ORDER BY created_at DESC"
+        return [dict(r) for r in self._q(sql, (int(seller_id),))]
+
+    def seller_review_stats(self, seller_id: int) -> dict:
+        rows = self._q("SELECT rating FROM seller_reviews WHERE seller_id=? AND status='approved'", (int(seller_id),))
+        if not rows:
+            return {"avg": 0, "count": 0}
+        vals = [r["rating"] for r in rows]
+        return {"avg": round(sum(vals) / len(vals), 1), "count": len(vals)}
 
     def create_payout(self, seller_id: int, amount: int, status: str = "paid", note: str = "") -> dict:
         with _lock:
