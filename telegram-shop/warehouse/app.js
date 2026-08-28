@@ -423,10 +423,10 @@ async function aiGen(mode) {
       $('#f-desc').value = r.text || $('#f-desc').value;
       toast('Текст объявления подставлен в описание ✅');
     } else {
+      const label = mode === 'vk' ? 'VK' : mode === 'instagram' ? 'Instagram' : 'Telegram';
       const text = (r.text || '') + '\n\n' + ((r.hashtags || []).join(' '));
       try { await navigator.clipboard.writeText(text); } catch (e) {}
       prompt('Пост для ' + label + ' (скопирован в буфер):', text);
-      const label = mode === 'vk' ? 'VK' : mode === 'instagram' ? 'Instagram' : 'Telegram';
       toast('Пост для ' + label + ' готов 📣');
     }
   } catch (e) { toast(e.message, true); }
