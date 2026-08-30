@@ -235,7 +235,9 @@ JSON-метаданные: `/api/releases/android`, privacy page: `/privacy`,
 deploy-checklist: `DEPLOY-CHECKLIST.md`, быстрый prod deploy: `PROD-DEPLOY-QUICKSTART.md`,
 merge-ready план: `MERGE-READY-PLAN.md`, merge-команды: `MERGE-COMMAND-BLOCK.md`,
 PR/merge summary: `PR-MERGE-SUMMARY-RU.md`, final handoff: `FINAL-RELEASE-HANDOFF.md`,
-step-by-step guide: `STEP-BY-STEP-RUNBOOK.md`, smoke-check script: `scripts/post_deploy_smoke_check.sh`,
+step-by-step guide: `STEP-BY-STEP-RUNBOOK.md`, first launch: `FIRST-LAUNCH-15-MIN.md`,
+employee guide: `WAREHOUSE-EMPLOYEE-GUIDE.md`, owner/admin setup: `OWNER-ADMIN-SETUP.md`,
+smoke-check script: `scripts/post_deploy_smoke_check.sh`,
 merge helper: `scripts/merge_feature_to_main.sh`, release status: `scripts/release_status.sh`,
 чек-лист карточки: `RUSTORE-CARD-CHECKLIST.md`.
 Дорожная карта, аналоги сервисов (МойСклад, LiteBox, Sortly), многопользовательский
