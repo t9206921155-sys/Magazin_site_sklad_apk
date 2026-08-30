@@ -5,6 +5,7 @@ import android.annotation.SuppressLint;
 import android.app.Activity;
 import android.content.ActivityNotFoundException;
 import android.content.Intent;
+import android.graphics.Color;
 import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.net.Uri;
@@ -65,7 +66,7 @@ public class MainActivity extends AppCompatActivity {
     private static final int REQ_FILE = 1001;
     private static final int REQ_CAMERA_WEB = 1002;
     private static final int REQ_CAMERA_NATIVE = 1003;
-    private static final String APP_UA = " SkladApp/1.0.5";
+    private static final String APP_UA = " SkladApp/1.0.6";
 
     private WebView webView;
     private View mainView, setupView;
@@ -124,7 +125,7 @@ public class MainActivity extends AppCompatActivity {
             if (!baseUrl.isEmpty()) {
                 loadWarehouse();
             } else {
-                showSetup("Введите адрес вашего сервера.");
+                showSetup("Откройте настройки подключения и укажите адрес вашего склада на VPS.", false);
             }
         }
     }
@@ -140,8 +141,7 @@ public class MainActivity extends AppCompatActivity {
     private void connect() {
         String raw = urlInput.getText().toString().trim();
         if (raw.isEmpty()) {
-            setupError.setText("Введите адрес сервера, например https://myshop.ru/warehouse/");
-            setupError.setVisibility(View.VISIBLE);
+            showSetup("Введите адрес сервера, например https://myshop.ru/warehouse/", true);
             return;
         }
         setServerUrl(raw, true);
@@ -156,7 +156,7 @@ public class MainActivity extends AppCompatActivity {
         webView.loadUrl("about:blank");
         updateMeta();
         resetUpdateState();
-        showSetup("Адрес сервера сброшен. Введите новый адрес или откройте ссылку настройки.");
+        showSetup("Адрес склада сброшен. Укажите новый адрес в настройках подключения или откройте ссылку настройки.", false);
     }
 
     private void setServerUrl(String raw, boolean showToast) {
@@ -203,7 +203,7 @@ public class MainActivity extends AppCompatActivity {
 
     private void loadWarehouse() {
         if (baseUrl == null || baseUrl.isEmpty()) {
-            showSetup("Сначала укажите адрес сервера.");
+            showSetup("Сначала укажите адрес склада в настройках подключения.", true);
             return;
         }
         setupView.setVisibility(View.GONE);
@@ -256,7 +256,7 @@ public class MainActivity extends AppCompatActivity {
             Toast.makeText(this, "Сервер импортирован из ссылки", Toast.LENGTH_SHORT).show();
             loadWarehouse();
         } else {
-            showSetup(message);
+            showSetup(message, false);
         }
         return true;
     }
@@ -264,7 +264,7 @@ public class MainActivity extends AppCompatActivity {
     private void updateMeta() {
         String current = (baseUrl == null || baseUrl.isEmpty()) ? "не подключён" : baseUrl;
         appMeta.setText("Версия " + BuildConfig.VERSION_NAME + " • package " + BuildConfig.APPLICATION_ID + "\nТекущий сервер: " + current);
-        setupHint.setText("Можно открыть ссылку вида sklad://setup?url=https://ваш-домен/warehouse/\nили sklad://connect?url=https://ваш-домен/warehouse/ для мгновенного подключения. QR-код генерируется на странице /download/android, а внутри APK есть web-сканер и нативный fallback-сканер Android.");
+        setupHint.setText("Подключение к складу хранится в настройках APK. Можно открыть ссылку вида sklad://setup?url=https://ваш-домен/warehouse/\nили sklad://connect?url=https://ваш-домен/warehouse/ для мгновенного подключения. QR-код генерируется на странице /download/android, а внутри APK есть web-сканер и нативный fallback-сканер Android.");
         btnBack.setVisibility(baseUrl == null || baseUrl.isEmpty() ? View.GONE : View.VISIBLE);
         btnReset.setVisibility(baseUrl == null || baseUrl.isEmpty() ? View.GONE : View.VISIBLE);
     }
@@ -515,11 +515,17 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-    private void showSetup(String error) {
+    private void showSetup(String message, boolean isError) {
         mainView.setVisibility(View.GONE);
         setupView.setVisibility(View.VISIBLE);
-        setupError.setVisibility(error == null ? View.GONE : View.VISIBLE);
-        if (error != null) setupError.setText(error);
+        if (TextUtils.isEmpty(message)) {
+            setupError.setVisibility(View.GONE);
+            setupError.setText("");
+        } else {
+            setupError.setVisibility(View.VISIBLE);
+            setupError.setText(message);
+            setupError.setTextColor(Color.parseColor(isError ? "#DC2626" : "#0F766E"));
+        }
         updateMeta();
     }
 
@@ -605,7 +611,7 @@ public class MainActivity extends AppCompatActivity {
         });
 
         webView.setOnLongClickListener(v -> {
-            showSetup("Настройки приложения. Можно сменить сервер, открыть ссылку настройки, проверить обновления или сбросить сохранённый адрес.");
+            showSetup("Настройки подключения APK. Здесь можно изменить адрес склада, проверить обновления и при необходимости сбросить подключение.", false);
             return true;
         });
     }
@@ -676,6 +682,26 @@ public class MainActivity extends AppCompatActivity {
         @JavascriptInterface
         public String appVersion() {
             return BuildConfig.VERSION_NAME;
+        }
+
+        @JavascriptInterface
+        public boolean canOpenAppSettings() {
+            return true;
+        }
+
+        @JavascriptInterface
+        public void openAppSettings() {
+            runOnUiThread(() -> showSetup("Настройки подключения APK. Здесь можно изменить адрес склада, проверить обновления и при необходимости сбросить подключение.", false));
+        }
+
+        @JavascriptInterface
+        public String currentServerUrl() {
+            return baseUrl == null ? "" : baseUrl;
+        }
+
+        @JavascriptInterface
+        public void resetServerUrl() {
+            runOnUiThread(MainActivity.this::clearSavedServer);
         }
     }
 

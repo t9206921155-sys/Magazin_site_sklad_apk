@@ -10,7 +10,7 @@
 
 ```bash
 cd /path/to/repo
-./deploy/deploy.sh --domain https://example.com --expected-version 1.0.5
+./deploy/deploy.sh --domain https://example.com --expected-version 1.0.6
 ```
 
 ### Эквивалент вручную
@@ -41,7 +41,7 @@ git status
 ```
 
 Дополнительно вручную проверить на Android-устройстве:
-- установку `telegram-shop/apk/Sklad-1.0.5-release.apk`
+- установку `telegram-shop/apk/Sklad-1.0.6-release.apk`
 - deep link `sklad://connect?...`
 - QR onboarding
 - web-сканер и native fallback scanner
@@ -90,7 +90,7 @@ docker compose up -d
 ## 5. Текущий ожидаемый результат
 
 - ветка релиза: `arena/continue-marketplace-content`
-- APK: `telegram-shop/apk/Sklad-1.0.5-release.apk`
-- AAB: `telegram-shop/aab/Sklad-1.0.5-release.aab`
+- APK: `telegram-shop/apk/Sklad-1.0.6-release.apk`
+- AAB: `telegram-shop/aab/Sklad-1.0.6-release.aab`
 - package: `ru.telegramshop.sklad`
 - public pages: `/download/android`, `/download/android/rustore`, `/privacy`

@@ -51,8 +51,8 @@ docker compose up -d --build
 
 Готовые артефакты:
 
-- `telegram-shop/apk/Sklad-1.0.5-release.apk`
-- `telegram-shop/aab/Sklad-1.0.5-release.aab`
+- `telegram-shop/apk/Sklad-1.0.6-release.apk`
+- `telegram-shop/aab/Sklad-1.0.6-release.aab`
 
 Исходники Android-wrapper и сборка:
 
@@ -70,7 +70,7 @@ docker compose up -d --build
 - `telegram-shop/MERGE-COMMAND-BLOCK.md` — точный блок команд для deploy + merge
 - `telegram-shop/PR-MERGE-SUMMARY-RU.md` — готовое русскоязычное summary для PR / merge
 - `telegram-shop/RUSTORE-CARD-CHECKLIST.md` — тексты и ассеты для RuStore
-- `telegram-shop/FINAL-RELEASE-HANDOFF.md` — сводный handoff по релизу Android 1.0.5
+- `telegram-shop/FINAL-RELEASE-HANDOFF.md` — сводный handoff по релизу Android 1.0.6
 - `telegram-shop/STEP-BY-STEP-RUNBOOK.md` — полная пошаговая инструкция по серверу, складу, APK, облаку и публикации
 - `telegram-shop/FIRST-LAUNCH-15-MIN.md` — ультра-короткий сценарий первого запуска
 - `telegram-shop/WAREHOUSE-EMPLOYEE-GUIDE.md` — простая инструкция для сотрудника склада

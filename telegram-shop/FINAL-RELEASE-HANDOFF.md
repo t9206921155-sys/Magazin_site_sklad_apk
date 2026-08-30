@@ -1,11 +1,11 @@
-# 📦 Final release handoff — Android «Склад» 1.0.5
+# 📦 Final release handoff — Android «Склад» 1.0.6
 
 Итоговый handoff-пакет по ветке `arena/continue-marketplace-content`.
 
 ## 1. Текущее состояние
 
 - рабочая ветка: `arena/continue-marketplace-content`
-- целевой Android-релиз: `1.0.5`
+- целевой Android-релиз: `1.0.6`
 - package: `ru.telegramshop.sklad`
 - основной Android commit chain:
   - `d33d703` — deploy checklist + scanner inside APK
@@ -17,8 +17,8 @@
 
 ## 2. Готовые артефакты
 
-- APK: `telegram-shop/apk/Sklad-1.0.5-release.apk`
-- AAB: `telegram-shop/aab/Sklad-1.0.5-release.aab`
+- APK: `telegram-shop/apk/Sklad-1.0.6-release.apk`
+- AAB: `telegram-shop/aab/Sklad-1.0.6-release.aab`
 
 SHA-256:
 
@@ -33,7 +33,7 @@ AAB  68230e812b2ff81f9f449d64dbc134abdac24dbd17911da1da5686c0a483dd32
 - deep link onboarding: `sklad://setup` / `sklad://connect`
 - QR onboarding endpoint: `/api/releases/android/qr.svg`
 - release metadata endpoint: `/api/releases/android`
-- Android wrapper: `1.0.5 / versionCode 6`
+- Android wrapper: `1.0.6 / versionCode 7`
 - native fallback scanner bridge для случаев, когда `BarcodeDetector` в WebView нестабилен
 
 ### Контент / RuStore
@@ -68,14 +68,14 @@ AAB  68230e812b2ff81f9f449d64dbc134abdac24dbd17911da1da5686c0a483dd32
 
 ```bash
 cd /path/to/repo
-./deploy/deploy.sh --domain https://example.com --expected-version 1.0.5
+./deploy/deploy.sh --domain https://example.com --expected-version 1.0.6
 ```
 
 ### Post-deploy smoke-check
 
 ```bash
 cd /path/to/repo
-./telegram-shop/scripts/post_deploy_smoke_check.sh https://example.com 1.0.5
+./telegram-shop/scripts/post_deploy_smoke_check.sh https://example.com 1.0.6
 ```
 
 ### Быстрая сводка статуса релиза
@@ -94,7 +94,7 @@ cd /path/to/repo
 
 ## 6. Что ещё обязательно проверить руками
 
-- APK `telegram-shop/apk/Sklad-1.0.5-release.apk` на реальном Android-устройстве
+- APK `telegram-shop/apk/Sklad-1.0.6-release.apk` на реальном Android-устройстве
 - deep link `sklad://connect?...`
 - QR onboarding
 - web-сканер QR/штрих-кодов

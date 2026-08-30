@@ -69,7 +69,7 @@
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="Подключение к серверу"
+                    android:text="⚙️ Настройки подключения"
                     android:textSize="18sp"
                     android:textStyle="bold"
                     android:textColor="#0F172A" />
@@ -77,7 +77,7 @@
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="Введите адрес вручную, откройте deep link, сканируйте QR-код на странице загрузки или используйте камеру для поиска товара уже внутри склада."
+                    android:text="Адрес склада хранится в настройках APK. Здесь можно ввести адрес вручную, открыть deep link, отсканировать QR-код со страницы загрузки или сменить сервер позже."
                     android:textSize="13sp"
                     android:textColor="#64748B"
                     android:paddingTop="6dp"
@@ -118,7 +118,7 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="16dp"
-                    android:text="Подключиться"
+                    android:text="Сохранить и открыть склад"
                     android:textAllCaps="false"
                     android:backgroundTint="#0F766E" />
 
@@ -127,7 +127,7 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="8dp"
-                    android:text="Открыть склад"
+                    android:text="Вернуться в склад"
                     android:textAllCaps="false"
                     android:visibility="gone"
                     android:backgroundTint="#E2E8F0"
@@ -235,7 +235,7 @@
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="• Долгое нажатие в приложении открывает настройки\n• Фото можно выбирать по одному и несколькими файлами\n• Если путь не указан, приложение добавит /warehouse/ автоматически\n• Камера в WebView используется для сканирования QR и штрих-кодов\n• Новую версию APK можно отследить прямо из экрана настроек"
+                    android:text="• Подключение к складу находится в настройках APK\n• Адрес можно сменить без пересборки приложения\n• Если путь не указан, приложение добавит /warehouse/ автоматически\n• Камера в WebView используется для сканирования QR и штрих-кодов\n• Новую версию APK можно отследить прямо из экрана настроек"
                     android:textSize="12sp"
                     android:textColor="#64748B"
                     android:paddingTop="10dp" />

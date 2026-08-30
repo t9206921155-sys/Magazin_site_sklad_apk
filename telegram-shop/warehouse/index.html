@@ -205,7 +205,7 @@
   <div class="box">
     <div class="logo">📦</div>
     <h3 style="margin:8px 0 4px">Вход в склад</h3>
-    <p style="color:#64748b; font-size:13px; margin:0 0 14px">Единая облачная база — входите под своей учёткой, данные общие у всех устройств</p>
+    <p style="color:#64748b; font-size:13px; margin:0 0 14px">Единая база склада — входите под своей учёткой. Адрес сервера APK можно поменять в настройках подключения.</p>
     <input class="fld" id="login-inp" placeholder="Логин" value="admin">
     <input type="password" class="fld" id="pass" placeholder="Пароль">
     <label style="display:flex; align-items:center; gap:8px; font-size:13px; color:#64748b; margin-bottom:12px; cursor:pointer">
@@ -219,6 +219,10 @@
         <button class="btn primary" onclick="quickLoginWithPin()" style="margin-top:8px">Войти по PIN</button>
       </div>
       <div id="quickNote" style="font-size:12px; color:#64748b; margin-top:8px"></div>
+    </div>
+    <div id="apkSettingsBox" class="hidden" style="margin-top:14px; border-top:1px dashed #cbd5e1; padding-top:12px">
+      <button class="btn ghost" onclick="openNativeAppSettings()" style="margin-top:0">⚙️ Настройки подключения APK</button>
+      <div id="apkSettingsNote" style="font-size:12px; color:#64748b; margin-top:8px"></div>
     </div>
     <div id="loginErr" class="hidden" style="color:#dc2626; font-size:13px; margin-top:8px"></div>
   </div>

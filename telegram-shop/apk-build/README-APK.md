@@ -11,8 +11,8 @@ Android-приложение «Склад» — это WebView-обёртка PW
 | Возможность | Как работает |
 |---|---|
 | Полный интерфейс склада | WebView загружает `/warehouse/` с вашего сервера |
-| Ввод адреса сервера | При первом запуске — нативный экран настройки (не нужно пересобирать APK под каждый сервер) |
-| Смена сервера | Долгое нажатие на экран склада → экран настроек |
+| Подключение к складу | Адрес сервера хранится в нативных настройках APK; при первом запуске открывается экран подключения |
+| Смена сервера | Через настройки подключения APK без пересборки приложения |
 | Быстрая настройка по ссылке | deep link: `sklad://setup?url=...` или `sklad://connect?url=...` |
 | QR-подключение | сервер может отдать SVG QR-код для deep link: `/api/releases/android/qr.svg` |
 | Фото товаров с камеры | `input type=file` пробрасывается в системный выбор файлов/камеры |
@@ -24,14 +24,14 @@ Android-приложение «Склад» — это WebView-обёртка PW
 ## Готовые артефакты
 
 ```
-telegram-shop/apk/Sklad-1.0.5-release.apk
-telegram-shop/aab/Sklad-1.0.5-release.aab
+telegram-shop/apk/Sklad-1.0.6-release.apk
+telegram-shop/aab/Sklad-1.0.6-release.aab
 ```
 
 | Параметр | Значение |
 |---|---|
 | Имя пакета | `ru.telegramshop.sklad` |
-| Версия | 1.0.5 (versionCode 6) |
+| Версия | 1.0.6 (versionCode 7) |
 | minSdk | Android 6.0 (API 23) |
 | targetSdk | Android 14 (API 34) |
 | Подпись | release-ключ `keystore/telegramshop.keystore` (используется и для APK, и для AAB) |
@@ -40,10 +40,10 @@ telegram-shop/aab/Sklad-1.0.5-release.aab
 
 1. Переслать APK себе в Telegram (Избранное) → открыть → «Сохранить в загрузки».
 2. Открыть файл → Android спросит разрешение «Устанавливать из этого источника» → разрешить.
-3. Первый запуск: ввести адрес сервера, например `https://myshop.ru/warehouse/`
+3. При первом запуске откроются **настройки подключения APK** — введите адрес сервера, например `https://myshop.ru/warehouse/`
    (если путь не указан — `/warehouse/` добавится автоматически).
 4. После установки можно открыть ссылку вида `sklad://connect?url=https://myshop.ru/warehouse/` или отсканировать QR-код со страницы `/download/android` — приложение само подставит сервер.
-5. На экране настроек (долгое нажатие внутри приложения) доступна проверка новой версии APK.
+5. Внутри APK адрес склада можно менять через настройки подключения, а в настройках доступна проверка новой версии APK.
 6. Встроенный сканер в `/warehouse/` сначала пробует WebView-камеру, а при проблемах автоматически открывает нативный Android fallback.
 7. Войти под учёткой склада (например, demo-сотрудник `ivan` / `ivan123`).
 
@@ -58,10 +58,10 @@ cd apk-build
 Скрипт сам ставит JDK 17, Android SDK (platform 34, build-tools 34.0.0), Gradle 8.2.1
 в пользовательский cache (`~/.cache`), генерирует release-ключ и иконки, собирает и проверяет подпись.
 Результат:
-- `telegram-shop/apk/Sklad-1.0.5-release.apk`
-- `telegram-shop/aab/Sklad-1.0.5-release.aab`
+- `telegram-shop/apk/Sklad-1.0.6-release.apk`
+- `telegram-shop/aab/Sklad-1.0.6-release.aab`
 
-Текущая версия: `android/app/build.gradle` → `versionCode 6` / `versionName "1.0.5"`.
+Текущая версия: `android/app/build.gradle` → `versionCode 7` / `versionName "1.0.6"`.
 
 ## Публикация в RuStore
 

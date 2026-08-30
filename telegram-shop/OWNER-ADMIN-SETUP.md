@@ -48,7 +48,7 @@ PORT=8000
 Из корня репозитория:
 
 ```bash
-./deploy/deploy.sh --domain https://ваш-домен --expected-version 1.0.5
+./deploy/deploy.sh --domain https://ваш-домен --expected-version 1.0.6
 ```
 
 Если хотите вручную:
@@ -78,7 +78,7 @@ docker compose up -d
 Или выполните:
 
 ```bash
-./telegram-shop/scripts/post_deploy_smoke_check.sh https://ваш-домен 1.0.5
+./telegram-shop/scripts/post_deploy_smoke_check.sh https://ваш-домен 1.0.6
 ```
 
 ## 5. Что настроить в админке первым делом
@@ -132,8 +132,8 @@ docker compose up -d
 ## 7. Как подключить APK склада
 
 Файлы релиза:
-- `telegram-shop/apk/Sklad-1.0.5-release.apk`
-- `telegram-shop/aab/Sklad-1.0.5-release.aab`
+- `telegram-shop/apk/Sklad-1.0.6-release.apk`
+- `telegram-shop/aab/Sklad-1.0.6-release.aab`
 
 Для сотрудников используйте APK.
 
@@ -299,7 +299,7 @@ sklad://connect?url=https://ваш-домен/warehouse/
 ## 15. Что использовать для RuStore
 
 Для публикации нужен:
-- `telegram-shop/aab/Sklad-1.0.5-release.aab`
+- `telegram-shop/aab/Sklad-1.0.6-release.aab`
 
 Полезные страницы и файлы:
 - `/download/android/rustore`

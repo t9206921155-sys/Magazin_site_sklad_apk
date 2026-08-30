@@ -5,8 +5,8 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 cd "$REPO_ROOT"
 
-APK_PATH="telegram-shop/apk/Sklad-1.0.5-release.apk"
-AAB_PATH="telegram-shop/aab/Sklad-1.0.5-release.aab"
+APK_PATH="telegram-shop/apk/Sklad-1.0.6-release.apk"
+AAB_PATH="telegram-shop/aab/Sklad-1.0.6-release.aab"
 BUILD_FILE="telegram-shop/apk-build/android/app/build.gradle"
 
 printf 'Branch: %s\n' "$(git branch --show-current)"

@@ -21,12 +21,12 @@ docker compose up -d
 
 ```bash
 cd /path/to/repo
-./deploy/deploy.sh --domain https://example.com --expected-version 1.0.5
+./deploy/deploy.sh --domain https://example.com --expected-version 1.0.6
 ```
 
 Полезные флаги:
 - `--branch arena/continue-marketplace-content`
-- `--expected-version 1.0.5`
+- `--expected-version 1.0.6`
 - `--skip-smoke`
 - `--skip-pip`
 - `--cache`
@@ -43,9 +43,9 @@ cd /path/to/repo
 - `/api/releases/android`
 - `/api/releases/android/qr.svg?mode=connect`
 
-## Быстрый smoke-check APK 1.0.5
+## Быстрый smoke-check APK 1.0.6
 
-1. Установить `telegram-shop/apk/Sklad-1.0.5-release.apk`
+1. Установить `telegram-shop/apk/Sklad-1.0.6-release.apk`
 2. Открыть `sklad://connect?...`
 3. Проверить QR onboarding
 4. Проверить web-сканер QR/штрих-кодов

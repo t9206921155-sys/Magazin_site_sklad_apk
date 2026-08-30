@@ -199,10 +199,63 @@ function arrayBufferToB64(buf) {
 window.quickLoginStart = quickLoginStart;
 window.quickLoginWithPin = quickLoginWithPin;
 
+function isNativeAndroidApp() {
+  try { return !!window.AndroidScanner; } catch (e) { return false; }
+}
+function canOpenNativeAppSettings() {
+  try { return !!(window.AndroidScanner && typeof window.AndroidScanner.canOpenAppSettings === 'function' && window.AndroidScanner.canOpenAppSettings()); }
+  catch (e) { return false; }
+}
+function getNativeAppVersion() {
+  try { return window.AndroidScanner && typeof window.AndroidScanner.appVersion === 'function' ? String(window.AndroidScanner.appVersion() || '') : ''; }
+  catch (e) { return ''; }
+}
+function getNativeServerUrl() {
+  try { return window.AndroidScanner && typeof window.AndroidScanner.currentServerUrl === 'function' ? String(window.AndroidScanner.currentServerUrl() || '') : ''; }
+  catch (e) { return ''; }
+}
+function openNativeAppSettings() {
+  if (!canOpenNativeAppSettings()) return toast('Настройки APK доступны только внутри Android-приложения', true);
+  try { window.AndroidScanner.openAppSettings(); }
+  catch (e) { toast('Не удалось открыть настройки APK', true); }
+}
+async function copyText(value, okMsg) {
+  if (!value) return;
+  try {
+    await navigator.clipboard.writeText(value);
+    toast(okMsg || 'Скопировано');
+  } catch (e) {
+    prompt('Скопируйте вручную:', value);
+  }
+}
+function copyNativeServerUrl() {
+  const url = getNativeServerUrl();
+  if (!url) return toast('Адрес склада ещё не сохранён в APK', true);
+  copyText(url, 'Адрес склада скопирован');
+}
+function renderApkSettingsBox() {
+  const box = $('#apkSettingsBox');
+  const note = $('#apkSettingsNote');
+  if (!box || !note) return;
+  if (!canOpenNativeAppSettings()) {
+    box.classList.add('hidden');
+    note.textContent = '';
+    return;
+  }
+  const server = getNativeServerUrl();
+  const version = getNativeAppVersion();
+  box.classList.remove('hidden');
+  note.textContent = (server ? `Текущий адрес склада: ${server}` : 'Адрес склада ещё не задан.')
+    + (version ? ` · APK ${version}` : '');
+}
+window.openNativeAppSettings = openNativeAppSettings;
+window.copyNativeServerUrl = copyNativeServerUrl;
+
 // предзаполнение логина (учётные данные сохраняются на устройстве)
 const savedLogin = localStorage.getItem('wh_login');
 if (savedLogin) $('#login-inp').value = savedLogin;
 refreshQuickBox();
+renderApkSettingsBox();
 
 /* ---------- список ---------- */
 async function loadList() {
@@ -1035,9 +1088,20 @@ async function openSettings() {
     const s = await api('/api/warehouse/settings');
     const isAdmin = WHOAMI && WHOAMI.role === 'admin';
     const keyVal = s.cloud.key === '•••' ? '' : (s.cloud.key || '');
+    const apkVersion = getNativeAppVersion();
+    const apkServer = getNativeServerUrl();
+    const apkBlock = canOpenNativeAppSettings() ? `
+      <h3 style="margin:0 0 8px">📱 APK: подключение к складу</h3>
+      <p style="color:#64748b;font-size:12px;margin:0 0 8px">Адрес сервера хранится в самом Android-приложении. Если вы перенесёте склад на другой VPS или домен, меняйте адрес здесь — пересобирать APK не нужно.</p>
+      <div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:12px;padding:10px 12px;margin-bottom:8px;color:#1d4ed8;font-size:12px">Текущий адрес: <b>${esc(apkServer || 'не задан')}</b>${apkVersion ? ` · APK ${esc(apkVersion)}` : ''}</div>
+      <div class="airow">
+        <button class="mini" onclick="openNativeAppSettings()">⚙️ Настроить адрес APK</button>
+        <button class="mini" onclick="copyNativeServerUrl()">📋 Скопировать адрес</button>
+      </div>
+    ` : '';
     $('#sheet2-title').textContent = '⚙️ Настройки';
     const isS3 = (s.cloud.provider || 's3') === 's3';
-    $('#sheet2-body').innerHTML = `
+    $('#sheet2-body').innerHTML = apkBlock + `
       <h3 style="margin:14px 0 8px">☁️ Облако для фото и резервных копий</h3>
       <p style="color:#64748b;font-size:12px;margin:0 0 8px">Живая база склада остаётся на VPS в <code>data/shop.db</code>. Облако используется для фото, CDN-ссылок и резервной копии SQLite. Для схемы VPS + Yandex Object Storage укажите bucket <b>shop-photos</b> для картинок и <b>shop-backups</b> для бэкапов.</p>
       <label class="lb" style="display:flex;gap:8px;align-items:center"><input type="checkbox" id="cl-en" ${s.cloud.enabled ? 'checked' : ''} ${isAdmin ? '' : 'disabled'} style="accent-color:#0f766e"> Использовать облако</label>
@@ -1176,6 +1240,7 @@ async function openSettings() {
       applyS3Preset(cur);
     });
     loadCloudStatus();
+    renderApkSettingsBox();
     $('#sheet2').classList.remove('hidden');
   } catch (e) { toast(e.message, true); }
 }

@@ -158,7 +158,7 @@
 
 | Где | Поле | Что дать сотруднику | Пример |
 |---|---|---|---|
-| Android APK | файл установки | APK-файл склада | `telegram-shop/apk/Sklad-1.0.5-release.apk` |
+| Android APK | файл установки | APK-файл склада | `telegram-shop/apk/Sklad-1.0.6-release.apk` |
 | Первый экран приложения | адрес сервера | URL склада с `/warehouse/` на конце | `https://shop.example.com/warehouse/` |
 | Вход в приложение | логин | логин сотрудника | `worker1` |
 | Вход в приложение | пароль | пароль сотрудника | `StrongWorkerPass1` |

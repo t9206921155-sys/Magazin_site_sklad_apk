@@ -7,7 +7,7 @@ if [ "$#" -lt 1 ]; then
 fi
 
 BASE_URL="${1%/}"
-EXPECTED_VERSION="${2:-1.0.5}"
+EXPECTED_VERSION="${2:-1.0.6}"
 FAILS=0
 
 red() { printf '\033[31m%s\033[0m\n' "$*"; }
@@ -117,7 +117,7 @@ check_svg "/api/releases/android/qr.svg?mode=connect" "android-qr-connect"
 check_svg "/api/releases/android/qr.svg?mode=setup" "android-qr-setup"
 
 cyan "== Manual checks still required =="
-echo "- APK install: telegram-shop/apk/Sklad-1.0.5-release.apk"
+echo "- APK install: telegram-shop/apk/Sklad-1.0.6-release.apk"
 echo "- deep link: sklad://connect?..."
 echo "- QR onboarding on device"
 echo "- web scanner and native fallback scanner"

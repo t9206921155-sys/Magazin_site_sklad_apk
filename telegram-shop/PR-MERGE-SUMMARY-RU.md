@@ -11,7 +11,7 @@
 - добавлены JSON-метаданные релиза `/api/releases/android`
 - добавлена генерация SVG QR для onboarding `/api/releases/android/qr.svg`
 - подготовлены deploy- и RuStore-чеклисты
-- Android wrapper обновлён до `1.0.5 / versionCode 6`
+- Android wrapper обновлён до `1.0.6 / versionCode 7`
 - добавлен native fallback scanner bridge для QR/штрих-кодов, если `BarcodeDetector` в WebView нестабилен
 
 ## Зачем это изменение
@@ -33,10 +33,10 @@
 
 ### Android
 - package: `ru.telegramshop.sklad`
-- release: `1.0.5`
+- release: `1.0.6`
 - `versionCode`: `6`
-- APK: `telegram-shop/apk/Sklad-1.0.5-release.apk`
-- AAB: `telegram-shop/aab/Sklad-1.0.5-release.aab`
+- APK: `telegram-shop/apk/Sklad-1.0.6-release.apk`
+- AAB: `telegram-shop/aab/Sklad-1.0.6-release.aab`
 
 ### Web / backend
 - `/download/android`
@@ -75,7 +75,7 @@
 
 - что публичный `WEBAPP_URL` настроен корректно
 - что `/privacy` открывается без авторизации
-- что `/api/releases/android` отдаёт актуальную версию `1.0.5`
+- что `/api/releases/android` отдаёт актуальную версию `1.0.6`
 - что Android WebView не ломает scanner flow и при сбое открывается native fallback
 - что в RuStore не остались тестовые контакты
 
@@ -83,6 +83,6 @@
 
 1. Обновить production
 2. Пройти smoke-check страниц и release endpoints
-3. Проверить APK `1.0.5` на телефоне
+3. Проверить APK `1.0.6` на телефоне
 4. Завершить публикационный пакет RuStore
 5. После этого считать релиз полностью завершённым
