@@ -34,7 +34,7 @@ public class MainActivity extends AppCompatActivity {
     private static final String PREFS = "sklad_prefs";
     private static final String KEY_URL = "server_url";
     private static final int REQ_FILE = 1001;
-    private static final String APP_UA = " SkladApp/1.0";
+    private static final String APP_UA = " SkladApp/1.0.1";
 
     private WebView webView;
     private View mainView, setupView;
@@ -114,6 +114,28 @@ public class MainActivity extends AppCompatActivity {
         webView.loadUrl(baseUrl);
     }
 
+    private boolean isInternalUrl(String url) {
+        if (baseUrl == null || baseUrl.isEmpty() || url == null || url.isEmpty()) return false;
+        try {
+            Uri current = Uri.parse(baseUrl);
+            Uri target = Uri.parse(url);
+            String curScheme = current.getScheme() == null ? "" : current.getScheme();
+            String tgtScheme = target.getScheme() == null ? "" : target.getScheme();
+            String curHost = current.getHost();
+            String tgtHost = target.getHost();
+            if (curHost == null || tgtHost == null) return url.startsWith(baseUrl);
+            int curPort = current.getPort() != -1 ? current.getPort() : ("https".equalsIgnoreCase(curScheme) ? 443 : 80);
+            int tgtPort = target.getPort() != -1 ? target.getPort() : ("https".equalsIgnoreCase(tgtScheme) ? 443 : 80);
+            String path = target.getPath() == null ? "/" : target.getPath();
+            boolean sameOrigin = curScheme.equalsIgnoreCase(tgtScheme)
+                    && curHost.equalsIgnoreCase(tgtHost)
+                    && curPort == tgtPort;
+            return sameOrigin && (path.equals("/warehouse") || path.startsWith("/warehouse/") || url.startsWith(baseUrl));
+        } catch (Exception ignored) {
+            return url.startsWith(baseUrl);
+        }
+    }
+
     private void showSetup(String error) {
         mainView.setVisibility(View.GONE);
         setupView.setVisibility(View.VISIBLE);
@@ -145,7 +167,7 @@ public class MainActivity extends AppCompatActivity {
                 Uri uri = request.getUrl();
                 String url = uri.toString();
                 // Внутренняя навигация по складу — в WebView
-                if (!baseUrl.isEmpty() && url.startsWith(baseUrl)) return false;
+                if (isInternalUrl(url)) return false;
                 // Внешние ссылки (t.me, wa.me, оплата и т.п.) — в системный браузер/приложение
                 if (url.startsWith("http://") || url.startsWith("https://") || url.startsWith("tg://")) {
                     try {
@@ -175,6 +197,7 @@ public class MainActivity extends AppCompatActivity {
                 try {
                     Intent i = params.createIntent();
                     i.addCategory(Intent.CATEGORY_OPENABLE);
+                    i.putExtra(Intent.EXTRA_ALLOW_MULTIPLE, true);
                     startActivityForResult(i, REQ_FILE);
                 } catch (Exception e) {
                     filePathCallback = null;
@@ -197,8 +220,16 @@ public class MainActivity extends AppCompatActivity {
         if (requestCode == REQ_FILE) {
             if (filePathCallback == null) return;
             Uri[] results = null;
-            if (resultCode == Activity.RESULT_OK && data != null && data.getData() != null) {
-                results = new Uri[]{data.getData()};
+            if (resultCode == Activity.RESULT_OK && data != null) {
+                if (data.getClipData() != null) {
+                    int count = data.getClipData().getItemCount();
+                    results = new Uri[count];
+                    for (int i = 0; i < count; i++) {
+                        results[i] = data.getClipData().getItemAt(i).getUri();
+                    }
+                } else if (data.getData() != null) {
+                    results = new Uri[]{data.getData()};
+                }
             }
             filePathCallback.onReceiveValue(results);
             filePathCallback = null;

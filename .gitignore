@@ -28,10 +28,12 @@ venv/
 node_modules/
 dist/
 build/
+.gradle/
 
 # runtime data and generated artifacts
 telegram-shop/data/
 telegram-shop/backups/
 telegram-shop/*.log
 telegram-shop/apk/*.apk
+!telegram-shop/apk/Sklad-*-release.apk
 mobile/android/

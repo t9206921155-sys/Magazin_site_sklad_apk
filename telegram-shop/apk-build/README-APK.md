@@ -21,13 +21,13 @@ Android-приложение «Склад» — это WebView-обёртка PW
 ## Готовый APK
 
 ```
-telegram-shop/apk/Sklad-1.0.0-release.apk
+telegram-shop/apk/Sklad-1.0.1-release.apk
 ```
 
 | Параметр | Значение |
 |---|---|
 | Имя пакета | `ru.telegramshop.sklad` |
-| Версия | 1.0.0 (versionCode 1) |
+| Версия | 1.0.1 (versionCode 2) |
 | minSdk | Android 6.0 (API 23) |
 | targetSdk | Android 14 (API 34) |
 | Подпись | release-ключ `keystore/telegramshop.keystore` (пароль в rebuild-apk.sh) |
@@ -48,11 +48,11 @@ cd apk-build
 # пример: ./rebuild-apk.sh https://myshop.ru/warehouse/
 ```
 
-Скрипт сам ставит JDK 17, Android SDK (platform 34, build-tools 34.0.0), Gradle 8.7,
-генерирует release-ключ и иконки, собирает и проверяет подпись.
-Результат: `telegram-shop/apk/Sklad-1.0.0-release.apk`.
+Скрипт сам ставит JDK 17, Android SDK (platform 34, build-tools 34.0.0), Gradle 8.2.1
+в пользовательский cache (`~/.cache`), генерирует release-ключ и иконки, собирает и проверяет подпись.
+Результат: `telegram-shop/apk/Sklad-1.0.1-release.apk`.
 
-Сменить версию: `android/app/build.gradle` → `versionCode` / `versionName`.
+Текущая версия: `android/app/build.gradle` → `versionCode 2` / `versionName "1.0.1"`.
 
 ## Публикация в RuStore (отложено пользователем)
 
