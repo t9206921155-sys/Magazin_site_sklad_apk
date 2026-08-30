@@ -347,14 +347,15 @@ def create_app(store, providers: dict, bot=None, notify_new_order=None, notify_o
             "• загрузка одной или нескольких фотографий товара;\n"
             "• работа с остатками, ценами, этикетками и публикацией;\n"
             "• встроенное сканирование QR и штрих-кодов камерой внутри APK;\n"
+            "• нативный fallback-сканер Android, если BarcodeDetector в WebView ведёт себя нестабильно;\n"
             "• открытие внешних ссылок в браузере, без поломки рабочего сценария.\n\n"
             "Приложение подходит для владельца магазина, кладовщика и сотрудника точки выдачи. "
             "Если сервер уже настроен, достаточно установить APK или открыть deep link — адрес подставится автоматически. "
             "Это удобно для внутреннего внедрения, пилота и публикации в RuStore."
         )
         whats_new = (
-            f"Версия {latest_version}: сканирование QR и штрих-кодов внутри Android APK, deploy-checklist для прод-выкладки, "
-            "уточнённые материалы для публикации в RuStore и более понятный onboarding сотрудников."
+            f"Версия {latest_version}: добавлен нативный fallback-сканер Android для QR и штрих-кодов, обновлены RuStore-материалы "
+            "и чек-лист релизной выкладки."
         )
         return {
             "app_name": "Склад — Telegram Shop",
@@ -372,6 +373,11 @@ def create_app(store, providers: dict, bot=None, notify_new_order=None, notify_o
             "age_rating": "0+",
             "contact_email": "support@your-domain.example",
             "support_note": "Замените email и юридические данные перед публикацией, если используете бренд клиента.",
+            "moderator_note": (
+                "Приложение предназначено для сотрудников магазина и склада. Камера используется для сканирования "
+                "QR/штрих-кодов и для загрузки фото товаров. Если web-сканер в WebView нестабилен, внутри APK "
+                "доступен нативный Android fallback. Политика конфиденциальности опубликована по ссылке " + privacy_url + "."
+            ),
             "connect_link": _android_deep_link("connect", recommended_server_url),
             "setup_link": _android_deep_link("setup", recommended_server_url),
         }
@@ -380,7 +386,7 @@ def create_app(store, providers: dict, bot=None, notify_new_order=None, notify_o
     async def api_android_releases(request: Request):
         data = _android_release_files(request)
         recommended = _recommended_warehouse_url(request, request.query_params.get("server", ""))
-        latest_version = (data["latest_apk"] or data["latest_aab"] or {}).get("version", "1.0.4")
+        latest_version = (data["latest_apk"] or data["latest_aab"] or {}).get("version", "1.0.5")
         publication = _android_publication_pack(request, latest_version, recommended)
         return {
             "apk": data["latest_apk"],
@@ -408,7 +414,7 @@ def create_app(store, providers: dict, bot=None, notify_new_order=None, notify_o
         url = _abs(request, "/download/android")
         latest_apk = data["latest_apk"]
         latest_aab = data["latest_aab"]
-        latest_version = (latest_apk or latest_aab or {}).get("version", "1.0.4")
+        latest_version = (latest_apk or latest_aab or {}).get("version", "1.0.5")
         recommended_server_url = _recommended_warehouse_url(request, request.query_params.get("server", ""))
         publication = _android_publication_pack(request, latest_version, recommended_server_url)
         ctx = _seo_ctx(
@@ -433,7 +439,7 @@ def create_app(store, providers: dict, bot=None, notify_new_order=None, notify_o
     @app.get("/download/android/rustore")
     async def android_rustore_page(request: Request):
         data = _android_release_files(request)
-        latest_version = (data["latest_apk"] or data["latest_aab"] or {}).get("version", "1.0.4")
+        latest_version = (data["latest_apk"] or data["latest_aab"] or {}).get("version", "1.0.5")
         recommended_server_url = _recommended_warehouse_url(request, request.query_params.get("server", ""))
         publication = _android_publication_pack(request, latest_version, recommended_server_url)
         ctx = _seo_ctx(

@@ -48,7 +48,7 @@
     <ul class="checklist">
       <li>Заменить <code>{{ publication.contact_email }}</code> на рабочий email поддержки.</li>
       <li>Проверить название разработчика и юридические реквизиты в консоли RuStore.</li>
-      <li>Подготовить 4–8 скриншотов реального сценария: список товаров, карточка товара, печать этикеток, склад/остатки.</li>
+      <li>Подготовить 6 вертикальных скриншотов реального сценария: список товаров, карточка товара, сканер, печать, подключение, команда.</li>
       <li>Убедиться, что privacy page опубликован и открывается без авторизации.</li>
       <li>Загрузить именно AAB, а APK оставить для внутренних сотрудников и теста.</li>
     </ul>
@@ -79,6 +79,17 @@
     <div class="panel copy-card">
       <div class="copy-toolbar"><b>Ключевые слова</b><button class="btn ghost btn-copy-inline" type="button" data-copy-target="keywords">Копировать</button></div>
       <textarea id="keywords" class="copy-box" readonly>{{ publication.keywords }}</textarea>
+    </div>
+  </div>
+</section>
+
+<section class="sect">
+  <div class="sect-head"><h2>Комментарий модератору</h2><span class="sect-sub">короткий note на случай ручной проверки камеры и WebView</span></div>
+  <div class="copy-grid meta-grid">
+    <div class="panel copy-card copy-card-wide">
+      <div class="copy-toolbar"><b>Moderator note</b><button class="btn ghost btn-copy-inline" type="button" data-copy-target="moderator-note">Копировать</button></div>
+      <textarea id="moderator-note" class="copy-box tall" readonly>{{ publication.moderator_note }}</textarea>
+      <div class="hint">Подходит как короткое пояснение, зачем приложению камера и почему внутри APK есть web-сканер плюс нативный fallback.</div>
     </div>
   </div>
 </section>
@@ -149,61 +160,48 @@
 </section>
 
 <section class="sect">
-  <div class="sect-head"><h2>Скриншоты для карточки приложения</h2><span class="sect-sub">готовый порядок экранов для публикации в RuStore</span></div>
+  <div class="sect-head"><h2>Скриншоты для карточки приложения</h2><span class="sect-sub">финальный набор из 6 подписей в копипастном виде</span></div>
   <div class="copy-grid meta-grid">
+    <div class="panel copy-card copy-card-wide">
+      <div class="copy-toolbar"><b>Все 6 подписей сразу</b><button class="btn ghost btn-copy-inline" type="button" data-copy-target="all-captions">Копировать</button></div>
+      <textarea id="all-captions" class="copy-box tall" readonly>1. Управляйте товарами, остатками и статусом витрины прямо с телефона.
+2. Редактируйте карточку товара: фото, цену, штрих-код и место хранения.
+3. Сканируйте QR и штрих-коды камерой внутри приложения без отдельного сканера.
+4. Печатайте этикетки и складские наклейки в пару касаний.
+5. Подключайте сотрудников к складу по QR или deep link и быстро обновляйте APK.
+6. Работайте одной командой: единая база, роли сотрудников и журнал действий.</textarea>
+      <div class="hint">Рекомендуемый порядок: список → карточка → сканер → печать → подключение → команда.</div>
+    </div>
+
     <div class="panel copy-card">
-      <h3>1. Список товаров</h3>
-      <div class="hint">Подпись: «Управляйте товарами и остатками с телефона»</div>
-      <ul class="checklist">
-        <li>список товаров</li>
-        <li>счётчик позиций</li>
-        <li>статусы «витрина / склад»</li>
-      </ul>
+      <div class="copy-toolbar"><b>1. Список товаров</b><button class="btn ghost btn-copy-inline" type="button" data-copy-target="cap-1">Копировать</button></div>
+      <textarea id="cap-1" class="copy-box" readonly>Управляйте товарами, остатками и статусом витрины прямо с телефона.</textarea>
+      <div class="hint">Снимок: список товаров, счётчик позиций, статусы «витрина / склад».</div>
     </div>
     <div class="panel copy-card">
-      <h3>2. Карточка товара</h3>
-      <div class="hint">Подпись: «Редактируйте карточку, фото, цену и штрих-код»</div>
-      <ul class="checklist">
-        <li>фото товара</li>
-        <li>штрих-код / артикул</li>
-        <li>цена и место хранения</li>
-      </ul>
+      <div class="copy-toolbar"><b>2. Карточка товара</b><button class="btn ghost btn-copy-inline" type="button" data-copy-target="cap-2">Копировать</button></div>
+      <textarea id="cap-2" class="copy-box" readonly>Редактируйте карточку товара: фото, цену, штрих-код и место хранения.</textarea>
+      <div class="hint">Снимок: форма товара с фото, ценой, штрих-кодом и местом хранения.</div>
     </div>
     <div class="panel copy-card">
-      <h3>3. Сканер QR / штрих-кодов</h3>
-      <div class="hint">Подпись: «Сканируйте QR и штрих-коды камерой прямо в приложении»</div>
-      <ul class="checklist">
-        <li>экран выбора режима или активная камера</li>
-        <li>поиск / приёмка / продажа / инвентаризация</li>
-        <li>акцент на работу внутри APK</li>
-      </ul>
+      <div class="copy-toolbar"><b>3. Сканер</b><button class="btn ghost btn-copy-inline" type="button" data-copy-target="cap-3">Копировать</button></div>
+      <textarea id="cap-3" class="copy-box" readonly>Сканируйте QR и штрих-коды камерой внутри приложения без отдельного сканера.</textarea>
+      <div class="hint">Снимок: экран выбора режима или активная камера сканера.</div>
     </div>
     <div class="panel copy-card">
-      <h3>4. Печать этикеток</h3>
-      <div class="hint">Подпись: «Печать этикеток и складских наклеек в пару касаний»</div>
-      <ul class="checklist">
-        <li>выбор принтера</li>
-        <li>пакетная печать</li>
-        <li>PDF / ZPL / EPL</li>
-      </ul>
+      <div class="copy-toolbar"><b>4. Печать</b><button class="btn ghost btn-copy-inline" type="button" data-copy-target="cap-4">Копировать</button></div>
+      <textarea id="cap-4" class="copy-box" readonly>Печатайте этикетки и складские наклейки в пару касаний.</textarea>
+      <div class="hint">Снимок: выбор принтера, пакетная печать или экран этикеток.</div>
     </div>
     <div class="panel copy-card">
-      <h3>5. Подключение и обновления</h3>
-      <div class="hint">Подпись: «Быстрое подключение к вашему серверу и проверка обновлений»</div>
-      <ul class="checklist">
-        <li>экран ввода сервера</li>
-        <li>deep link / QR onboarding</li>
-        <li>update-блок APK</li>
-      </ul>
+      <div class="copy-toolbar"><b>5. Подключение и обновления</b><button class="btn ghost btn-copy-inline" type="button" data-copy-target="cap-5">Копировать</button></div>
+      <textarea id="cap-5" class="copy-box" readonly>Подключайте сотрудников к складу по QR или deep link и быстро обновляйте APK.</textarea>
+      <div class="hint">Снимок: экран подключения к серверу, QR onboarding и блок обновлений.</div>
     </div>
     <div class="panel copy-card">
-      <h3>6. Синхронизация и команда</h3>
-      <div class="hint">Подпись: «Единая база для команды склада и контроль действий»</div>
-      <ul class="checklist">
-        <li>пользователи или журнал</li>
-        <li>единая база</li>
-        <li>контроль действий сотрудников</li>
-      </ul>
+      <div class="copy-toolbar"><b>6. Команда</b><button class="btn ghost btn-copy-inline" type="button" data-copy-target="cap-6">Копировать</button></div>
+      <textarea id="cap-6" class="copy-box" readonly>Работайте одной командой: единая база, роли сотрудников и журнал действий.</textarea>
+      <div class="hint">Снимок: пользователи склада, роли, журнал или синхронизация.</div>
     </div>
   </div>
 </section>

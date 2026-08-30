@@ -13,6 +13,7 @@ import android.os.Bundle;
 import android.text.TextUtils;
 import android.view.View;
 import android.webkit.CookieManager;
+import android.webkit.JavascriptInterface;
 import android.webkit.PermissionRequest;
 import android.webkit.ValueCallback;
 import android.webkit.WebChromeClient;
@@ -26,9 +27,14 @@ import android.widget.EditText;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import androidx.activity.result.ActivityResultLauncher;
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.content.ContextCompat;
+
+import com.journeyapps.barcodescanner.ScanContract;
+import com.journeyapps.barcodescanner.ScanIntentResult;
+import com.journeyapps.barcodescanner.ScanOptions;
 
 import org.json.JSONObject;
 
@@ -48,6 +54,7 @@ import java.nio.charset.StandardCharsets;
  * - мгновенное подключение через deep link: sklad://connect?url=https://site/warehouse/
  * - множественный выбор фото,
  * - доступ WebView к камере для сканирования QR/штрих-кодов внутри APK,
+ * - нативный fallback-сканер Android через bridge, если BarcodeDetector нестабилен,
  * - экран «О приложении»/настройки по долгому нажатию,
  * - проверку новых APK-релизов на подключённом сервере.
  */
@@ -56,8 +63,9 @@ public class MainActivity extends AppCompatActivity {
     private static final String PREFS = "sklad_prefs";
     private static final String KEY_URL = "server_url";
     private static final int REQ_FILE = 1001;
-    private static final int REQ_CAMERA = 1002;
-    private static final String APP_UA = " SkladApp/1.0.4";
+    private static final int REQ_CAMERA_WEB = 1002;
+    private static final int REQ_CAMERA_NATIVE = 1003;
+    private static final String APP_UA = " SkladApp/1.0.5";
 
     private WebView webView;
     private View mainView, setupView;
@@ -67,8 +75,11 @@ public class MainActivity extends AppCompatActivity {
     private SharedPreferences prefs;
     private String baseUrl = "";
     private String latestUpdateUrl = "";
+    private String pendingNativeScanMode = "";
+    private String activeNativeScanMode = "";
     private ValueCallback<Uri[]> filePathCallback;
     private PermissionRequest pendingCameraPermissionRequest;
+    private ActivityResultLauncher<ScanOptions> nativeScanLauncher;
 
     @SuppressLint("SetJavaScriptEnabled")
     @Override
@@ -89,6 +100,8 @@ public class MainActivity extends AppCompatActivity {
         btnBack = findViewById(R.id.btn_back);
         btnReset = findViewById(R.id.btn_reset);
         btnUpdate = findViewById(R.id.btn_update);
+
+        nativeScanLauncher = registerForActivityResult(new ScanContract(), this::handleNativeScanResult);
 
         configureWebView();
         updateMeta();
@@ -251,7 +264,7 @@ public class MainActivity extends AppCompatActivity {
     private void updateMeta() {
         String current = (baseUrl == null || baseUrl.isEmpty()) ? "не подключён" : baseUrl;
         appMeta.setText("Версия " + BuildConfig.VERSION_NAME + " • package " + BuildConfig.APPLICATION_ID + "\nТекущий сервер: " + current);
-        setupHint.setText("Можно открыть ссылку вида sklad://setup?url=https://ваш-домен/warehouse/\nили sklad://connect?url=https://ваш-домен/warehouse/ для мгновенного подключения. QR-код генерируется на странице /download/android, а сканер внутри APK попросит доступ к камере автоматически.");
+        setupHint.setText("Можно открыть ссылку вида sklad://setup?url=https://ваш-домен/warehouse/\nили sklad://connect?url=https://ваш-домен/warehouse/ для мгновенного подключения. QR-код генерируется на странице /download/android, а внутри APK есть web-сканер и нативный fallback-сканер Android.");
         btnBack.setVisibility(baseUrl == null || baseUrl.isEmpty() ? View.GONE : View.VISIBLE);
         btnReset.setVisibility(baseUrl == null || baseUrl.isEmpty() ? View.GONE : View.VISIBLE);
     }
@@ -376,6 +389,79 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
+    private boolean isCurrentInternalPage() {
+        String currentUrl = webView == null ? "" : webView.getUrl();
+        return currentUrl != null && !currentUrl.isEmpty() && isInternalUrl(currentUrl);
+    }
+
+    private String sanitizeScanMode(String mode) {
+        if ("receive".equals(mode) || "sell".equals(mode) || "inventory".equals(mode)) return mode;
+        return "search";
+    }
+
+    private String nativePromptForMode(String mode) {
+        switch (sanitizeScanMode(mode)) {
+            case "receive":
+                return "Сканируйте код для приёмки";
+            case "sell":
+                return "Сканируйте код для продажи";
+            case "inventory":
+                return "Сканируйте код для инвентаризации";
+            default:
+                return "Сканируйте QR или штрих-код";
+        }
+    }
+
+    private void startNativeScan(String mode) {
+        if (!isCurrentInternalPage()) {
+            Toast.makeText(this, "Нативный сканер доступен только внутри /warehouse/", Toast.LENGTH_SHORT).show();
+            return;
+        }
+        String safeMode = sanitizeScanMode(mode);
+        if (!hasCameraPermission()) {
+            pendingNativeScanMode = safeMode;
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                requestPermissions(new String[]{Manifest.permission.CAMERA}, REQ_CAMERA_NATIVE);
+            }
+            return;
+        }
+        launchNativeScanner(safeMode);
+    }
+
+    private void launchNativeScanner(String mode) {
+        activeNativeScanMode = sanitizeScanMode(mode);
+        ScanOptions options = new ScanOptions();
+        options.setDesiredBarcodeFormats(ScanOptions.ALL_CODE_TYPES);
+        options.setPrompt(nativePromptForMode(activeNativeScanMode));
+        options.setBeepEnabled(false);
+        options.setOrientationLocked(false);
+        options.setBarcodeImageEnabled(false);
+        nativeScanLauncher.launch(options);
+    }
+
+    private void handleNativeScanResult(ScanIntentResult result) {
+        if (result == null || result.getContents() == null) {
+            activeNativeScanMode = "";
+            dispatchNativeScanCancelled();
+            return;
+        }
+        dispatchNativeScanResult(result.getContents(), activeNativeScanMode);
+        activeNativeScanMode = "";
+    }
+
+    private void dispatchNativeScanResult(String value, String mode) {
+        if (!isCurrentInternalPage()) return;
+        String js = "window.__nativeScanResult && window.__nativeScanResult("
+                + JSONObject.quote(value == null ? "" : value) + ","
+                + JSONObject.quote(sanitizeScanMode(mode)) + ");";
+        webView.evaluateJavascript(js, null);
+    }
+
+    private void dispatchNativeScanCancelled() {
+        if (!isCurrentInternalPage()) return;
+        webView.evaluateJavascript("window.__nativeScanCancelled && window.__nativeScanCancelled();", null);
+    }
+
     private boolean hasCameraPermission() {
         return Build.VERSION.SDK_INT < Build.VERSION_CODES.M
                 || ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED;
@@ -423,7 +509,7 @@ public class MainActivity extends AppCompatActivity {
         }
         pendingCameraPermissionRequest = request;
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            requestPermissions(new String[]{Manifest.permission.CAMERA}, REQ_CAMERA);
+            requestPermissions(new String[]{Manifest.permission.CAMERA}, REQ_CAMERA_WEB);
         } else {
             request.deny();
         }
@@ -450,6 +536,8 @@ public class MainActivity extends AppCompatActivity {
         s.setDisplayZoomControls(false);
         s.setMixedContentMode(WebSettings.MIXED_CONTENT_ALWAYS_ALLOW);
         s.setUserAgentString(s.getUserAgentString() + APP_UA);
+        webView.addJavascriptInterface(new AndroidScannerBridge(), "AndroidScanner");
+
         CookieManager cm = CookieManager.getInstance();
         cm.setAcceptCookie(true);
         cm.setAcceptThirdPartyCookies(webView, true);
@@ -496,6 +584,7 @@ public class MainActivity extends AppCompatActivity {
                     pendingCameraPermissionRequest = null;
                 }
             }
+
 
             @Override
             public boolean onShowFileChooser(WebView webView, ValueCallback<Uri[]> callback,
@@ -546,17 +635,47 @@ public class MainActivity extends AppCompatActivity {
     @Override
     public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults);
-        if (requestCode != REQ_CAMERA) return;
-        PermissionRequest request = pendingCameraPermissionRequest;
-        pendingCameraPermissionRequest = null;
-        if (request == null) return;
         boolean granted = grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED;
-        if (granted) {
-            request.grant(new String[]{PermissionRequest.RESOURCE_VIDEO_CAPTURE});
-            Toast.makeText(this, "Камера разрешена — можно сканировать штрих-коды и QR", Toast.LENGTH_SHORT).show();
-        } else {
-            request.deny();
-            Toast.makeText(this, "Без доступа к камере сканер в приложении не запустится", Toast.LENGTH_LONG).show();
+        if (requestCode == REQ_CAMERA_WEB) {
+            PermissionRequest request = pendingCameraPermissionRequest;
+            pendingCameraPermissionRequest = null;
+            if (request == null) return;
+            if (granted) {
+                request.grant(new String[]{PermissionRequest.RESOURCE_VIDEO_CAPTURE});
+                Toast.makeText(this, "Камера разрешена — можно сканировать штрих-коды и QR", Toast.LENGTH_SHORT).show();
+            } else {
+                request.deny();
+                Toast.makeText(this, "Без доступа к камере сканер в приложении не запустится", Toast.LENGTH_LONG).show();
+            }
+            return;
+        }
+        if (requestCode == REQ_CAMERA_NATIVE) {
+            String mode = pendingNativeScanMode;
+            pendingNativeScanMode = "";
+            if (granted) {
+                Toast.makeText(this, "Запускаю нативный сканер Android", Toast.LENGTH_SHORT).show();
+                launchNativeScanner(mode);
+            } else {
+                Toast.makeText(this, "Нативный сканер требует доступ к камере", Toast.LENGTH_LONG).show();
+                dispatchNativeScanCancelled();
+            }
+        }
+    }
+
+    private final class AndroidScannerBridge {
+        @JavascriptInterface
+        public boolean isNativeScannerAvailable() {
+            return true;
+        }
+
+        @JavascriptInterface
+        public void startScan(String mode) {
+            runOnUiThread(() -> startNativeScan(mode));
+        }
+
+        @JavascriptInterface
+        public String appVersion() {
+            return BuildConfig.VERSION_NAME;
         }
     }
 

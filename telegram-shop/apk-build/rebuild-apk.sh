@@ -11,8 +11,8 @@ set -euo pipefail
 cd "$(dirname "$0")"
 
 DEFAULT_URL="${1:-}"
-APP_VERSION="1.0.4"
-APP_CODE="5"
+APP_VERSION="1.0.5"
+APP_CODE="6"
 APK_NAME="Sklad-${APP_VERSION}-release.apk"
 AAB_NAME="Sklad-${APP_VERSION}-release.aab"
 GRADLE_VER="8.2.1"

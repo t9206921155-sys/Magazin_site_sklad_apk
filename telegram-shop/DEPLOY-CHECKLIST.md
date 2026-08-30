@@ -37,13 +37,13 @@ pip install -r requirements.txt
 ## 4. Проверить release-артефакты Android
 
 В репозитории должны лежать актуальные файлы:
-- `apk/Sklad-1.0.4-release.apk`
-- `aab/Sklad-1.0.4-release.aab`
+- `apk/Sklad-1.0.5-release.apk`
+- `aab/Sklad-1.0.5-release.aab`
 
 Проверка:
 
 ```bash
-sha256sum apk/Sklad-1.0.4-release.apk aab/Sklad-1.0.4-release.aab
+sha256sum apk/Sklad-1.0.5-release.apk aab/Sklad-1.0.5-release.aab
 ```
 
 ## 5. Перезапустить приложение
@@ -73,18 +73,19 @@ docker compose up -d
 ## 7. Android smoke-check на телефоне
 
 Проверить реальным устройством:
-1. установка `Sklad-1.0.4-release.apk`
+1. установка `Sklad-1.0.5-release.apk`
 2. открытие `sklad://connect?...`
 3. сканирование QR с `/download/android`
 4. запуск сканера в `/warehouse/` внутри APK
 5. системный запрос разрешения камеры
 6. чтение штрих-кода / QR
-7. экран обновлений APK в настройках
+7. при проблемах WebView — автопереход в нативный Android fallback
+8. экран обновлений APK в настройках
 
 ## 8. Перед публикацией в RuStore
 
 Проверить ещё раз:
-- загружается именно `aab/Sklad-1.0.4-release.aab`
+- загружается именно `aab/Sklad-1.0.5-release.aab`
 - доступна страница `/privacy`
 - заполнены реальные контакты поддержки
 - сделаны финальные скриншоты актуального интерфейса
@@ -103,5 +104,6 @@ docker compose up -d
 - Android выдал разрешение `Camera`
 - WebView обновлён на устройстве
 - открывается именно `/warehouse/`
+- при ошибке BarcodeDetector срабатывает нативный fallback-сканер
 - страница работает по HTTPS либо разрешён нужный сценарий в локальной сети
-- в приложении установлена версия `1.0.4`
+- в приложении установлена версия `1.0.5`
