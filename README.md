@@ -71,6 +71,7 @@ docker compose up -d --build
 - `telegram-shop/PR-MERGE-SUMMARY-RU.md` — готовое русскоязычное summary для PR / merge
 - `telegram-shop/RUSTORE-CARD-CHECKLIST.md` — тексты и ассеты для RuStore
 - `telegram-shop/FINAL-RELEASE-HANDOFF.md` — сводный handoff по релизу Android 1.0.5
+- `telegram-shop/STEP-BY-STEP-RUNBOOK.md` — полная пошаговая инструкция по серверу, складу, APK, облаку и публикации
 - `telegram-shop/scripts/post_deploy_smoke_check.sh` — быстрый smoke-check production-домена
 - `telegram-shop/scripts/merge_feature_to_main.sh` — helper script для merge feature-ветки в `main`
 - `telegram-shop/scripts/release_status.sh` — быстрый вывод статуса релиза, версий и SHA-256
