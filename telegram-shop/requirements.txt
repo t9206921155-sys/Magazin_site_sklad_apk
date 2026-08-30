@@ -11,3 +11,4 @@ boto3>=1.34
 pymysql>=1.1
 webauthn
 pywebpush
+qrcode>=7.4

@@ -1,0 +1,281 @@
+{% extends "base.html" %}
+{% block content %}
+<nav class="crumbs">
+  <a href="/">Главная</a> <span>›</span> <span>Android-приложение</span>
+</nav>
+
+<section class="dl-hero">
+  <div class="dl-hero-copy">
+    <div class="dl-badge dark">📱 Android-релиз склада</div>
+    <h1>Установите «Склад» на телефон и подключите к вашему серверу за пару минут</h1>
+    <p>Приложение работает как лёгкая Android-обёртка над <b>/warehouse</b>: открывает склад в WebView, сохраняет вход, поддерживает множественный выбор фото, умеет принимать deep link, генерирует QR-код для быстрой настройки сотрудников и позволяет сканировать QR/штрих-коды камерой прямо внутри APK, а при проблемах WebView — переключаться на нативный Android scanner fallback.</p>
+    <div class="dl-hero-actions">
+      {% if latest_apk %}<a class="btn primary dl-btn" href="{{ latest_apk.download_url }}">Скачать APK</a>{% endif %}
+      {% if latest_aab %}<a class="btn ghost dl-btn-light" href="{{ latest_aab.download_url }}">Скачать AAB</a>{% endif %}
+      <a class="btn ghost dl-btn-light" href="{{ rustore_url }}">Материалы для RuStore</a>
+      <a class="btn ghost dl-btn-light" href="#configurator">Настроить ссылку подключения</a>
+    </div>
+    <div class="dl-hero-facts">
+      <div><b>{{ latest_version }}</b><span>текущая версия</span></div>
+      <div><b>APK + AAB</b><span>оба формата готовы</span></div>
+      <div><b>QR + Native fallback</b><span>onboarding и сканирование в APK</span></div>
+    </div>
+  </div>
+  <div class="dl-phone">
+    <div class="dl-phone-frame">
+      <div class="dl-phone-top"></div>
+      <div class="dl-phone-screen">
+        <div class="dl-screen-header">📦 Склад</div>
+        <div class="dl-screen-card">
+          <b>1. Скачайте APK</b>
+          <span>отправьте файл в Telegram, облако или MDM</span>
+        </div>
+        <div class="dl-screen-card active">
+          <b>2. Сканируйте QR</b>
+          <span>смартфон откроет <code>sklad://connect?url=...</code></span>
+        </div>
+        <div class="dl-screen-card">
+          <b>3. Работайте со складом</b>
+          <span>фото, остатки, этикетки, публикация на витрину и сканирование кодов</span>
+        </div>
+        <div class="dl-screen-card">
+          <b>4. Проверяйте обновления</b>
+          <span>приложение покажет новую версию и ссылку на APK</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="dl-grid">
+  <div class="panel dl-card dl-card-main">
+    <div class="dl-badge">📦 Для установки на телефон</div>
+    <h3>APK{% if latest_apk %} · версия {{ latest_apk.version }}{% endif %}</h3>
+    {% if latest_apk %}
+      <p>Готовый файл для ручной установки на Android-устройство, раздачи сотрудникам и быстрого внутреннего внедрения без стора.</p>
+      <a class="btn primary dl-btn" href="{{ latest_apk.download_url }}">Скачать APK</a>
+      <div class="hint dl-meta">{{ latest_apk.filename }} · {{ latest_apk.size_human }} · обновлено {{ latest_apk.updated_at }}</div>
+      <code class="dl-code">SHA-256: {{ latest_apk.sha256 }}</code>
+    {% else %}
+      <div class="empty">APK пока не собран.</div>
+    {% endif %}
+  </div>
+
+  <div class="panel dl-card">
+    <div class="dl-badge">🏪 Для RuStore / публикации</div>
+    <h3>AAB{% if latest_aab %} · версия {{ latest_aab.version }}{% endif %}</h3>
+    {% if latest_aab %}
+      <p>Подписанный Android App Bundle для публикации в RuStore и других сторах, плюс отдельная страница с готовыми метаданными.</p>
+      <a class="btn primary dl-btn" href="{{ latest_aab.download_url }}">Скачать AAB</a>
+      <a class="btn ghost dl-btn" href="{{ rustore_url }}">Открыть страницу RuStore</a>
+      <div class="hint dl-meta">{{ latest_aab.filename }} · {{ latest_aab.size_human }} · обновлено {{ latest_aab.updated_at }}</div>
+      <code class="dl-code">SHA-256: {{ latest_aab.sha256 }}</code>
+    {% else %}
+      <div class="empty">AAB пока не собран.</div>
+    {% endif %}
+  </div>
+</section>
+
+<section class="sect" id="configurator">
+  <div class="sect-head"><h2>Быстрая ссылка и QR-код подключения</h2><span class="sect-sub">можно отправить сотруднику сразу после установки приложения</span></div>
+  <div class="panel dl-config">
+    <div class="dl-config-main">
+      <label class="dl-label" for="server-url">Адрес сервера склада</label>
+      <input class="field" id="server-url" value="{{ recommended_server_url }}" placeholder="https://example.com/warehouse/">
+      <div class="hint">Если указать только домен, приложение само добавит путь <code>/warehouse/</code>.</div>
+      <div class="dl-config-actions">
+        <a class="btn primary dl-btn" id="open-connect" href="{{ deep_link_connect }}">Открыть приложение и подключить</a>
+        <a class="btn ghost dl-btn-light" id="open-setup" href="{{ deep_link_setup }}">Открыть приложение в режиме настройки</a>
+      </div>
+      <div class="dl-copy-grid">
+        <div>
+          <div class="dl-label">Deep link</div>
+          <code class="dl-code" id="deep-link-code">{{ deep_link_connect }}</code>
+        </div>
+        <div>
+          <div class="dl-label">Прямой URL склада</div>
+          <code class="dl-code" id="server-url-code">{{ recommended_server_url }}</code>
+        </div>
+      </div>
+      <div class="dl-config-actions compact">
+        <button class="btn ghost dl-copy-btn" type="button" data-copy="deep-link-code">Скопировать deep link</button>
+        <button class="btn ghost dl-copy-btn" type="button" data-copy="server-url-code">Скопировать адрес сервера</button>
+      </div>
+      <div class="hint" id="copy-note"></div>
+    </div>
+    <div class="dl-config-side">
+      <div class="dl-mini-card"><b>Deep link</b><span><code>sklad://setup?url=...</code> или <code>sklad://connect?url=...</code></span></div>
+      <div class="dl-mini-card"><b>QR для onboarding</b><span>Сотрудник сканирует код с другого устройства и сразу получает адрес нужного склада.</span></div>
+      <div class="dl-mini-card"><b>Следующий шаг в APK</b><span>Внутри приложения добавлена проверка обновлений: новая версия APK отображается на экране настроек.</span></div>
+    </div>
+  </div>
+
+  <div class="dl-qr-grid">
+    <div class="panel dl-qr-card">
+      <div class="dl-badge">⚡ Мгновенное подключение</div>
+      <h3>QR: открыть и подключить</h3>
+      <p>Подходит для рабочих телефонов: адрес сохранится, и приложение сразу откроет склад.</p>
+      <img class="dl-qr-image" id="qr-connect" src="{{ connect_qr_svg }}" alt="QR для подключения склада">
+      <div class="dl-config-actions compact">
+        <a class="btn ghost dl-btn" id="download-connect-qr" href="{{ connect_qr_svg }}" download="sklad-connect.svg">Скачать SVG QR</a>
+      </div>
+    </div>
+    <div class="panel dl-qr-card">
+      <div class="dl-badge">🛠 Режим настройки</div>
+      <h3>QR: открыть настройки</h3>
+      <p>Если нужно дать человеку шанс проверить URL перед входом, используйте режим setup.</p>
+      <img class="dl-qr-image" id="qr-setup" src="{{ setup_qr_svg }}" alt="QR для настройки склада">
+      <div class="dl-config-actions compact">
+        <a class="btn ghost dl-btn" id="download-setup-qr" href="{{ setup_qr_svg }}" download="sklad-setup.svg">Скачать SVG QR</a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="sect">
+  <div class="sect-head"><h2>Установка по шагам</h2><span class="sect-sub">короткая инструкция для сотрудника склада</span></div>
+  <div class="dl-steps">
+    <div class="panel dl-step"><b>1</b><h3>Скачайте APK</h3><p>Откройте файл на Android и разрешите установку из этого источника.</p></div>
+    <div class="panel dl-step"><b>2</b><h3>Сканируйте QR или откройте deep link</h3><p>Подключение сработает через <code>sklad://connect?url=...</code> или <code>sklad://setup?url=...</code>.</p></div>
+    <div class="panel dl-step"><b>3</b><h3>Войдите в склад</h3><p>Используйте учётку администратора или сотрудника, сохранённую для вашей общей базы.</p></div>
+    <div class="panel dl-step"><b>4</b><h3>Проверяйте обновления</h3><p>На экране настроек приложение покажет, если на сервере лежит более новая APK-сборка.</p></div>
+  </div>
+</section>
+
+<section class="sect">
+  <div class="sect-head"><h2>Где лежат исходники Android-обёртки</h2><span class="sect-sub">чтобы быстро найти нужные файлы в репозитории</span></div>
+  <div class="dl-source-list">
+    <div class="panel">
+      <h3>Основные пути</h3>
+      <ul class="dl-list">
+        <li><code>telegram-shop/apk-build/android/app/src/main/java/ru/telegramshop/sklad/MainActivity.java</code> — WebView-обёртка, deep link, QR-подключение, экран настроек и проверка обновлений</li>
+        <li><code>telegram-shop/apk-build/android/app/src/main/AndroidManifest.xml</code> — permissions, activity, custom scheme <code>sklad://</code></li>
+        <li><code>telegram-shop/apk-build/android/app/build.gradle</code> — package name, versionCode, versionName, signing config</li>
+        <li><code>telegram-shop/apk-build/rebuild-apk.sh</code> — пересборка релизных Android-артефактов</li>
+        <li><code>telegram-shop/apk-build/README-APK.md</code> — инструкция по сборке и установке</li>
+        <li><code>telegram-shop/warehouse/</code> — само PWA-приложение склада, которое открывается внутри APK</li>
+      </ul>
+    </div>
+    <div class="panel">
+      <h3>Что скачать / куда выкладывать</h3>
+      <ul class="dl-list">
+        <li><code>telegram-shop/apk/</code> — готовые APK-файлы</li>
+        <li><code>telegram-shop/aab/</code> — bundle для RuStore / Google Play</li>
+        <li><code>/download/android</code> — лендинг загрузки Android-сборок</li>
+        <li><code>/download/android/rustore</code> — готовые тексты и чек-лист для публикации</li>
+        <li><code>/api/releases/android</code> — JSON с метаданными по APK/AAB и ссылками подключения</li>
+        <li><code>/api/releases/android/qr.svg</code> — SVG-QR для deep link и onboarding</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<section class="sect">
+  <div class="sect-head"><h2>Для публикации</h2><span class="sect-sub">готовая страница с метаданными и приватностью</span></div>
+  <div class="dl-source-list">
+    <div class="panel">
+      <h3>RuStore-пакет</h3>
+      <p class="hint">На странице публикации собраны название приложения, описания, список изменений, ссылки и чек-лист ассетов.</p>
+      <a class="btn primary dl-btn" href="{{ rustore_url }}">Открыть материалы для RuStore</a>
+    </div>
+    <div class="panel">
+      <h3>Политика конфиденциальности</h3>
+      <p class="hint">Ссылка нужна для карточки приложения и пользовательского доверия.</p>
+      <a class="btn ghost dl-btn" href="{{ privacy_url }}">Открыть privacy page</a>
+    </div>
+  </div>
+</section>
+
+{% if release_files %}
+<section class="sect">
+  <div class="sect-head"><h2>Все доступные Android-сборки</h2><span class="sect-sub">история файлов в папках релизов</span></div>
+  <div class="panel">
+    <div class="dl-table-wrap">
+      <table class="dl-table">
+        <thead>
+          <tr><th>Тип</th><th>Файл</th><th>Версия</th><th>Размер</th><th>Обновлено</th><th></th></tr>
+        </thead>
+        <tbody>
+          {% for f in release_files %}
+          <tr>
+            <td><span class="dl-kind {{ f.kind }}">{{ f.kind | upper }}</span></td>
+            <td><code>{{ f.filename }}</code></td>
+            <td>{{ f.version }}</td>
+            <td>{{ f.size_human }}</td>
+            <td>{{ f.updated_at }}</td>
+            <td><a class="see-all" href="{{ f.download_url }}">Скачать →</a></td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+{% endif %}
+
+<script>
+(function () {
+  var input = document.getElementById('server-url');
+  var linkCode = document.getElementById('deep-link-code');
+  var serverCode = document.getElementById('server-url-code');
+  var openConnect = document.getElementById('open-connect');
+  var openSetup = document.getElementById('open-setup');
+  var note = document.getElementById('copy-note');
+  var qrConnect = document.getElementById('qr-connect');
+  var qrSetup = document.getElementById('qr-setup');
+  var qrConnectLink = document.getElementById('download-connect-qr');
+  var qrSetupLink = document.getElementById('download-setup-qr');
+
+  function normalizeUrl(raw) {
+    raw = (raw || '').trim();
+    if (!raw) return '{{ recommended_server_url }}';
+    if (!/^https?:\/\//i.test(raw)) raw = 'https://' + raw;
+    try {
+      var u = new URL(raw);
+      if (!u.pathname || u.pathname === '/') u.pathname = '/warehouse/';
+      else if (u.pathname === '/warehouse') u.pathname = '/warehouse/';
+      else if (!u.pathname.startsWith('/warehouse/')) u.pathname = u.pathname.replace(/\/+$/, '') + '/warehouse/';
+      u.search = '';
+      u.hash = '';
+      return u.toString();
+    } catch (e) {
+      return raw;
+    }
+  }
+
+  function refreshLinks() {
+    var url = normalizeUrl(input.value);
+    var connect = 'sklad://connect?url=' + encodeURIComponent(url);
+    var setup = 'sklad://setup?url=' + encodeURIComponent(url);
+    var connectQr = '/api/releases/android/qr.svg?mode=connect&server=' + encodeURIComponent(url);
+    var setupQr = '/api/releases/android/qr.svg?mode=setup&server=' + encodeURIComponent(url);
+    openConnect.href = connect;
+    openSetup.href = setup;
+    linkCode.textContent = connect;
+    serverCode.textContent = url;
+    qrConnect.src = connectQr;
+    qrSetup.src = setupQr;
+    qrConnectLink.href = connectQr;
+    qrSetupLink.href = setupQr;
+  }
+
+  input.addEventListener('input', refreshLinks);
+  refreshLinks();
+
+  document.querySelectorAll('[data-copy]').forEach(function (btn) {
+    btn.addEventListener('click', async function () {
+      var el = document.getElementById(btn.dataset.copy);
+      var text = el ? el.textContent : '';
+      try {
+        await navigator.clipboard.writeText(text);
+        note.textContent = '✅ Скопировано';
+        note.style.color = '#10b981';
+      } catch (e) {
+        note.textContent = '❌ Не удалось скопировать';
+        note.style.color = '#ef4444';
+      }
+    });
+  });
+})();
+</script>
+{% endblock %}

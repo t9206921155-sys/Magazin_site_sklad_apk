@@ -11,6 +11,7 @@ let EDIT_PHOTOS = [];   // [{src, newData?}]
 let PHOTO_COUNT = 0;
 let selected = new Set();
 let scannerStream = null;
+let nativeScanInFlight = false;
 
 function toast(msg, err) {
   const el = document.createElement('div');
@@ -432,23 +433,61 @@ async function aiGen(mode) {
   } catch (e) { toast(e.message, true); }
 }
 
-/* ---------- сканер (BarcodeDetector, Chrome Android) ---------- */
+/* ---------- сканер (BarcodeDetector + native Android fallback) ---------- */
 let SCAN_MODE = 'search';
+
+function hasNativeAndroidScanner() {
+  try {
+    return !!(window.AndroidScanner && typeof window.AndroidScanner.isNativeScannerAvailable === 'function'
+      && window.AndroidScanner.isNativeScannerAvailable());
+  } catch (e) {
+    return false;
+  }
+}
+
+function startNativeAndroidScan(mode) {
+  if (!hasNativeAndroidScanner()) return false;
+  try {
+    nativeScanInFlight = true;
+    window.AndroidScanner.startScan(mode || SCAN_MODE);
+    toast('Открываю нативный сканер Android…');
+    return true;
+  } catch (e) {
+    nativeScanInFlight = false;
+    toast('Не удалось открыть нативный сканер: ' + (e.message || e), true);
+    return false;
+  }
+}
+
+window.__nativeScanResult = async function (code, mode) {
+  nativeScanInFlight = false;
+  if (mode) SCAN_MODE = mode;
+  if (!code) return;
+  toast('Код считан нативным сканером');
+  await handleScanCode(String(code).trim());
+};
+
+window.__nativeScanCancelled = function () {
+  if (!nativeScanInFlight) return;
+  nativeScanInFlight = false;
+  toast('Сканирование отменено');
+};
 
 async function openScanModes() {
   $('#sheet2-title').textContent = '📷 Сканер: выберите режим';
   $('#sheet2-body').innerHTML = `
+    <div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:12px;padding:10px 12px;margin-bottom:10px;color:#1d4ed8;font-size:12.5px">Поддерживаются EAN-13, EAN-8, Code 128, Code 39 и QR. В Android APK камера запросится автоматически, а при нестабильном WebView-сканере приложение переключится на нативный Android fallback.</div>
     <div class="card" style="align-items:center" onclick="pickScanMode('search'); closeSheet2()">
-      <div class="info"><div class="name">🔍 Поиск</div><div class="meta">Сканировать → открыть карточку</div></div>
+      <div class="info"><div class="name">🔍 Поиск</div><div class="meta">Сканировать штрих-код/QR → открыть карточку</div></div>
     </div>
     <div class="card" style="align-items:center" onclick="pickScanMode('receive'); closeSheet2()">
-      <div class="info"><div class="name">➕ Приёмка</div><div class="meta">Сканировать → остаток +1</div></div>
+      <div class="info"><div class="name">➕ Приёмка</div><div class="meta">Сканировать штрих-код/QR → остаток +1</div></div>
     </div>
     <div class="card" style="align-items:center" onclick="pickScanMode('sell'); closeSheet2()">
-      <div class="info"><div class="name">➖ Продажа</div><div class="meta">Сканировать → остаток −1 (предупреждение при 0)</div></div>
+      <div class="info"><div class="name">➖ Продажа</div><div class="meta">Сканировать штрих-код/QR → остаток −1 (предупреждение при 0)</div></div>
     </div>
     <div class="card" style="align-items:center" onclick="pickScanMode('inventory'); closeSheet2()">
-      <div class="info"><div class="name">🧮 Инвентаризация</div><div class="meta">Сканировать → ввести фактический остаток</div></div>
+      <div class="info"><div class="name">🧮 Инвентаризация</div><div class="meta">Сканировать штрих-код/QR → ввести фактический остаток</div></div>
     </div>
     <div class="card" style="align-items:center" onclick="closeSheet2(); openVision()">
       <div class="info"><div class="name">🤖 ИИ-vision</div><div class="meta">Сфотографировать → найти карточку товара (Этап 3)</div></div>
@@ -484,8 +523,10 @@ async function openScanHistory() {
 }
 
 async function startScan() {
+  const nativeAvailable = hasNativeAndroidScanner();
   if (!('BarcodeDetector' in window)) {
-    const code = prompt('Сканер не поддерживается этим браузером.\nВведите штрих-код или артикул вручную:');
+    if (nativeAvailable && startNativeAndroidScan(SCAN_MODE)) return;
+    const code = prompt('Сканер не поддерживается этим браузером или WebView.\nВведите штрих-код, QR-значение или артикул вручную:');
     if (code) await handleScanCode(code.trim());
     return;
   }
@@ -504,15 +545,31 @@ async function startScan() {
           await handleScanCode(v);
           return;
         }
-      } catch (e) {}
+      } catch (e) {
+        if (nativeAvailable && /not implemented|not supported|BarcodeDetector|IllegalState|AbortError/i.test(String(e && e.message))) {
+          stopScan();
+          toast('WebView-сканер нестабилен, переключаюсь на нативный Android-сканер.');
+          startNativeAndroidScan(SCAN_MODE);
+          return;
+        }
+      }
       requestAnimationFrame(tick);
     };
     tick();
   } catch (e) {
     stopScan();
-    toast('Нет доступа к камере: ' + e.message, true);
+    if (nativeAvailable && /NotReadableError|TrackStartError|AbortError|SecurityError|permission|denied/i.test(String(e && e.message))) {
+      toast('WebView не дал стабильный доступ к камере — открываю нативный Android-сканер.');
+      startNativeAndroidScan(SCAN_MODE);
+      return;
+    }
+    const suffix = /permission|denied|SecurityError/i.test(String(e && e.message))
+      ? ' Разрешите доступ к камере в браузере или в настройках Android-приложения.'
+      : '';
+    toast('Нет доступа к камере: ' + e.message + suffix, true);
   }
 }
+
 
 async function handleScanCode(code) {
   try {

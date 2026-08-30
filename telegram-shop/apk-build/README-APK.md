@@ -1,4 +1,4 @@
-# 📦 APK «Склад» — сборка и установка
+# 📦 Android «Склад» — APK и AAB
 
 **Этап 1 плана склада (WAREHOUSE-PLAN.md) — ВЫПОЛНЕН 26.08.2026.**
 
@@ -13,24 +13,28 @@ Android-приложение «Склад» — это WebView-обёртка PW
 | Полный интерфейс склада | WebView загружает `/warehouse/` с вашего сервера |
 | Ввод адреса сервера | При первом запуске — нативный экран настройки (не нужно пересобирать APK под каждый сервер) |
 | Смена сервера | Долгое нажатие на экран склада → экран настроек |
+| Быстрая настройка по ссылке | deep link: `sklad://setup?url=...` или `sklad://connect?url=...` |
+| QR-подключение | сервер может отдать SVG QR-код для deep link: `/api/releases/android/qr.svg` |
 | Фото товаров с камеры | `input type=file` пробрасывается в системный выбор файлов/камеры |
+| Сканер QR / штрих-кодов | WebView-сканер + нативный Android fallback, если BarcodeDetector нестабилен |
 | Авторизация сохраняется | Cookies + DOM storage включены |
 | Внешние ссылки | t.me, оплата и т.п. открываются в браузере/приложениях |
 | Локальная сеть | Разрешён http (usesCleartextTraffic) — сервер в Wi-Fi сети склада без HTTPS |
 
-## Готовый APK
+## Готовые артефакты
 
 ```
-telegram-shop/apk/Sklad-1.0.0-release.apk
+telegram-shop/apk/Sklad-1.0.5-release.apk
+telegram-shop/aab/Sklad-1.0.5-release.aab
 ```
 
 | Параметр | Значение |
 |---|---|
 | Имя пакета | `ru.telegramshop.sklad` |
-| Версия | 1.0.0 (versionCode 1) |
+| Версия | 1.0.5 (versionCode 6) |
 | minSdk | Android 6.0 (API 23) |
 | targetSdk | Android 14 (API 34) |
-| Подпись | release-ключ `keystore/telegramshop.keystore` (пароль в rebuild-apk.sh) |
+| Подпись | release-ключ `keystore/telegramshop.keystore` (используется и для APK, и для AAB) |
 
 ## Установка на телефон (раздача вручную)
 
@@ -38,7 +42,10 @@ telegram-shop/apk/Sklad-1.0.0-release.apk
 2. Открыть файл → Android спросит разрешение «Устанавливать из этого источника» → разрешить.
 3. Первый запуск: ввести адрес сервера, например `https://myshop.ru/warehouse/`
    (если путь не указан — `/warehouse/` добавится автоматически).
-4. Войти под учёткой склада (например, demo-сотрудник `ivan` / `ivan123`).
+4. После установки можно открыть ссылку вида `sklad://connect?url=https://myshop.ru/warehouse/` или отсканировать QR-код со страницы `/download/android` — приложение само подставит сервер.
+5. На экране настроек (долгое нажатие внутри приложения) доступна проверка новой версии APK.
+6. Встроенный сканер в `/warehouse/` сначала пробует WebView-камеру, а при проблемах автоматически открывает нативный Android fallback.
+7. Войти под учёткой склада (например, demo-сотрудник `ivan` / `ivan123`).
 
 ## Пересборка
 
@@ -48,17 +55,26 @@ cd apk-build
 # пример: ./rebuild-apk.sh https://myshop.ru/warehouse/
 ```
 
-Скрипт сам ставит JDK 17, Android SDK (platform 34, build-tools 34.0.0), Gradle 8.7,
-генерирует release-ключ и иконки, собирает и проверяет подпись.
-Результат: `telegram-shop/apk/Sklad-1.0.0-release.apk`.
+Скрипт сам ставит JDK 17, Android SDK (platform 34, build-tools 34.0.0), Gradle 8.2.1
+в пользовательский cache (`~/.cache`), генерирует release-ключ и иконки, собирает и проверяет подпись.
+Результат:
+- `telegram-shop/apk/Sklad-1.0.5-release.apk`
+- `telegram-shop/aab/Sklad-1.0.5-release.aab`
 
-Сменить версию: `android/app/build.gradle` → `versionCode` / `versionName`.
+Текущая версия: `android/app/build.gradle` → `versionCode 6` / `versionName "1.0.5"`.
 
-## Публикация в RuStore (отложено пользователем)
+## Публикация в RuStore
 
-Когда дойдёт до стора — для RuStore достаточно подписанного AAB/APK:
-`gradle bundleRelease` → `app-release.aab`. Консоль: developer.rustore.ru
-(нужен аккаунт + документы). TWA не требуется.
+Для ручной установки используйте APK, для публикации в RuStore / Google Play — AAB.
+Скрипт `./rebuild-apk.sh` собирает **оба артефакта сразу**.
+Дополнительно появились:
+- страница материалов для публикации: `/download/android/rustore`
+- политика конфиденциальности: `/privacy`
+- QR и JSON-метаданные релиза: `/api/releases/android`, `/api/releases/android/qr.svg`
+- deploy-checklist: `DEPLOY-CHECKLIST.md`
+- чек-лист карточки RuStore: `RUSTORE-CARD-CHECKLIST.md`
+
+Консоль RuStore: developer.rustore.ru. TWA не требуется.
 
 ## Дальше по плану
 

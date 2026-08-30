@@ -1,0 +1,41 @@
+# OS / editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# local machine artifacts
+.sudo_as_admin_successful
+.local/
+.android/
+
+# env / secrets
+.env
+.env.*
+!.env.example
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+.mypy_cache/
+.venv/
+venv/
+
+# Node / mobile
+node_modules/
+dist/
+build/
+.gradle/
+
+# runtime data and generated artifacts
+telegram-shop/data/
+telegram-shop/backups/
+telegram-shop/*.log
+telegram-shop/apk/*.apk
+!telegram-shop/apk/Sklad-*-release.apk
+telegram-shop/aab/*.aab
+!telegram-shop/aab/Sklad-*-release.aab
+mobile/android/

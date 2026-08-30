@@ -10,8 +10,8 @@ android {
         applicationId "ru.telegramshop.sklad"
         minSdk 23
         targetSdk 34
-        versionCode 1
-        versionName "1.0.0"
+        versionCode 6
+        versionName "1.0.5"
         // URL по умолчанию: передаётся при сборке -PwarehouseUrl=https://.../warehouse/
         // Если пусто — при первом запуске приложение покажет экран ввода адреса сервера.
         buildConfigField "String", "WAREHOUSE_URL", "\"${project.findProperty('warehouseUrl') ?: ''}\""
@@ -50,4 +50,5 @@ android {
 
 dependencies {
     implementation 'androidx.appcompat:appcompat:1.6.1'
+    implementation 'com.journeyapps:zxing-android-embedded:4.3.0'
 }

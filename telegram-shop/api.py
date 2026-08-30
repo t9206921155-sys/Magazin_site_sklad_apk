@@ -23,6 +23,13 @@ import urllib.parse
 import xml.sax.saxutils as sax
 
 try:
+    import qrcode
+    from qrcode.image.svg import SvgPathImage
+except Exception:
+    qrcode = None
+    SvgPathImage = None
+
+try:
     from webauthn import (generate_registration_options, verify_registration_response,
                           generate_authentication_options, verify_authentication_response,
                           options_to_json)
@@ -188,6 +195,12 @@ def create_app(store, providers: dict, bot=None, notify_new_order=None, notify_o
     app.mount("/site", StaticFiles(directory=config.SITE_DIR), name="site")
     os.makedirs(os.path.join(config.DATA_DIR, "media"), exist_ok=True)
     app.mount("/media", StaticFiles(directory=os.path.join(config.DATA_DIR, "media")), name="media")
+    apk_dir = os.path.join(config.BASE_DIR, "apk")
+    aab_dir = os.path.join(config.BASE_DIR, "aab")
+    os.makedirs(apk_dir, exist_ok=True)
+    os.makedirs(aab_dir, exist_ok=True)
+    app.mount("/apk", StaticFiles(directory=apk_dir), name="apk")
+    app.mount("/aab", StaticFiles(directory=aab_dir), name="aab")
 
     # ------------------------------------------------------------------ SEO-страницы (SSR)
     def _abs(request: Request, path: str = "") -> str:
@@ -207,10 +220,268 @@ def create_app(store, providers: dict, bot=None, notify_new_order=None, notify_o
             **extra,
         }
 
+    def _visible_products() -> list:
+        mp = store.settings.get("marketplace") or {}
+        out = []
+        for p in store.products():
+            if not p.get("in_stock", True):
+                continue
+            if not p.get("on_showcase", True):
+                continue
+            if p.get("is_archived"):
+                continue
+            row = dict(p)
+            if mp.get("enabled"):
+                sid = int(row.get("seller_id") or 0)
+                if sid:
+                    seller = store.get_seller(sid)
+                    if not seller or seller["status"] != "active":
+                        continue
+                    row["seller_name"] = seller["store_name"]
+                    row["seller_slug"] = seller["slug"]
+            out.append(row)
+        return out
+
+
+    def _human_size(size: int) -> str:
+        value = float(size or 0)
+        units = ["B", "KB", "MB", "GB"]
+        for unit in units:
+            if value < 1024 or unit == units[-1]:
+                if unit == "B":
+                    return f"{int(value)} {unit}"
+                return f"{value:.1f} {unit}"
+            value /= 1024.0
+        return f"{size} B"
+
+    def _sha256_file(path: str) -> str:
+        h = hashlib.sha256()
+        with open(path, "rb") as f:
+            for chunk in iter(lambda: f.read(1024 * 1024), b""):
+                h.update(chunk)
+        return h.hexdigest()
+
+    def _android_release_files(request: Request) -> dict:
+        files = []
+        for kind, folder, url_prefix, ext in (("apk", apk_dir, "/apk/", ".apk"), ("aab", aab_dir, "/aab/", ".aab")):
+            for name in sorted(os.listdir(folder)):
+                if not name.lower().endswith(ext):
+                    continue
+                path = os.path.join(folder, name)
+                if not os.path.isfile(path):
+                    continue
+                st = os.stat(path)
+                files.append({
+                    "kind": kind,
+                    "filename": name,
+                    "version": name.replace("Sklad-", "").replace(f"-release{ext}", ""),
+                    "size_bytes": int(st.st_size),
+                    "size_human": _human_size(int(st.st_size)),
+                    "sha256": _sha256_file(path),
+                    "updated_at": datetime.datetime.fromtimestamp(st.st_mtime).strftime("%d.%m.%Y %H:%M"),
+                    "mtime": float(st.st_mtime),
+                    "download_url": _abs(request, url_prefix + urllib.parse.quote(name)),
+                })
+        files.sort(key=lambda x: x["mtime"], reverse=True)
+        latest_apk = next((x for x in files if x["kind"] == "apk"), None)
+        latest_aab = next((x for x in files if x["kind"] == "aab"), None)
+        return {"files": files, "latest_apk": latest_apk, "latest_aab": latest_aab}
+
+    def _recommended_warehouse_url(request: Request, raw: str = "") -> str:
+        candidate = (raw or config.WEBAPP_URL or _abs(request, "/")).strip()
+        if not candidate:
+            return _abs(request, "/warehouse/")
+        if not candidate.startswith(("http://", "https://")):
+            candidate = "https://" + candidate
+        try:
+            u = urllib.parse.urlparse(candidate)
+            scheme = u.scheme or "https"
+            netloc = u.netloc or u.path
+            path = u.path if u.netloc else ""
+            if not path or path == "/":
+                path = "/warehouse/"
+            elif path == "/warehouse":
+                path = "/warehouse/"
+            elif not path.startswith("/warehouse/"):
+                path = path.rstrip("/") + "/warehouse/"
+            return urllib.parse.urlunparse((scheme, netloc, path, "", "", ""))
+        except Exception:
+            return _abs(request, "/warehouse/")
+
+    def _android_deep_link(mode: str, server_url: str) -> str:
+        host = "setup" if mode == "setup" else "connect"
+        return f"sklad://{host}?url={urllib.parse.quote(server_url, safe='')}"
+
+    def _android_qr_svg(payload: str) -> str:
+        if not qrcode or not SvgPathImage:
+            safe = sax.escape(payload)
+            return (
+                '<svg xmlns="http://www.w3.org/2000/svg" width="320" height="320" viewBox="0 0 320 320">'
+                '<rect width="320" height="320" rx="28" fill="#ffffff"/>'
+                '<rect x="18" y="18" width="284" height="284" rx="24" fill="#0f172a" opacity="0.04"/>'
+                '<text x="160" y="122" text-anchor="middle" font-size="22" font-family="Arial" fill="#0f172a">QR недоступен</text>'
+                '<text x="160" y="158" text-anchor="middle" font-size="14" font-family="Arial" fill="#475569">Установите пакет qrcode</text>'
+                f'<text x="160" y="212" text-anchor="middle" font-size="11" font-family="Arial" fill="#64748b">{safe[:68]}</text>'
+                '</svg>'
+            )
+        qr = qrcode.QRCode(version=None, error_correction=qrcode.constants.ERROR_CORRECT_M, box_size=10, border=2)
+        qr.add_data(payload)
+        qr.make(fit=True)
+        img = qr.make_image(image_factory=SvgPathImage)
+        return img.to_string(encoding="unicode")
+
+    def _android_publication_pack(request: Request, latest_version: str, recommended_server_url: str) -> dict:
+        shop_name = (store.settings.get("shop_name") or "Telegram Shop").strip()
+        website_url = _abs(request, "/")
+        support_url = _abs(request, "/download/android")
+        privacy_url = _abs(request, "/privacy")
+        rustore_url = _abs(request, "/download/android/rustore")
+        short_description = "Склад, остатки, фото товаров и публикация на витрину прямо с телефона."
+        full_description = (
+            "Склад — мобильное приложение для команды магазина и склада. "
+            f"Оно подключается к витрине {shop_name}, открывает рабочий раздел /warehouse/ и помогает вести товары с телефона: "
+            "добавлять фотографии, менять остатки, печатать этикетки, быстро публиковать позиции на витрину и работать с заказами без ноутбука.\n\n"
+            "Что умеет приложение:\n"
+            "• подключение к вашему серверу по ссылке или QR-коду;\n"
+            "• хранение адреса склада и быстрый повторный вход;\n"
+            "• загрузка одной или нескольких фотографий товара;\n"
+            "• работа с остатками, ценами, этикетками и публикацией;\n"
+            "• встроенное сканирование QR и штрих-кодов камерой внутри APK;\n"
+            "• нативный fallback-сканер Android, если BarcodeDetector в WebView ведёт себя нестабильно;\n"
+            "• открытие внешних ссылок в браузере, без поломки рабочего сценария.\n\n"
+            "Приложение подходит для владельца магазина, кладовщика и сотрудника точки выдачи. "
+            "Если сервер уже настроен, достаточно установить APK или открыть deep link — адрес подставится автоматически. "
+            "Это удобно для внутреннего внедрения, пилота и публикации в RuStore."
+        )
+        release_changelog_short = (
+            f"{latest_version} — нативный fallback-сканер QR/штрих-кодов и обновлённый пакет публикации RuStore."
+        )
+        whats_new = (
+            f"Версия {latest_version}: добавлен нативный fallback-сканер Android для QR и штрих-кодов, обновлены материалы публикации в RuStore."
+        )
+        whats_new_alt_1 = (
+            f"В релизе {latest_version} улучшено сканирование кодов в APK: при нестабильной работе WebView приложение "
+            "автоматически открывает нативный Android-сканер. Также обновлены тексты и материалы для RuStore."
+        )
+        whats_new_alt_2 = (
+            f"Сделали надёжнее мобильный склад в версии {latest_version}: добавили нативный fallback-сканер QR и штрих-кодов "
+            "и привели в порядок пакет публикации для RuStore."
+        )
+        return {
+            "app_name": "Склад — Telegram Shop",
+            "package_id": "ru.telegramshop.sklad",
+            "website_url": website_url,
+            "support_url": support_url,
+            "privacy_url": privacy_url,
+            "rustore_url": rustore_url,
+            "recommended_server_url": recommended_server_url,
+            "short_description": short_description,
+            "full_description": full_description,
+            "release_changelog_short": release_changelog_short,
+            "whats_new": whats_new,
+            "whats_new_alt_1": whats_new_alt_1,
+            "whats_new_alt_2": whats_new_alt_2,
+            "keywords": "склад, учёт товаров, остатки, магазин, витрина, telegram, продажи, RuStore",
+            "category": "Бизнес",
+            "age_rating": "0+",
+            "contact_email": "support@your-domain.example",
+            "support_note": "Замените email и юридические данные перед публикацией, если используете бренд клиента.",
+            "moderator_note": (
+                "Приложение предназначено для сотрудников магазина и склада. Камера используется для сканирования "
+                "QR/штрих-кодов и для загрузки фото товаров. Если web-сканер в WebView нестабилен, внутри APK "
+                "доступен нативный Android fallback. Политика конфиденциальности опубликована по ссылке " + privacy_url + "."
+            ),
+            "connect_link": _android_deep_link("connect", recommended_server_url),
+            "setup_link": _android_deep_link("setup", recommended_server_url),
+        }
+
+    @app.get("/api/releases/android")
+    async def api_android_releases(request: Request):
+        data = _android_release_files(request)
+        recommended = _recommended_warehouse_url(request, request.query_params.get("server", ""))
+        latest_version = (data["latest_apk"] or data["latest_aab"] or {}).get("version", "1.0.5")
+        publication = _android_publication_pack(request, latest_version, recommended)
+        return {
+            "apk": data["latest_apk"],
+            "aab": data["latest_aab"],
+            "files": data["files"],
+            "recommended_server_url": recommended,
+            "deep_link_setup": _android_deep_link("setup", recommended),
+            "deep_link_connect": _android_deep_link("connect", recommended),
+            "qr_setup_svg": _abs(request, "/api/releases/android/qr.svg?mode=setup&server=" + urllib.parse.quote(recommended, safe="")),
+            "qr_connect_svg": _abs(request, "/api/releases/android/qr.svg?mode=connect&server=" + urllib.parse.quote(recommended, safe="")),
+            "package_id": publication["package_id"],
+            "rustore_url": publication["rustore_url"],
+            "privacy_url": publication["privacy_url"],
+        }
+
+    @app.get("/api/releases/android/qr.svg")
+    async def api_android_release_qr(request: Request, mode: str = "connect", server: str = ""):
+        recommended = _recommended_warehouse_url(request, server)
+        payload = _android_deep_link(mode, recommended)
+        return Response(_android_qr_svg(payload), media_type="image/svg+xml")
+
+    @app.get("/download/android")
+    async def android_download_page(request: Request):
+        data = _android_release_files(request)
+        url = _abs(request, "/download/android")
+        latest_apk = data["latest_apk"]
+        latest_aab = data["latest_aab"]
+        latest_version = (latest_apk or latest_aab or {}).get("version", "1.0.5")
+        recommended_server_url = _recommended_warehouse_url(request, request.query_params.get("server", ""))
+        publication = _android_publication_pack(request, latest_version, recommended_server_url)
+        ctx = _seo_ctx(
+            request,
+            title=seo.page_title(store.settings["shop_name"], "Скачать Android-приложение «Склад»"),
+            description=f"Скачайте Android-сборки «Склад»: APK для ручной установки и AAB для публикации в сторах. Текущая версия {latest_version}.",
+            canonical=url,
+            latest_apk=latest_apk,
+            latest_aab=latest_aab,
+            release_files=data["files"],
+            recommended_server_url=recommended_server_url,
+            deep_link_setup=publication["setup_link"],
+            deep_link_connect=publication["connect_link"],
+            connect_qr_svg=_abs(request, "/api/releases/android/qr.svg?mode=connect&server=" + urllib.parse.quote(recommended_server_url, safe="")),
+            setup_qr_svg=_abs(request, "/api/releases/android/qr.svg?mode=setup&server=" + urllib.parse.quote(recommended_server_url, safe="")),
+            latest_version=latest_version,
+            rustore_url=publication["rustore_url"],
+            privacy_url=publication["privacy_url"],
+        )
+        return _render(request, "android_download.html", ctx)
+
+    @app.get("/download/android/rustore")
+    async def android_rustore_page(request: Request):
+        data = _android_release_files(request)
+        latest_version = (data["latest_apk"] or data["latest_aab"] or {}).get("version", "1.0.5")
+        recommended_server_url = _recommended_warehouse_url(request, request.query_params.get("server", ""))
+        publication = _android_publication_pack(request, latest_version, recommended_server_url)
+        ctx = _seo_ctx(
+            request,
+            title=seo.page_title(store.settings["shop_name"], "Публикация «Склад» в RuStore"),
+            description=f"Готовые тексты, ссылки и чек-лист для публикации Android-приложения «Склад» в RuStore. Версия {latest_version}.",
+            canonical=_abs(request, "/download/android/rustore"),
+            latest_version=latest_version,
+            latest_apk=data["latest_apk"],
+            latest_aab=data["latest_aab"],
+            publication=publication,
+        )
+        return _render(request, "android_rustore.html", ctx)
+
+    @app.get("/privacy")
+    async def privacy_page(request: Request):
+        ctx = _seo_ctx(
+            request,
+            title=seo.page_title(store.settings["shop_name"], "Политика конфиденциальности мобильного приложения"),
+            description="Политика конфиденциальности для Android-приложения «Склад» и веб-платформы Telegram Shop.",
+            canonical=_abs(request, "/privacy"),
+            shop_name=store.settings.get("shop_name") or "Telegram Shop",
+        )
+        return _render(request, "privacy.html", ctx)
+
     @app.get("/")
     async def home(request: Request):
         s = store.settings
-        products = [p for p in store.products() if p.get("in_stock")]
+        products = _visible_products()
         top = store.top_sellers(4) or products[:4]
         discounts = [p for p in products if p.get("old_price") and p["old_price"] > p["price"]][:4]
         new_items = [p for p in products if "new" in (p.get("badges") or [])][:4]
@@ -225,20 +496,21 @@ def create_app(store, providers: dict, bot=None, notify_new_order=None, notify_o
                 latest_reviews.append({**r, "product_name": p["name"], "product_id": p["id"]})
             if len(latest_reviews) >= 6:
                 break
+        active_sellers = store.sellers(status="active")
+        mp_settings = store.marketplace_settings()
         ctx = _seo_ctx(
             request,
-            title=seo.page_title(s["shop_name"]),
-            description=f"{s['shop_name']} — интернет-магазин с доставкой по всей стране. "
-                        f"{' '.join(p['name'] for p in products[:4])}. Оплата картой, СБП, криптовалютой. "
-                        f"Акции, промокоды и бесплатная доставка от {int(s.get('free_delivery_from') or 0)} ₽.",
+            title=seo.page_title(s["shop_name"], "Маркетплейс в Telegram и на сайте"),
+            description=f"{s['shop_name']} — маркетплейс с SEO-сайтом, Telegram Mini App и мобильным складом. "
+                        f"{len(products)} товаров, {len(active_sellers)} продавцов, безопасная сделка, доставка и оплата онлайн.",
             canonical=url,
             og_image=_abs(request, "/site/img/og-main.png") if os.path.exists(os.path.join(config.SITE_DIR, "img", "og-main.png"))
             else (_abs(request, products[0]["photo"]) if products else ""),
             jsonld=seo.org_jsonld(s["shop_name"], url)
             + seo.faq_jsonld(s.get("faq") or [], url),
-            hero_title=f"Всё нужное — в одном магазине. С доставкой по всей стране",
-            hero_sub=f"{s['shop_name']}: гаджеты, аксессуары, уют для дома и подарки. "
-                     "Оформление онлайн за 2 минуты, отправка в день заказа.",
+            hero_title="Маркетплейс, Telegram-магазин и склад — в одном проекте",
+            hero_sub=f"{s['shop_name']} объединяет витрины продавцов, сайт, Mini App и мобильный склад. "
+                     "Покупатели заказывают онлайн, продавцы управляют товарами и доставкой из одного кабинета.",
             hero_products=products[:4],
             top_sellers=top,
             discount_products=discounts,
@@ -246,6 +518,10 @@ def create_app(store, providers: dict, bot=None, notify_new_order=None, notify_o
             categories=store.categories(),
             cat_emojis={c: cat_emoji(c) for c in store.categories()},
             product_count=len(products),
+            seller_count=len(active_sellers),
+            active_sellers=active_sellers[:3],
+            mp_enabled=bool(mp_settings.get("enabled", True)),
+            commission=int(mp_settings.get("commission_percent") or 0),
             seo_text=(s.get("texts") or {}).get("about", ""),
             faq=s.get("faq") or [],
             reviews=latest_reviews,
@@ -261,27 +537,6 @@ def create_app(store, providers: dict, bot=None, notify_new_order=None, notify_o
             if slugify_ru(c) == slug:
                 return c
         return ""
-
-    def _visible_products() -> list:
-        mp = store.settings.get("marketplace") or {}
-        out = []
-        for p in store.products():
-            if not p.get("in_stock", True):
-                continue
-            if not p.get("on_showcase", True):
-                continue
-            if p.get("is_archived"):
-                continue
-            if mp.get("enabled"):
-                sid = int(p.get("seller_id") or 0)
-                if sid:
-                    seller = store.get_seller(sid)
-                    if not seller or seller["status"] != "active":
-                        continue
-                    p["seller_name"] = seller["store_name"]
-                    p["seller_slug"] = seller["slug"]
-            out.append(p)
-        return out
 
     def _render_catalog(request: Request, cat: str = "", q: str = "", page: int = 1,
                         seller: str = "", subcat: str = "", condition: str = ""):
@@ -534,7 +789,7 @@ def create_app(store, providers: dict, bot=None, notify_new_order=None, notify_o
         base = _abs(request, "/")
         urls = [(base, "daily", "1.0"), (base + "catalog", "daily", "0.9")]
         urls += [(base + f"p/{p['id']}", "daily", "0.8") for p in store.products() if p.get("in_stock")]
-        urls += [(base + "blog", "weekly", "0.7")]
+        urls += [(base + "blog", "weekly", "0.7"), (base + "download/android", "weekly", "0.8"), (base + "download/android/rustore", "weekly", "0.7"), (base + "privacy", "monthly", "0.4")]
         urls += [(base + f"blog/{post['slug']}", "monthly", "0.6") for post in store.posts(published_only=True)]
         if (store.settings.get("marketplace") or {}).get("enabled"):
             urls += [(base + "sellers", "weekly", "0.7"), (base + "become-seller", "monthly", "0.6")]
@@ -2899,12 +3154,6 @@ def create_app(store, providers: dict, bot=None, notify_new_order=None, notify_o
     @app.get("/api/search/geo")
     async def search_geo(q: str = "", city: str = "", radius_km: int = 50):
         return store.geo_search(query=q, city=city, radius_km=int(radius_km or 50))
-
-    @app.get("/api/search/suggest")
-    async def search_suggest(q: str = "", limit: int = 10):
-        results = store.search_products(q, limit=int(limit or 10))
-        return {"suggestions": [{"id": pid, "name": (store.get_product(pid) or {}).get("name", ""), "score": sc}
-                                      for pid, sc in results[:limit]]}
 
     @app.get("/api/boost/price")
     async def boost_prices():

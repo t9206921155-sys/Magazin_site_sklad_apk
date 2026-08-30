@@ -1,10 +1,12 @@
-# 🛍 Telegram Shop — магазин в Telegram + SEO-сайт + админка + 1С + ИИ
+# 🛍 Telegram Shop — маркетплейс + SEO-сайт + Telegram Mini App + склад/PWA/APK
 
-Полноценная e-commerce платформа: магазин в Telegram (бот + Mini App), SEO-сайт на
-серверном рендеринге, админ-панель (CMS), оплата (карты/СБП, крипта, Telegram Stars),
-доставка (СДЭК, 5POST, Яндекс), промокоды, бесплатная доставка, брошенная корзина,
-рассылки, аналитика, рекомендации, ИИ (описания, реклама, поиск аналогов), автогенерация
-баннеров и видеороликов, автопостинг в Telegram/VK, синхронизация с 1С.
+Полноценная e-commerce платформа: маркетплейс и магазин в Telegram (бот + Mini App),
+SEO-сайт на серверном рендеринге, витрины продавцов, админ-панель (CMS), мобильный склад
+(PWA/APK), оплата (карты/СБП, крипта, Telegram Stars), доставка (СДЭК, 5POST, Яндекс),
+промокоды, безопасная сделка, чат покупатель↔продавец, бесплатная доставка,
+брошенная корзина, рассылки, аналитика, рекомендации, ИИ (описания, реклама, поиск
+аналогов), автогенерация баннеров и видеороликов, автопостинг в Telegram/VK,
+синхронизация с 1С.
 
 **📋 План дальнейшего развития (SEO-продвижение, ИИ-видео, реклама, маркетплейсы) —
 в файле `PLAN.md` — на согласование.**
@@ -182,7 +184,7 @@ OpenAI-совместимый API (OpenAI, DeepSeek, OpenRouter…): в карт
 - **🤖 ИИ-генерация** (бесплатные OpenAI-совместимые API: Groq, Gemini, OpenRouter free,
   GigaChat — настройки в админке → ИИ): название (3 варианта), текст объявления,
   пост для Telegram-канала;
-- **📷 Камера-сканер** штрих-кодов (BarcodeDetector: EAN/Code-128/QR) для поиска товара;
+- **📷 Камера-сканер** штрих-кодов и QR (BarcodeDetector: EAN/Code-128/QR) для поиска товара; в Android APK камера запрашивается нативно через WebView, а при нестабильном BarcodeDetector включается fallback на встроенный Android scanner;
 - **🖨 Печать наклеек**: PDF с Code-128, артикулом, местом и владельцем — по одному
   товару или пачкой через чекбоксы;
 - **✏️ Массовое редактирование**: чекбоксы → «Изменить» — цена, закупочная цена,
@@ -220,13 +222,27 @@ OpenAI-совместимый API (OpenAI, DeepSeek, OpenRouter…): в карт
   принтеров (добавление/редактирование/удаление), смена своего пароля,
   запоминание логина на устройстве, экспорт склада в Excel.
 
-**Сборка APK (✅ готово, 26.08.2026)**: собран и подписан `apk/Sklad-1.0.0-release.apk`
-(пакет `ru.telegramshop.sklad`, Android 6.0+, 2.4 МБ) — WebView-обёртка PWA `/warehouse/`
-в духе PWABuilder «APK без TWA». Первый запуск — экран ввода адреса сервера, фото с
-камеры, смена сервера долгим нажатием. Исходники и скрипт пересборки: `apk-build/`
-(`rebuild-apk.sh`, инструкция `apk-build/README-APK.md`). RuStore — отложено
-пользователем. Дорожная карта, аналоги сервисов (МойСклад, LiteBox, Sortly),
-многопользовательский режим и монетизация — в `WAREHOUSE-PLAN.md`.
+**Android-релиз (✅ обновлено)**: собраны и подписаны `apk/Sklad-1.0.5-release.apk`
+и `aab/Sklad-1.0.5-release.aab` (пакет `ru.telegramshop.sklad`, Android 6.0+).
+Это WebView-обёртка PWA `/warehouse/` в духе PWABuilder «APK без TWA». Первый запуск —
+экран ввода адреса сервера, фото с камеры, множественный выбор изображений, смена
+сервера долгим нажатием, deep link-настройка через `sklad://setup` / `sklad://connect`,
+QR-подключение, нативный fallback-сканер для нестабильного WebView и проверка обновлений APK прямо из экрана настроек.
+Исходники Android-wrapper: `apk-build/android/...`, скрипт
+пересборки: `apk-build/rebuild-apk.sh`, инструкция: `apk-build/README-APK.md`,
+страница скачивания: `/download/android`, RuStore-материалы: `/download/android/rustore`,
+JSON-метаданные: `/api/releases/android`, privacy page: `/privacy`,
+deploy-checklist: `DEPLOY-CHECKLIST.md`, быстрый prod deploy: `PROD-DEPLOY-QUICKSTART.md`,
+merge-ready план: `MERGE-READY-PLAN.md`, merge-команды: `MERGE-COMMAND-BLOCK.md`,
+PR/merge summary: `PR-MERGE-SUMMARY-RU.md`, final handoff: `FINAL-RELEASE-HANDOFF.md`,
+step-by-step guide: `STEP-BY-STEP-RUNBOOK.md`, first launch: `FIRST-LAUNCH-15-MIN.md`,
+employee guide: `WAREHOUSE-EMPLOYEE-GUIDE.md`, owner/admin setup: `OWNER-ADMIN-SETUP.md`,
+field map: `SETTINGS-FIELD-MAP.md`, APK test checklist: `APK-TEST-CHECKLIST.md`,
+smoke-check script: `scripts/post_deploy_smoke_check.sh`,
+merge helper: `scripts/merge_feature_to_main.sh`, release status: `scripts/release_status.sh`,
+чек-лист карточки: `RUSTORE-CARD-CHECKLIST.md`.
+Дорожная карта, аналоги сервисов (МойСклад, LiteBox, Sortly), многопользовательский
+режим и монетизация — в `WAREHOUSE-PLAN.md`.
 
 ## 🏪 Маркетплейс: продавцы и витрины
 
