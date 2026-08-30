@@ -7,6 +7,7 @@ import android.content.Intent;
 import android.content.SharedPreferences;
 import android.net.Uri;
 import android.os.Bundle;
+import android.text.TextUtils;
 import android.view.View;
 import android.webkit.CookieManager;
 import android.webkit.ValueCallback;
@@ -24,23 +25,26 @@ import android.widget.Toast;
 import androidx.appcompat.app.AppCompatActivity;
 
 /**
- * «Склад» — WebView-обёртка PWA /warehouse/ (аналог сборки PWABuilder "APK без TWA").
- * Первый запуск: нативный экран ввода адреса сервера.
- * Сменить сервер: долгое нажатие на экран склада.
- * Загрузка фото (input type=file) пробрасывается в системный выбор файлов/камеры.
+ * «Склад» — WebView-обёртка PWA /warehouse/.
+ * Поддерживает:
+ * - ввод адреса сервера при первом запуске,
+ * - импорт адреса через deep link: sklad://setup?url=https://site/warehouse/
+ * - мгновенное подключение через deep link: sklad://connect?url=https://site/warehouse/
+ * - множественный выбор фото,
+ * - экран «О приложении»/настройки по долгому нажатию.
  */
 public class MainActivity extends AppCompatActivity {
 
     private static final String PREFS = "sklad_prefs";
     private static final String KEY_URL = "server_url";
     private static final int REQ_FILE = 1001;
-    private static final String APP_UA = " SkladApp/1.0.1";
+    private static final String APP_UA = " SkladApp/1.0.2";
 
     private WebView webView;
     private View mainView, setupView;
     private EditText urlInput;
-    private TextView setupError;
-    private Button btnConnect, btnBack;
+    private TextView setupError, appMeta, setupHint;
+    private Button btnConnect, btnBack, btnReset;
     private SharedPreferences prefs;
     private String baseUrl = "";
     private ValueCallback<Uri[]> filePathCallback;
@@ -57,26 +61,42 @@ public class MainActivity extends AppCompatActivity {
         webView = findViewById(R.id.webview);
         urlInput = findViewById(R.id.url_input);
         setupError = findViewById(R.id.setup_error);
+        setupHint = findViewById(R.id.setup_hint);
+        appMeta = findViewById(R.id.app_meta);
         btnConnect = findViewById(R.id.btn_connect);
         btnBack = findViewById(R.id.btn_back);
+        btnReset = findViewById(R.id.btn_reset);
 
         configureWebView();
+        updateMeta();
 
         btnConnect.setOnClickListener(v -> connect());
         btnBack.setOnClickListener(v -> loadWarehouse());
+        btnReset.setOnClickListener(v -> clearSavedServer());
 
         String saved = prefs.getString(KEY_URL, "");
         if (saved.isEmpty() && BuildConfig.WAREHOUSE_URL != null && !BuildConfig.WAREHOUSE_URL.isEmpty()) {
             saved = BuildConfig.WAREHOUSE_URL;
         }
         if (!saved.isEmpty()) {
-            baseUrl = saved;
-            urlInput.setText(saved);
-            prefs.edit().putString(KEY_URL, saved).apply();
-            loadWarehouse();
-        } else {
-            showSetup("Введите адрес вашего сервера.");
+            setServerUrl(saved, false);
         }
+
+        if (!applyIncomingIntent(getIntent())) {
+            if (!baseUrl.isEmpty()) {
+                loadWarehouse();
+            } else {
+                showSetup("Введите адрес вашего сервера.");
+            }
+        }
+    }
+
+    @Override
+    protected void onNewIntent(Intent intent) {
+        super.onNewIntent(intent);
+        setIntent(intent);
+        if (applyIncomingIntent(intent)) return;
+        updateMeta();
     }
 
     private void connect() {
@@ -86,29 +106,65 @@ public class MainActivity extends AppCompatActivity {
             setupError.setVisibility(View.VISIBLE);
             return;
         }
+        setServerUrl(raw, true);
+        loadWarehouse();
+    }
+
+    private void clearSavedServer() {
+        baseUrl = "";
+        prefs.edit().remove(KEY_URL).apply();
+        urlInput.setText("");
+        webView.loadUrl("about:blank");
+        updateMeta();
+        showSetup("Адрес сервера сброшен. Введите новый адрес или откройте ссылку настройки.");
+    }
+
+    private void setServerUrl(String raw, boolean showToast) {
         String url = normalize(raw);
         baseUrl = url;
         urlInput.setText(url);
         prefs.edit().putString(KEY_URL, url).apply();
-        loadWarehouse();
+        updateMeta();
+        if (showToast) {
+            Toast.makeText(this, "Сервер сохранён", Toast.LENGTH_SHORT).show();
+        }
     }
 
     /** Добавляет https:// и путь /warehouse/, если путь не указан. */
     private String normalize(String raw) {
-        String s = raw.trim();
+        String s = raw == null ? "" : raw.trim();
+        if (s.isEmpty()) return "";
         if (!s.startsWith("http://") && !s.startsWith("https://")) s = "https://" + s;
         try {
             Uri u = Uri.parse(s);
-            String path = u.getPath() == null ? "" : u.getPath();
-            if (path.isEmpty() || path.equals("/")) {
-                s = s.replaceAll("/+$", "");
-                s += "/warehouse/";
+            String scheme = u.getScheme() == null ? "https" : u.getScheme();
+            String host = u.getHost();
+            if (host == null || host.isEmpty()) return s;
+            int port = u.getPort();
+            String path = u.getPath() == null ? "" : u.getPath().trim();
+            String query = u.getQuery();
+            String fragment = u.getFragment();
+            if (path.isEmpty() || "/".equals(path)) {
+                path = "/warehouse/";
+            } else if ("/warehouse".equals(path)) {
+                path = "/warehouse/";
+            } else if (!path.startsWith("/warehouse/")) {
+                path = path.replaceAll("/+$", "") + "/warehouse/";
             }
-        } catch (Exception ignored) { }
-        return s;
+            Uri.Builder b = new Uri.Builder().scheme(scheme).encodedAuthority(host + (port != -1 ? ":" + port : "")).encodedPath(path);
+            if (!TextUtils.isEmpty(query)) b.encodedQuery(query);
+            if (!TextUtils.isEmpty(fragment)) b.encodedFragment(fragment);
+            return b.build().toString();
+        } catch (Exception ignored) {
+            return s;
+        }
     }
 
     private void loadWarehouse() {
+        if (baseUrl == null || baseUrl.isEmpty()) {
+            showSetup("Сначала укажите адрес сервера.");
+            return;
+        }
         setupView.setVisibility(View.GONE);
         mainView.setVisibility(View.VISIBLE);
         webView.loadUrl(baseUrl);
@@ -136,12 +192,48 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
+    private boolean applyIncomingIntent(Intent intent) {
+        if (intent == null) return false;
+        Uri data = intent.getData();
+        if (data == null) return false;
+        String scheme = data.getScheme() == null ? "" : data.getScheme().toLowerCase();
+        String host = data.getHost() == null ? "" : data.getHost().toLowerCase();
+        String urlParam = data.getQueryParameter("url");
+        if (TextUtils.isEmpty(urlParam)) urlParam = data.getQueryParameter("server");
+        if (TextUtils.isEmpty(urlParam) && ("http".equals(scheme) || "https".equals(scheme))) {
+            urlParam = data.getQueryParameter("sklad_url");
+        }
+        if (TextUtils.isEmpty(urlParam) && "1".equals(data.getQueryParameter("reset"))) {
+            clearSavedServer();
+            return true;
+        }
+        if (TextUtils.isEmpty(urlParam)) return false;
+
+        setServerUrl(urlParam, false);
+        String message = "Адрес получен из ссылки настройки. Нажмите «Подключиться» или откройте склад.";
+        if ("connect".equals(host) || "open".equals(host) || "1".equals(data.getQueryParameter("autoconnect"))) {
+            Toast.makeText(this, "Сервер импортирован из ссылки", Toast.LENGTH_SHORT).show();
+            loadWarehouse();
+        } else {
+            showSetup(message);
+        }
+        return true;
+    }
+
+    private void updateMeta() {
+        String current = (baseUrl == null || baseUrl.isEmpty()) ? "не подключён" : baseUrl;
+        appMeta.setText("Версия " + BuildConfig.VERSION_NAME + " • package " + BuildConfig.APPLICATION_ID + "\nТекущий сервер: " + current);
+        setupHint.setText("Можно открыть ссылку вида sklad://setup?url=https://ваш-домен/warehouse/\nили sklad://connect?url=https://ваш-домен/warehouse/ для мгновенного подключения.");
+        btnBack.setVisibility(baseUrl == null || baseUrl.isEmpty() ? View.GONE : View.VISIBLE);
+        btnReset.setVisibility(baseUrl == null || baseUrl.isEmpty() ? View.GONE : View.VISIBLE);
+    }
+
     private void showSetup(String error) {
         mainView.setVisibility(View.GONE);
         setupView.setVisibility(View.VISIBLE);
         setupError.setVisibility(error == null ? View.GONE : View.VISIBLE);
         if (error != null) setupError.setText(error);
-        btnBack.setVisibility(baseUrl.isEmpty() ? View.GONE : View.VISIBLE);
+        updateMeta();
     }
 
     @SuppressLint("SetJavaScriptEnabled")
@@ -166,9 +258,12 @@ public class MainActivity extends AppCompatActivity {
             public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) {
                 Uri uri = request.getUrl();
                 String url = uri.toString();
-                // Внутренняя навигация по складу — в WebView
                 if (isInternalUrl(url)) return false;
-                // Внешние ссылки (t.me, wa.me, оплата и т.п.) — в системный браузер/приложение
+                if (url.startsWith("sklad://")) {
+                    Intent i = new Intent(Intent.ACTION_VIEW, uri, MainActivity.this, MainActivity.class);
+                    startActivity(i);
+                    return true;
+                }
                 if (url.startsWith("http://") || url.startsWith("https://") || url.startsWith("tg://")) {
                     try {
                         startActivity(new Intent(Intent.ACTION_VIEW, uri));
@@ -207,9 +302,8 @@ public class MainActivity extends AppCompatActivity {
             }
         });
 
-        // Долгое нажатие — экран настройки сервера
         webView.setOnLongClickListener(v -> {
-            showSetup("Настройка сервера. Введите новый адрес и нажмите «Подключиться».");
+            showSetup("Настройки приложения. Можно сменить сервер, открыть ссылку настройки или сбросить сохранённый адрес.");
             return true;
         });
     }
@@ -239,7 +333,10 @@ public class MainActivity extends AppCompatActivity {
     @Override
     public void onBackPressed() {
         if (setupView.getVisibility() == View.VISIBLE) {
-            if (!baseUrl.isEmpty()) { loadWarehouse(); return; }
+            if (!baseUrl.isEmpty()) {
+                loadWarehouse();
+                return;
+            }
         }
         if (webView.canGoBack()) webView.goBack();
         else super.onBackPressed();

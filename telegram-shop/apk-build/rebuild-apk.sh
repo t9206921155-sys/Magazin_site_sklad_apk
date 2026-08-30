@@ -11,8 +11,8 @@ set -euo pipefail
 cd "$(dirname "$0")"
 
 DEFAULT_URL="${1:-}"
-APP_VERSION="1.0.1"
-APP_CODE="2"
+APP_VERSION="1.0.2"
+APP_CODE="3"
 APK_NAME="Sklad-${APP_VERSION}-release.apk"
 AAB_NAME="Sklad-${APP_VERSION}-release.aab"
 GRADLE_VER="8.2.1"
@@ -74,8 +74,7 @@ ensure_sdk() {
   local sm="${SDK_ROOT}/cmdline-tools/latest/bin/sdkmanager"
   log "Устанавливаю платформы Android (platform-tools, android-34, build-tools 34.0.0)..."
   yes | "${sm}" --sdk_root="${SDK_ROOT}" --licenses >/dev/null || true
-  "${sm}" --sdk_root="${SDK_ROOT}" \
-    "platform-tools" "platforms;android-34" "build-tools;34.0.0" >/dev/null
+  "${sm}" --sdk_root="${SDK_ROOT}" "platform-tools" "platforms;android-34" "build-tools;34.0.0" >/dev/null
 }
 
 ensure_gradle() {
@@ -137,6 +136,8 @@ build_release_artifacts() {
   popd >/dev/null
 
   mkdir -p ../apk ../aab
+  rm -f ../apk/Sklad-*-release.apk ../aab/Sklad-*-release.aab
+
   local apk="android/app/build/outputs/apk/release/app-release.apk"
   local aab="android/app/build/outputs/bundle/release/app-release.aab"
   local out_apk="../apk/${APK_NAME}"

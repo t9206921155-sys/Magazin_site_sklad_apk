@@ -280,10 +280,36 @@ def create_app(store, providers: dict, bot=None, notify_new_order=None, notify_o
         latest_aab = next((x for x in files if x["kind"] == "aab"), None)
         return {"files": files, "latest_apk": latest_apk, "latest_aab": latest_aab}
 
+
+    def _recommended_warehouse_url(request: Request, raw: str = "") -> str:
+        candidate = (raw or config.WEBAPP_URL or _abs(request, "/")).strip()
+        if not candidate:
+            return _abs(request, "/warehouse/")
+        if not candidate.startswith(("http://", "https://")):
+            candidate = "https://" + candidate
+        try:
+            u = urllib.parse.urlparse(candidate)
+            scheme = u.scheme or "https"
+            netloc = u.netloc or u.path
+            path = u.path if u.netloc else ""
+            if not path or path == "/":
+                path = "/warehouse/"
+            elif path == "/warehouse":
+                path = "/warehouse/"
+            elif not path.startswith("/warehouse/"):
+                path = path.rstrip("/") + "/warehouse/"
+            return urllib.parse.urlunparse((scheme, netloc, path, "", "", ""))
+        except Exception:
+            return _abs(request, "/warehouse/")
+
     @app.get("/api/releases/android")
     async def api_android_releases(request: Request):
         data = _android_release_files(request)
-        return {"apk": data["latest_apk"], "aab": data["latest_aab"], "files": data["files"]}
+        recommended = _recommended_warehouse_url(request, request.query_params.get("server", ""))
+        return {"apk": data["latest_apk"], "aab": data["latest_aab"], "files": data["files"],
+                "recommended_server_url": recommended,
+                "deep_link_setup": f"sklad://setup?url={urllib.parse.quote(recommended, safe='')}",
+                "deep_link_connect": f"sklad://connect?url={urllib.parse.quote(recommended, safe='')}"}
 
     @app.get("/download/android")
     async def android_download_page(request: Request):
@@ -291,7 +317,8 @@ def create_app(store, providers: dict, bot=None, notify_new_order=None, notify_o
         url = _abs(request, "/download/android")
         latest_apk = data["latest_apk"]
         latest_aab = data["latest_aab"]
-        latest_version = (latest_apk or latest_aab or {}).get("version", "1.0.1")
+        latest_version = (latest_apk or latest_aab or {}).get("version", "1.0.2")
+        recommended_server_url = _recommended_warehouse_url(request, request.query_params.get("server", ""))
         ctx = _seo_ctx(
             request,
             title=seo.page_title(store.settings["shop_name"], "Скачать Android-приложение «Склад»"),
@@ -300,6 +327,10 @@ def create_app(store, providers: dict, bot=None, notify_new_order=None, notify_o
             latest_apk=latest_apk,
             latest_aab=latest_aab,
             release_files=data["files"],
+            recommended_server_url=recommended_server_url,
+            deep_link_setup=f"sklad://setup?url={urllib.parse.quote(recommended_server_url, safe='')}",
+            deep_link_connect=f"sklad://connect?url={urllib.parse.quote(recommended_server_url, safe='')}",
+            latest_version=latest_version,
         )
         return _render(request, "android_download.html", ctx)
 

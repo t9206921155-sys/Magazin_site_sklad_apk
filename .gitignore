@@ -36,4 +36,6 @@ telegram-shop/backups/
 telegram-shop/*.log
 telegram-shop/apk/*.apk
 !telegram-shop/apk/Sklad-*-release.apk
+telegram-shop/aab/*.aab
+!telegram-shop/aab/Sklad-*-release.aab
 mobile/android/
