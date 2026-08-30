@@ -222,14 +222,16 @@ OpenAI-совместимый API (OpenAI, DeepSeek, OpenRouter…): в карт
   принтеров (добавление/редактирование/удаление), смена своего пароля,
   запоминание логина на устройстве, экспорт склада в Excel.
 
-**Android-релиз (✅ обновлено)**: собраны и подписаны `apk/Sklad-1.0.2-release.apk`
-и `aab/Sklad-1.0.2-release.aab` (пакет `ru.telegramshop.sklad`, Android 6.0+).
+**Android-релиз (✅ обновлено)**: собраны и подписаны `apk/Sklad-1.0.3-release.apk`
+и `aab/Sklad-1.0.3-release.aab` (пакет `ru.telegramshop.sklad`, Android 6.0+).
 Это WebView-обёртка PWA `/warehouse/` в духе PWABuilder «APK без TWA». Первый запуск —
 экран ввода адреса сервера, фото с камеры, множественный выбор изображений, смена
-сервера долгим нажатием и deep link-настройка через `sklad://setup` / `sklad://connect`.
+сервера долгим нажатием, deep link-настройка через `sklad://setup` / `sklad://connect`,
+QR-подключение и проверка обновлений APK прямо из экрана настроек.
 Исходники Android-wrapper: `apk-build/android/...`, скрипт
 пересборки: `apk-build/rebuild-apk.sh`, инструкция: `apk-build/README-APK.md`,
-страница скачивания: `/download/android`, JSON-метаданные: `/api/releases/android`.
+страница скачивания: `/download/android`, RuStore-материалы: `/download/android/rustore`,
+JSON-метаданные: `/api/releases/android`, privacy page: `/privacy`.
 Дорожная карта, аналоги сервисов (МойСклад, LiteBox, Sortly), многопользовательский
 режим и монетизация — в `WAREHOUSE-PLAN.md`.
 

@@ -51,8 +51,8 @@ docker compose up -d --build
 
 Готовые артефакты:
 
-- `telegram-shop/apk/Sklad-1.0.2-release.apk`
-- `telegram-shop/aab/Sklad-1.0.2-release.aab`
+- `telegram-shop/apk/Sklad-1.0.3-release.apk`
+- `telegram-shop/aab/Sklad-1.0.3-release.aab`
 
 Исходники Android-wrapper и сборка:
 

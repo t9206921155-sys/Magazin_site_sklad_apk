@@ -1,0 +1,180 @@
+{% extends "base.html" %}
+{% block content %}
+<nav class="crumbs">
+  <a href="/">Главная</a> <span>›</span> <a href="/download/android">Android-приложение</a> <span>›</span> <span>RuStore</span>
+</nav>
+
+<section class="dl-hero rustore-hero">
+  <div class="dl-hero-copy">
+    <div class="dl-badge dark">🏪 Публикация в RuStore</div>
+    <h1>Готовые тексты, ссылки и чек-лист для карточки приложения «Склад»</h1>
+    <p>Здесь собран практический пакет для выкладки Android-приложения в RuStore: название, краткое и полное описание, список изменений, обязательные ссылки и ориентир по ассетам. Всё уже привязано к текущей версии <b>{{ latest_version }}</b>.</p>
+    <div class="dl-hero-actions">
+      {% if latest_aab %}<a class="btn primary dl-btn" href="{{ latest_aab.download_url }}">Скачать AAB</a>{% endif %}
+      {% if latest_apk %}<a class="btn ghost dl-btn-light" href="{{ latest_apk.download_url }}">Скачать APK</a>{% endif %}
+      <a class="btn ghost dl-btn-light" href="/download/android">Назад к Android-лендингу</a>
+    </div>
+    <div class="dl-hero-facts">
+      <div><b>{{ publication.package_id }}</b><span>package name</span></div>
+      <div><b>{{ publication.category }}</b><span>рекомендуемая категория</span></div>
+      <div><b>{{ publication.age_rating }}</b><span>базовый возрастной рейтинг</span></div>
+    </div>
+  </div>
+  <div class="dl-phone">
+    <div class="dl-phone-frame">
+      <div class="dl-phone-top"></div>
+      <div class="dl-phone-screen">
+        <div class="dl-screen-header">Карточка RuStore</div>
+        <div class="dl-screen-card active">
+          <b>Что подготовлено</b>
+          <span>название, описания, ключевые слова, support/privacy links, список изменений</span>
+        </div>
+        <div class="dl-screen-card">
+          <b>Что осталось подставить</b>
+          <span>боевой email, юрданные разработчика и финальные скриншоты</span>
+        </div>
+        <div class="dl-screen-card">
+          <b>Файлы релиза</b>
+          <span>{% if latest_aab %}{{ latest_aab.filename }}{% else %}AAB{% endif %} для публикации и {% if latest_apk %}{{ latest_apk.filename }}{% else %}APK{% endif %} для ручной раздачи</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="rustore-layout">
+  <div class="panel notice-panel">
+    <h3>Что проверить перед отправкой</h3>
+    <ul class="checklist">
+      <li>Заменить <code>{{ publication.contact_email }}</code> на рабочий email поддержки.</li>
+      <li>Проверить название разработчика и юридические реквизиты в консоли RuStore.</li>
+      <li>Подготовить 4–8 скриншотов реального сценария: список товаров, карточка товара, печать этикеток, склад/остатки.</li>
+      <li>Убедиться, что privacy page опубликован и открывается без авторизации.</li>
+      <li>Загрузить именно AAB, а APK оставить для внутренних сотрудников и теста.</li>
+    </ul>
+  </div>
+
+  <div class="copy-grid">
+    <div class="panel copy-card">
+      <div class="copy-toolbar"><b>Название приложения</b><button class="btn ghost btn-copy-inline" type="button" data-copy-target="app-name">Копировать</button></div>
+      <textarea id="app-name" class="copy-box" readonly>{{ publication.app_name }}</textarea>
+    </div>
+
+    <div class="panel copy-card">
+      <div class="copy-toolbar"><b>Короткое описание</b><button class="btn ghost btn-copy-inline" type="button" data-copy-target="short-desc">Копировать</button></div>
+      <textarea id="short-desc" class="copy-box" readonly>{{ publication.short_description }}</textarea>
+      <div class="hint">Подходит как базовый короткий текст для карточки приложения.</div>
+    </div>
+
+    <div class="panel copy-card copy-card-wide">
+      <div class="copy-toolbar"><b>Полное описание</b><button class="btn ghost btn-copy-inline" type="button" data-copy-target="full-desc">Копировать</button></div>
+      <textarea id="full-desc" class="copy-box tall" readonly>{{ publication.full_description }}</textarea>
+    </div>
+
+    <div class="panel copy-card">
+      <div class="copy-toolbar"><b>Что нового</b><button class="btn ghost btn-copy-inline" type="button" data-copy-target="whats-new">Копировать</button></div>
+      <textarea id="whats-new" class="copy-box" readonly>{{ publication.whats_new }}</textarea>
+    </div>
+
+    <div class="panel copy-card">
+      <div class="copy-toolbar"><b>Ключевые слова</b><button class="btn ghost btn-copy-inline" type="button" data-copy-target="keywords">Копировать</button></div>
+      <textarea id="keywords" class="copy-box" readonly>{{ publication.keywords }}</textarea>
+    </div>
+  </div>
+</section>
+
+<section class="sect">
+  <div class="sect-head"><h2>Обязательные метаданные</h2><span class="sect-sub">ссылки и значения для карточки приложения</span></div>
+  <div class="copy-grid meta-grid">
+    <div class="panel copy-card">
+      <div class="copy-toolbar"><b>Package ID</b><button class="btn ghost btn-copy-inline" type="button" data-copy-target="package-id">Копировать</button></div>
+      <textarea id="package-id" class="copy-box" readonly>{{ publication.package_id }}</textarea>
+    </div>
+    <div class="panel copy-card">
+      <div class="copy-toolbar"><b>Категория</b><button class="btn ghost btn-copy-inline" type="button" data-copy-target="category">Копировать</button></div>
+      <textarea id="category" class="copy-box" readonly>{{ publication.category }}</textarea>
+    </div>
+    <div class="panel copy-card">
+      <div class="copy-toolbar"><b>Возрастной рейтинг</b><button class="btn ghost btn-copy-inline" type="button" data-copy-target="age-rating">Копировать</button></div>
+      <textarea id="age-rating" class="copy-box" readonly>{{ publication.age_rating }}</textarea>
+    </div>
+    <div class="panel copy-card">
+      <div class="copy-toolbar"><b>Сайт продукта</b><button class="btn ghost btn-copy-inline" type="button" data-copy-target="website-url">Копировать</button></div>
+      <textarea id="website-url" class="copy-box" readonly>{{ publication.website_url }}</textarea>
+    </div>
+    <div class="panel copy-card">
+      <div class="copy-toolbar"><b>Ссылка поддержки</b><button class="btn ghost btn-copy-inline" type="button" data-copy-target="support-url">Копировать</button></div>
+      <textarea id="support-url" class="copy-box" readonly>{{ publication.support_url }}</textarea>
+    </div>
+    <div class="panel copy-card">
+      <div class="copy-toolbar"><b>Privacy policy URL</b><button class="btn ghost btn-copy-inline" type="button" data-copy-target="privacy-url">Копировать</button></div>
+      <textarea id="privacy-url" class="copy-box" readonly>{{ publication.privacy_url }}</textarea>
+    </div>
+    <div class="panel copy-card">
+      <div class="copy-toolbar"><b>Email поддержки</b><button class="btn ghost btn-copy-inline" type="button" data-copy-target="contact-email">Копировать</button></div>
+      <textarea id="contact-email" class="copy-box" readonly>{{ publication.contact_email }}</textarea>
+      <div class="hint">{{ publication.support_note }}</div>
+    </div>
+    <div class="panel copy-card">
+      <div class="copy-toolbar"><b>URL сервера по умолчанию</b><button class="btn ghost btn-copy-inline" type="button" data-copy-target="server-url">Копировать</button></div>
+      <textarea id="server-url" class="copy-box" readonly>{{ publication.recommended_server_url }}</textarea>
+    </div>
+  </div>
+</section>
+
+<section class="sect">
+  <div class="sect-head"><h2>Deep link и quick onboarding</h2><span class="sect-sub">можно приложить в инструкции для сотрудников</span></div>
+  <div class="copy-grid meta-grid">
+    <div class="panel copy-card">
+      <div class="copy-toolbar"><b>Connect link</b><button class="btn ghost btn-copy-inline" type="button" data-copy-target="connect-link">Копировать</button></div>
+      <textarea id="connect-link" class="copy-box" readonly>{{ publication.connect_link }}</textarea>
+    </div>
+    <div class="panel copy-card">
+      <div class="copy-toolbar"><b>Setup link</b><button class="btn ghost btn-copy-inline" type="button" data-copy-target="setup-link">Копировать</button></div>
+      <textarea id="setup-link" class="copy-box" readonly>{{ publication.setup_link }}</textarea>
+    </div>
+  </div>
+</section>
+
+<section class="sect">
+  <div class="sect-head"><h2>Файлы релиза</h2><span class="sect-sub">что использовать для публикации и раздачи</span></div>
+  <div class="copy-grid meta-grid">
+    {% if latest_aab %}
+    <div class="panel copy-card">
+      <h3>AAB для стора</h3>
+      <div class="hint">{{ latest_aab.filename }} · {{ latest_aab.size_human }} · SHA-256 {{ latest_aab.sha256 }}</div>
+      <a class="btn primary dl-btn mt12" href="{{ latest_aab.download_url }}">Скачать AAB</a>
+    </div>
+    {% endif %}
+    {% if latest_apk %}
+    <div class="panel copy-card">
+      <h3>APK для сотрудников</h3>
+      <div class="hint">{{ latest_apk.filename }} · {{ latest_apk.size_human }} · SHA-256 {{ latest_apk.sha256 }}</div>
+      <a class="btn ghost dl-btn mt12" href="{{ latest_apk.download_url }}">Скачать APK</a>
+    </div>
+    {% endif %}
+  </div>
+</section>
+
+<div class="hint copy-feedback" id="copy-feedback"></div>
+
+<script>
+(function () {
+  var feedback = document.getElementById('copy-feedback');
+  document.querySelectorAll('[data-copy-target]').forEach(function (btn) {
+    btn.addEventListener('click', async function () {
+      var field = document.getElementById(btn.dataset.copyTarget);
+      var text = field ? field.value : '';
+      try {
+        await navigator.clipboard.writeText(text);
+        feedback.textContent = '✅ Поле скопировано';
+        feedback.style.color = '#10b981';
+      } catch (e) {
+        feedback.textContent = '❌ Не удалось скопировать';
+        feedback.style.color = '#ef4444';
+      }
+    });
+  });
+})();
+</script>
+{% endblock %}

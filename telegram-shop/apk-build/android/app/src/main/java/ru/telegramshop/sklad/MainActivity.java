@@ -24,6 +24,16 @@ import android.widget.Toast;
 
 import androidx.appcompat.app.AppCompatActivity;
 
+import org.json.JSONObject;
+
+import java.io.BufferedReader;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.net.HttpURLConnection;
+import java.net.URL;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
+
 /**
  * «Склад» — WebView-обёртка PWA /warehouse/.
  * Поддерживает:
@@ -31,22 +41,24 @@ import androidx.appcompat.app.AppCompatActivity;
  * - импорт адреса через deep link: sklad://setup?url=https://site/warehouse/
  * - мгновенное подключение через deep link: sklad://connect?url=https://site/warehouse/
  * - множественный выбор фото,
- * - экран «О приложении»/настройки по долгому нажатию.
+ * - экран «О приложении»/настройки по долгому нажатию,
+ * - проверку новых APK-релизов на подключённом сервере.
  */
 public class MainActivity extends AppCompatActivity {
 
     private static final String PREFS = "sklad_prefs";
     private static final String KEY_URL = "server_url";
     private static final int REQ_FILE = 1001;
-    private static final String APP_UA = " SkladApp/1.0.2";
+    private static final String APP_UA = " SkladApp/1.0.3";
 
     private WebView webView;
     private View mainView, setupView;
     private EditText urlInput;
-    private TextView setupError, appMeta, setupHint;
-    private Button btnConnect, btnBack, btnReset;
+    private TextView setupError, appMeta, setupHint, updateInfo;
+    private Button btnConnect, btnBack, btnReset, btnUpdate;
     private SharedPreferences prefs;
     private String baseUrl = "";
+    private String latestUpdateUrl = "";
     private ValueCallback<Uri[]> filePathCallback;
 
     @SuppressLint("SetJavaScriptEnabled")
@@ -63,16 +75,20 @@ public class MainActivity extends AppCompatActivity {
         setupError = findViewById(R.id.setup_error);
         setupHint = findViewById(R.id.setup_hint);
         appMeta = findViewById(R.id.app_meta);
+        updateInfo = findViewById(R.id.update_info);
         btnConnect = findViewById(R.id.btn_connect);
         btnBack = findViewById(R.id.btn_back);
         btnReset = findViewById(R.id.btn_reset);
+        btnUpdate = findViewById(R.id.btn_update);
 
         configureWebView();
         updateMeta();
+        resetUpdateState();
 
         btnConnect.setOnClickListener(v -> connect());
         btnBack.setOnClickListener(v -> loadWarehouse());
         btnReset.setOnClickListener(v -> clearSavedServer());
+        btnUpdate.setOnClickListener(v -> openExternal(latestUpdateUrl));
 
         String saved = prefs.getString(KEY_URL, "");
         if (saved.isEmpty() && BuildConfig.WAREHOUSE_URL != null && !BuildConfig.WAREHOUSE_URL.isEmpty()) {
@@ -112,10 +128,12 @@ public class MainActivity extends AppCompatActivity {
 
     private void clearSavedServer() {
         baseUrl = "";
+        latestUpdateUrl = "";
         prefs.edit().remove(KEY_URL).apply();
         urlInput.setText("");
         webView.loadUrl("about:blank");
         updateMeta();
+        resetUpdateState();
         showSetup("Адрес сервера сброшен. Введите новый адрес или откройте ссылку настройки.");
     }
 
@@ -125,6 +143,7 @@ public class MainActivity extends AppCompatActivity {
         urlInput.setText(url);
         prefs.edit().putString(KEY_URL, url).apply();
         updateMeta();
+        checkForUpdates();
         if (showToast) {
             Toast.makeText(this, "Сервер сохранён", Toast.LENGTH_SHORT).show();
         }
@@ -223,9 +242,129 @@ public class MainActivity extends AppCompatActivity {
     private void updateMeta() {
         String current = (baseUrl == null || baseUrl.isEmpty()) ? "не подключён" : baseUrl;
         appMeta.setText("Версия " + BuildConfig.VERSION_NAME + " • package " + BuildConfig.APPLICATION_ID + "\nТекущий сервер: " + current);
-        setupHint.setText("Можно открыть ссылку вида sklad://setup?url=https://ваш-домен/warehouse/\nили sklad://connect?url=https://ваш-домен/warehouse/ для мгновенного подключения.");
+        setupHint.setText("Можно открыть ссылку вида sklad://setup?url=https://ваш-домен/warehouse/\nили sklad://connect?url=https://ваш-домен/warehouse/ для мгновенного подключения. QR-код генерируется на странице /download/android.");
         btnBack.setVisibility(baseUrl == null || baseUrl.isEmpty() ? View.GONE : View.VISIBLE);
         btnReset.setVisibility(baseUrl == null || baseUrl.isEmpty() ? View.GONE : View.VISIBLE);
+    }
+
+    private void resetUpdateState() {
+        latestUpdateUrl = "";
+        updateInfo.setText("Проверка станет доступна после подключения к серверу.");
+        btnUpdate.setVisibility(View.GONE);
+    }
+
+    private void applyUpdateState(String message, String downloadUrl, boolean hasUpdate) {
+        latestUpdateUrl = hasUpdate ? downloadUrl : "";
+        updateInfo.setText(message);
+        btnUpdate.setVisibility(hasUpdate && !TextUtils.isEmpty(downloadUrl) ? View.VISIBLE : View.GONE);
+    }
+
+    private String getOriginBase() {
+        if (TextUtils.isEmpty(baseUrl)) return "";
+        try {
+            Uri u = Uri.parse(baseUrl);
+            String scheme = u.getScheme() == null ? "https" : u.getScheme();
+            String authority = u.getEncodedAuthority();
+            if (TextUtils.isEmpty(authority)) return "";
+            return new Uri.Builder().scheme(scheme).encodedAuthority(authority).build().toString();
+        } catch (Exception ignored) {
+            return "";
+        }
+    }
+
+    private int compareVersions(String left, String right) {
+        String[] a = (left == null ? "" : left).split("\\.");
+        String[] b = (right == null ? "" : right).split("\\.");
+        int size = Math.max(a.length, b.length);
+        for (int i = 0; i < size; i++) {
+            int av = i < a.length ? parseIntSafe(a[i]) : 0;
+            int bv = i < b.length ? parseIntSafe(b[i]) : 0;
+            if (av != bv) return av > bv ? 1 : -1;
+        }
+        return 0;
+    }
+
+    private int parseIntSafe(String value) {
+        try {
+            return Integer.parseInt(value.replaceAll("[^0-9]", ""));
+        } catch (Exception ignored) {
+            return 0;
+        }
+    }
+
+    private String readAll(InputStream stream) throws Exception {
+        BufferedReader reader = new BufferedReader(new InputStreamReader(stream, StandardCharsets.UTF_8));
+        StringBuilder sb = new StringBuilder();
+        String line;
+        while ((line = reader.readLine()) != null) sb.append(line);
+        reader.close();
+        return sb.toString();
+    }
+
+    private void checkForUpdates() {
+        if (TextUtils.isEmpty(baseUrl)) {
+            resetUpdateState();
+            return;
+        }
+        final String origin = getOriginBase();
+        if (TextUtils.isEmpty(origin)) {
+            applyUpdateState("Не удалось определить origin сервера для проверки обновлений.", "", false);
+            return;
+        }
+        updateInfo.setText("Проверяем наличие обновлений APK…");
+        btnUpdate.setVisibility(View.GONE);
+        final String currentServer = baseUrl;
+        new Thread(() -> {
+            HttpURLConnection conn = null;
+            try {
+                String apiUrl = origin + "/api/releases/android?server=" + URLEncoder.encode(currentServer, "UTF-8");
+                conn = (HttpURLConnection) new URL(apiUrl).openConnection();
+                conn.setConnectTimeout(7000);
+                conn.setReadTimeout(7000);
+                conn.setRequestMethod("GET");
+                conn.setRequestProperty("Accept", "application/json");
+                int code = conn.getResponseCode();
+                InputStream stream = code >= 200 && code < 400 ? conn.getInputStream() : conn.getErrorStream();
+                String body = stream == null ? "" : readAll(stream);
+                if (code < 200 || code >= 400) {
+                    throw new IllegalStateException("HTTP " + code);
+                }
+                JSONObject root = new JSONObject(body);
+                JSONObject apk = root.optJSONObject("apk");
+                if (apk == null) {
+                    runOnUiThread(() -> applyUpdateState("На сервере пока нет APK-релиза для проверки обновлений.", "", false));
+                    return;
+                }
+                String latestVersion = apk.optString("version", "");
+                String downloadUrl = apk.optString("download_url", "");
+                String updatedAt = apk.optString("updated_at", "");
+                boolean hasUpdate = compareVersions(latestVersion, BuildConfig.VERSION_NAME) > 0;
+                String message;
+                if (hasUpdate) {
+                    message = "Доступна версия " + latestVersion + (TextUtils.isEmpty(updatedAt) ? "" : " · обновлено " + updatedAt);
+                } else {
+                    message = "Установлена актуальная версия " + BuildConfig.VERSION_NAME + (TextUtils.isEmpty(updatedAt) ? "" : " · сервер проверен " + updatedAt);
+                }
+                runOnUiThread(() -> applyUpdateState(message, downloadUrl, hasUpdate));
+            } catch (Exception e) {
+                String message = e.getMessage();
+                runOnUiThread(() -> applyUpdateState("Не удалось проверить обновления: " + (message == null ? "ошибка сети" : message), "", false));
+            } finally {
+                if (conn != null) conn.disconnect();
+            }
+        }).start();
+    }
+
+    private void openExternal(String url) {
+        if (TextUtils.isEmpty(url)) {
+            Toast.makeText(this, "Ссылка обновления пока недоступна", Toast.LENGTH_SHORT).show();
+            return;
+        }
+        try {
+            startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(url)));
+        } catch (ActivityNotFoundException e) {
+            Toast.makeText(this, "Не удалось открыть ссылку", Toast.LENGTH_SHORT).show();
+        }
     }
 
     private void showSetup(String error) {
@@ -303,7 +442,7 @@ public class MainActivity extends AppCompatActivity {
         });
 
         webView.setOnLongClickListener(v -> {
-            showSetup("Настройки приложения. Можно сменить сервер, открыть ссылку настройки или сбросить сохранённый адрес.");
+            showSetup("Настройки приложения. Можно сменить сервер, открыть ссылку настройки, проверить обновления или сбросить сохранённый адрес.");
             return true;
         });
     }
