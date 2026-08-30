@@ -261,6 +261,7 @@ async function toggleShowcase(id, on) {
     await api('/api/warehouse/products/' + id, { method: 'PUT', body: JSON.stringify({ on_showcase: on }) });
     toast(on ? 'Выставлено на витрину 🟢' : 'Снято с витрины');
     loadList();
+    loadCloudStatus();
   } catch (e) { toast(e.message, true); }
 }
 
@@ -387,6 +388,7 @@ async function copyOne(id) {
     const c = await api(`/api/warehouse/products/${id}/copy`, { method: 'POST', body: '{}' });
     toast(`Копия создана: ${c.code} ✅`);
     loadList();
+    loadCloudStatus();
   } catch (e) { toast(e.message, true); }
 }
 
@@ -396,6 +398,7 @@ async function archiveOne(id) {
     await api(`/api/warehouse/products/${id}/archive`, { method: 'POST', body: '{}' });
     toast('В архиве 🗄');
     loadList();
+    loadCloudStatus();
   } catch (e) { toast(e.message, true); }
 }
 
@@ -584,6 +587,7 @@ async function handleScanCode(code) {
     toast((r.warning ? '⚠️ ' : '') + r.message, !r.found || r.warning);
     if (SCAN_MODE === 'search' && r.found) openForm(r.product.id);
     loadList();
+    loadCloudStatus();
   } catch (e) { toast(e.message, true); }
 }
 
@@ -685,6 +689,7 @@ async function applyBulk() {
     selected = new Set();
     closeBulk();
     loadList();
+    loadCloudStatus();
   } catch (e) { toast(e.message, true); }
 }
 window.openBulkEdit = openBulkEdit;
@@ -1033,13 +1038,13 @@ async function openSettings() {
     $('#sheet2-title').textContent = '⚙️ Настройки';
     const isS3 = (s.cloud.provider || 's3') === 's3';
     $('#sheet2-body').innerHTML = `
-      <h3 style="margin:14px 0 8px">☁️ Облако для фото и каталога</h3>
-      <p style="color:#64748b;font-size:12px;margin:0 0 8px">Основная база — на нашем сервере (все устройства уже синхронизированы). Облако — резервная копия каталога и хранилище фото с CDN (рекомендуем S3: Selectel, Cloud.ru, VK Cloud, Яндекс).</p>
+      <h3 style="margin:14px 0 8px">☁️ Облако для фото и резервных копий</h3>
+      <p style="color:#64748b;font-size:12px;margin:0 0 8px">Живая база склада остаётся на VPS в <code>data/shop.db</code>. Облако используется для фото, CDN-ссылок и резервной копии SQLite. Для схемы VPS + Yandex Object Storage укажите bucket <b>shop-photos</b> для картинок и <b>shop-backups</b> для бэкапов.</p>
       <label class="lb" style="display:flex;gap:8px;align-items:center"><input type="checkbox" id="cl-en" ${s.cloud.enabled ? 'checked' : ''} ${isAdmin ? '' : 'disabled'} style="accent-color:#0f766e"> Использовать облако</label>
       <select class="fld" id="cl-provider" ${isAdmin ? '' : 'disabled'}>
         <option value="s3" ${s.cloud.provider === 's3' ? 'selected' : ''}>S3-совместимое (Selectel / Cloud.ru / VK Cloud / Яндекс / MinIO)</option>
         <option value="supabase" ${s.cloud.provider === 'supabase' ? 'selected' : ''}>Supabase (REST)</option>
-        <option value="mysql" ${s.cloud.provider === 'mysql' ? 'selected' : ''}>MySQL / MariaDB (база каталога)</option>
+        <option value="mysql" ${s.cloud.provider === 'mysql' ? 'selected' : ''}>MySQL / MariaDB (каталог отдельно)</option>
       </select>
       <div id="s3-fields" style="${isS3 ? '' : 'display:none'}">
         <select class="fld" id="s3-preset" ${isAdmin ? '' : 'disabled'}>
@@ -1055,9 +1060,14 @@ async function openSettings() {
         <input class="fld" id="s3-ak" placeholder="Access Key" value="${esc(s.cloud.s3_access_key || '')}" ${isAdmin ? '' : 'disabled'}>
         <input class="fld" id="s3-sk" type="password" placeholder="Secret Key (пусто = не менять)" ${isAdmin ? '' : 'disabled'}>
         <div class="row2">
-          <input class="fld" id="s3-bucket" placeholder="Bucket" value="${esc(s.cloud.bucket || 'shop-photos')}" ${isAdmin ? '' : 'disabled'}>
+          <input class="fld" id="s3-bucket" placeholder="Bucket для фото" value="${esc(s.cloud.bucket || 'shop-photos')}" ${isAdmin ? '' : 'disabled'}>
           <input class="fld" id="s3-region" placeholder="Регион (пусто = из пресета)" value="${esc(s.cloud.s3_region || '')}" ${isAdmin ? '' : 'disabled'}>
         </div>
+        <div class="row2">
+          <input class="fld" id="s3-photo-prefix" placeholder="Папка/префикс для фото" value="${esc(s.cloud.photo_prefix || 'products')}" ${isAdmin ? '' : 'disabled'}>
+          <input class="fld" id="s3-backup-bucket" placeholder="Bucket для backup SQLite" value="${esc(s.cloud.backup_bucket || 'shop-backups')}" ${isAdmin ? '' : 'disabled'}>
+        </div>
+        <input class="fld" id="s3-backup-prefix" placeholder="Папка/префикс для backup SQLite" value="${esc(s.cloud.backup_prefix || 'sqlite')}" ${isAdmin ? '' : 'disabled'}>
       </div>
       <div id="sb-fields" style="${s.cloud.provider === 'supabase' ? '' : 'display:none'}">
         <input class="fld" id="cl-url" placeholder="URL, например https://xxxx.supabase.co" value="${esc(s.cloud.url)}" ${isAdmin ? '' : 'disabled'}>
@@ -1091,6 +1101,7 @@ async function openSettings() {
       <div class="airow">
         <button class="mini" onclick="cloudTest()">🔌 Проверить</button>
         <button class="mini" onclick="cloudSync()">🔄 Синхронизировать</button>
+        <button class="mini" onclick="cloudBackup()">🗄 Бэкап БД</button>
         <button class="mini" onclick="cloudPull()">⬇️ Из облака</button>
       </div>
       <div class="hint" id="cloud-note" style="color:#64748b;font-size:12px;margin-bottom:8px"></div>` : ''}
@@ -1154,7 +1165,7 @@ async function openSettings() {
       $('#sb-fields').style.display = v === 'supabase' ? '' : 'none';
       $('#my-fields').style.display = v === 'mysql' ? '' : 'none';
     });
-    $('#s3-preset').value = s.cloud.s3_preset || 'selectel';
+    $('#s3-preset').value = s.cloud.s3_preset || 'yandex';
     $('#s3-preset').addEventListener('change', e => applyS3Preset(e.target.value, true));
     loadPresets().then(() => {
       const cur = $('#s3-preset').value;
@@ -1190,9 +1201,11 @@ function applyS3Preset(id, fill) {
 async function loadCloudStatus() {
   try {
     const st = await api('/api/warehouse/cloud/status');
+    const backup = st.backup || {};
     $('#cloud-status').textContent = st.enabled
-      ? `☁️ ${st.provider.toUpperCase()} · CDN: ${st.use_cdn ? 'вкл' : 'выкл'} · фото в облаке: ${st.photos_synced}` +
-        (st.last_sync ? ` · синхронизировано ${new Date(st.last_sync).toLocaleString('ru-RU')}` : ' · ещё не синхронизировали')
+      ? `☁️ ${(st.provider || 'cloud').toUpperCase()} · CDN: ${st.use_cdn ? 'вкл' : 'выкл'} · фото в облаке: ${st.photos_synced}` +
+        (st.last_sync ? ` · синхронизировано ${new Date(st.last_sync).toLocaleString('ru-RU')}` : ' · ещё не синхронизировали') +
+        (backup.at ? ` · backup SQLite: ${backup.bucket}/${backup.key}` : '')
       : '☁️ облако выключено — фото отдаются с сервера';
   } catch (e) { $('#cloud-status').textContent = ''; }
 }
@@ -1206,6 +1219,7 @@ async function cloudPull() {
       ? `✅ Восстановлено: создано ${r.created}, обновлено ${r.updated}`
       : '❌ ' + (r.error || 'ошибка');
     loadList();
+    loadCloudStatus();
   } catch (e) { $('#cloud-note').textContent = '❌ ' + e.message; }
 }
 
@@ -1248,6 +1262,9 @@ async function saveSettings() {
                use_cdn: $('#cl-cdn').checked,
                url: $('#cl-url').value.trim(), key: $('#cl-key').value.trim(),
                bucket: ($('#s3-bucket').value.trim() || $('#cl-bucket2').value.trim()) || 'shop-photos',
+               photo_prefix: $('#s3-photo-prefix').value.trim() || 'products',
+               backup_bucket: $('#s3-backup-bucket').value.trim() || 'shop-backups',
+               backup_prefix: $('#s3-backup-prefix').value.trim() || 'sqlite',
                s3_preset: $('#s3-preset').value, s3_endpoint: $('#s3-ep').value.trim(),
                s3_access_key: $('#s3-ak').value.trim(),
                s3_secret_key: $('#s3-sk').value.trim(), s3_region: $('#s3-region').value.trim(),
@@ -1280,6 +1297,18 @@ async function cloudSync() {
     $('#cloud-note').textContent = r.ok
       ? `✅ Загружено: ${r.products} товаров, ${r.photos.uploaded} фото`
       : '❌ ' + (r.error || 'ошибка');
+    loadCloudStatus();
+  } catch (e) { $('#cloud-note').textContent = '❌ ' + e.message; }
+}
+
+async function cloudBackup() {
+  $('#cloud-note').textContent = 'Создаём backup SQLite и отправляем в облако…';
+  try {
+    const r = await api('/api/warehouse/cloud/backup', { method: 'POST', body: '{}' });
+    $('#cloud-note').textContent = r.ok
+      ? `✅ Backup загружен: ${r.bucket}/${r.key}`
+      : '❌ ' + (r.error || 'ошибка');
+    loadCloudStatus();
   } catch (e) { $('#cloud-note').textContent = '❌ ' + e.message; }
 }
 

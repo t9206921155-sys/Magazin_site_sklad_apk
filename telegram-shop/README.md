@@ -206,8 +206,11 @@ OpenAI-совместимый API (OpenAI, DeepSeek, OpenRouter…): в карт
   Яндекс Объектное хранилище, MinIO (endpoint и регион подставляются автоматически,
   подсказка, где взять ключи; свои значения можно ввести вручную),
   **Supabase** (REST: каталог + Storage) и **MySQL/MariaDB** (база каталога, фото — в S3-бакете).
-  «Проверить подключение», «Синхронизировать» (каталог + все фото) и «⬇️ Из облака»
-  (восстановление каталога). Таблица MySQL создаётся автоматически при первом push;
+  Для схемы VPS + Yandex Object Storage можно отдельно задать bucket/prefix для фото
+  (`shop-photos/products`) и отдельный bucket/prefix для backup SQLite (`shop-backups/sqlite`).
+  Доступны действия «Проверить подключение», «Синхронизировать» (каталог + все фото),
+  «🗄 Бэкап БД» и «⬇️ Из облака» (восстановление каталога). Таблица MySQL создаётся
+  автоматически при первом push;
 - **🖼 Фото подтягиваются с облака**: после синхронизации сохраняется маппинг
   локальный путь → CDN-URL (`cloud_state`), и приложение отдаёт облачные ссылки —
   быстрая загрузка на любых устройствах. Переключатель «Подтягивать фото с облака»;
@@ -238,6 +241,7 @@ PR/merge summary: `PR-MERGE-SUMMARY-RU.md`, final handoff: `FINAL-RELEASE-HANDOF
 step-by-step guide: `STEP-BY-STEP-RUNBOOK.md`, first launch: `FIRST-LAUNCH-15-MIN.md`,
 employee guide: `WAREHOUSE-EMPLOYEE-GUIDE.md`, owner/admin setup: `OWNER-ADMIN-SETUP.md`,
 field map: `SETTINGS-FIELD-MAP.md`, APK test checklist: `APK-TEST-CHECKLIST.md`,
+VPS + Yandex guide: `VPS-YANDEX-SETUP.md`, SQLite→S3 backup: `scripts/backup_sqlite_to_s3.py`,
 smoke-check script: `scripts/post_deploy_smoke_check.sh`,
 merge helper: `scripts/merge_feature_to_main.sh`, release status: `scripts/release_status.sh`,
 чек-лист карточки: `RUSTORE-CARD-CHECKLIST.md`.

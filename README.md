@@ -77,6 +77,8 @@ docker compose up -d --build
 - `telegram-shop/OWNER-ADMIN-SETUP.md` — инструкция для владельца/админа с exact полями и порядком настройки
 - `telegram-shop/SETTINGS-FIELD-MAP.md` — единая таблица «что куда вписывать» по .env, облаку, AI, VK, Avito и оплате
 - `telegram-shop/APK-TEST-CHECKLIST.md` — чек-лист ручной проверки Android APK перед выдачей сотрудникам
+- `telegram-shop/VPS-YANDEX-SETUP.md` — точная схема VPS + SQLite + Yandex Object Storage для фото и backup
+- `telegram-shop/scripts/backup_sqlite_to_s3.py` — ручной/cron backup `shop.db` в S3/Yandex Object Storage
 - `telegram-shop/scripts/post_deploy_smoke_check.sh` — быстрый smoke-check production-домена
 - `telegram-shop/scripts/merge_feature_to_main.sh` — helper script для merge feature-ветки в `main`
 - `telegram-shop/scripts/release_status.sh` — быстрый вывод статуса релиза, версий и SHA-256

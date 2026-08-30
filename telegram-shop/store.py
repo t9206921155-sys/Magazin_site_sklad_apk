@@ -588,6 +588,13 @@ class Store:
         scols = {r["name"] for r in self._q("PRAGMA table_info(sellers)")}
         for col, ddl in (
             ("plan", "TEXT DEFAULT ''"),                        # тариф продавца (id плана)
+            ("held_balance", "INTEGER DEFAULT 0"),              #�ет…}
+        ):
+            if col not in cols:
+                self._conn.execute(f"ALTER TABLE products ADD COLUMN {col} {ddl}")
+        scols = {r["name"] for r in self._q("PRAGMA table_info(sellers)")}
+        for col, ddl in (
+            ("plan", "TEXT DEFAULT ''"),                        # тариф продавца (id плана)
             ("held_balance", "INTEGER DEFAULT 0"),              # средства в холде (эскроу)
             ("ai_used", "INTEGER DEFAULT 0"),                   # ИИ-генераций использовано
             ("ai_month", "TEXT DEFAULT ''"),                    # месяц учёта ИИ (YYYY-MM)
@@ -1978,6 +1985,18 @@ class Store:
         with _lock:
             self._settings["cloud_state"] = state
             self._save_settings_to_db()
+
+    def export_sqlite_backup(self, dest_path: str) -> str:
+        """Снимок живой SQLite-базы в отдельный файл для безопасной выгрузки в облако."""
+        dest_path = os.path.abspath(dest_path)
+        os.makedirs(os.path.dirname(dest_path), exist_ok=True)
+        with _lock:
+            dst = sqlite3.connect(dest_path)
+            try:
+                self._conn.backup(dst)
+            finally:
+                dst.close()
+        return dest_path
 
     def wh_scan_add(self, user_name: str, mode: str, code: str, product_id: int,
                     qty: int, result: str):

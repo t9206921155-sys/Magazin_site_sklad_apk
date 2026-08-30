@@ -2389,8 +2389,10 @@ def create_app(store, providers: dict, bot=None, notify_new_order=None, notify_o
         user = wh_user_from_headers(x_wh_token, x_admin_token)
         s = store.settings
         cloud = dict(s.get("cloud") or {})
-        if user["role"] != "admin":
-            cloud["key"] = "•••" if cloud.get("key") else ""
+        # Секреты не возвращаем в явном виде: пустое поле в UI означает «оставить как есть».
+        cloud["key"] = "•••" if cloud.get("key") else ""
+        cloud["s3_secret_key"] = "•••" if cloud.get("s3_secret_key") else ""
+        cloud["mysql_password"] = "•••" if cloud.get("mysql_password") else ""
         soc = s.get("social") or {}
         return {
             "cloud": cloud,
@@ -2413,7 +2415,13 @@ def create_app(store, providers: dict, bot=None, notify_new_order=None, notify_o
             raise HTTPException(403, "Только администратор склада")
         patch = {}
         if "cloud" in body:
-            patch["cloud"] = body["cloud"]
+            current_cloud = dict(store.settings.get("cloud") or {})
+            incoming_cloud = dict(body["cloud"] or {})
+            for secret_field in ("key", "s3_secret_key", "mysql_password"):
+                incoming_value = str(incoming_cloud.get(secret_field, "") or "")
+                if incoming_value in ("", "•••"):
+                    incoming_cloud[secret_field] = current_cloud.get(secret_field, "")
+            patch["cloud"] = {**current_cloud, **incoming_cloud}
         if "printers" in body and isinstance(body["printers"], list):
             patch["warehouse_printers"] = [
                 {k: p.get(k, d) for k, d in
@@ -2425,11 +2433,14 @@ def create_app(store, providers: dict, bot=None, notify_new_order=None, notify_o
             patch["cloud_state"] = body["cloud_state"]
         if "social" in body:
             soc = store.settings.get("social") or {}
+            instagram_token = str(body["social"].get("instagram_token", "") or "")
+            if instagram_token in ("", "•••"):
+                instagram_token = str(soc.get("instagram_token", "") or "")
             patch["social"] = {**soc,
                                "auto_post_new": bool(body["social"].get("auto_post_new", soc.get("auto_post_new", False))),
                                "telegram_channel": str(body["social"].get("telegram_channel", soc.get("telegram_channel", ""))),
                                "vk_group_id": str(body["social"].get("vk_group_id", soc.get("vk_group_id", ""))),
-                               "instagram_token": str(body["social"].get("instagram_token", "")),
+                               "instagram_token": instagram_token,
                                "instagram_user_id": str(body["social"].get("instagram_user_id", soc.get("instagram_user_id", "")))}
         store.update_settings(patch)
         store.wh_log_add(user["name"], "изменил настройки", "облако/принтеры/публикация")
@@ -2454,11 +2465,15 @@ def create_app(store, providers: dict, bot=None, notify_new_order=None, notify_o
         wh_user_from_headers(x_wh_token, x_admin_token)
         st = store.settings.get("cloud_state") or {}
         c = store.settings.get("cloud") or {}
+        backup = st.get("backup") or {}
         return {"enabled": bool(c.get("enabled")), "provider": c.get("provider"),
                 "use_cdn": bool(c.get("use_cdn", True)),
                 "last_sync": st.get("last_sync") or "",
                 "photos_synced": len(st.get("photos") or {}),
-                "catalog_count": st.get("catalog_count") or 0}
+                "catalog_count": st.get("catalog_count") or 0,
+                "backup": {"at": backup.get("at") or "", "bucket": backup.get("bucket") or "",
+                           "key": backup.get("key") or "", "size": backup.get("size") or 0,
+                           "path": backup.get("path") or ""}}
 
     @app.post("/api/warehouse/cloud/pull")
     async def wh_cloud_pull(x_wh_token: str = Header(default=""),
@@ -2477,6 +2492,21 @@ def create_app(store, providers: dict, bot=None, notify_new_order=None, notify_o
         res = cloudstore.sync_to_cloud(store)
         store.wh_log_add(user["name"], "синхронизация с облаком",
                          f"{res.get('products', 0)} товаров, {res.get('photos', {}).get('uploaded', 0)} фото")
+        return res
+
+    @app.post("/api/warehouse/cloud/backup")
+    async def wh_cloud_backup(x_wh_token: str = Header(default=""),
+                              x_admin_token: str = Header(default="")):
+        """Снимок локальной SQLite-базы на VPS и отправка в S3/Yandex Object Storage."""
+        user = wh_user_from_headers(x_wh_token, x_admin_token)
+        if user["role"] != "admin":
+            raise HTTPException(403, "Только администратор склада")
+        res = cloudstore.backup_db_to_cloud(store)
+        if res.get("ok"):
+            store.wh_log_add(user["name"], "бэкап SQLite в облако",
+                             f"{res.get('path', '')} ({res.get('size', 0)} bytes)")
+        else:
+            store.wh_log_add(user["name"], "ошибка бэкапа SQLite", res.get("error", ""))
         return res
 
     @app.post("/api/warehouse/products/{pid}/publish")
