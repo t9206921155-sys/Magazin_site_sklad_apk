@@ -232,7 +232,8 @@ QR-подключение, нативный fallback-сканер для нес�
 пересборки: `apk-build/rebuild-apk.sh`, инструкция: `apk-build/README-APK.md`,
 страница скачивания: `/download/android`, RuStore-материалы: `/download/android/rustore`,
 JSON-метаданные: `/api/releases/android`, privacy page: `/privacy`,
-deploy-checklist: `DEPLOY-CHECKLIST.md`, чек-лист карточки: `RUSTORE-CARD-CHECKLIST.md`.
+deploy-checklist: `DEPLOY-CHECKLIST.md`, быстрый prod deploy: `PROD-DEPLOY-QUICKSTART.md`,
+merge-ready план: `MERGE-READY-PLAN.md`, чек-лист карточки: `RUSTORE-CARD-CHECKLIST.md`.
 Дорожная карта, аналоги сервисов (МойСклад, LiteBox, Sortly), многопользовательский
 режим и монетизация — в `WAREHOUSE-PLAN.md`.
 
