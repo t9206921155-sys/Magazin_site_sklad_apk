@@ -10,7 +10,7 @@ Telegram-ботом и Mini App, админкой, мобильным склад
 |---|---|
 | `telegram-shop/` | Основной backend + SSR-сайт + админка + Telegram-логика + склад |
 | `mobile/` | Отдельный каркас мобильного приложения |
-| `deploy/` | Конфиги деплоя и nginx |
+| `deploy/` | Конфиги деплоя, nginx и helper-скрипт production rollout |
 | `Dockerfile`, `docker-compose.yml` | Корневой запуск контейнеров |
 | `site-preview.png` | Превью проекта для GitHub |
 
@@ -70,8 +70,10 @@ docker compose up -d --build
 - `telegram-shop/MERGE-COMMAND-BLOCK.md` — точный блок команд для deploy + merge
 - `telegram-shop/PR-MERGE-SUMMARY-RU.md` — готовое русскоязычное summary для PR / merge
 - `telegram-shop/RUSTORE-CARD-CHECKLIST.md` — тексты и ассеты для RuStore
+- `telegram-shop/FINAL-RELEASE-HANDOFF.md` — сводный handoff по релизу Android 1.0.5
 - `telegram-shop/scripts/post_deploy_smoke_check.sh` — быстрый smoke-check production-домена
 - `telegram-shop/scripts/merge_feature_to_main.sh` — helper script для merge feature-ветки в `main`
+- `telegram-shop/scripts/release_status.sh` — быстрый вывод статуса релиза, версий и SHA-256
 - `telegram-shop/PLAN.md` — развитие платформы
 - `telegram-shop/MARKETPLACE-PLAN.md` — дорожная карта маркетплейса
 - `telegram-shop/AUDIT.md` — аудит функционала

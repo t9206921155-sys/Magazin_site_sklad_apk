@@ -234,8 +234,9 @@ QR-подключение, нативный fallback-сканер для нес�
 JSON-метаданные: `/api/releases/android`, privacy page: `/privacy`,
 deploy-checklist: `DEPLOY-CHECKLIST.md`, быстрый prod deploy: `PROD-DEPLOY-QUICKSTART.md`,
 merge-ready план: `MERGE-READY-PLAN.md`, merge-команды: `MERGE-COMMAND-BLOCK.md`,
-PR/merge summary: `PR-MERGE-SUMMARY-RU.md`, smoke-check script: `scripts/post_deploy_smoke_check.sh`,
-merge helper: `scripts/merge_feature_to_main.sh`, чек-лист карточки: `RUSTORE-CARD-CHECKLIST.md`.
+PR/merge summary: `PR-MERGE-SUMMARY-RU.md`, final handoff: `FINAL-RELEASE-HANDOFF.md`,
+smoke-check script: `scripts/post_deploy_smoke_check.sh`, merge helper: `scripts/merge_feature_to_main.sh`,
+release status: `scripts/release_status.sh`, чек-лист карточки: `RUSTORE-CARD-CHECKLIST.md`.
 Дорожная карта, аналоги сервисов (МойСклад, LiteBox, Sortly), многопользовательский
 режим и монетизация — в `WAREHOUSE-PLAN.md`.
 

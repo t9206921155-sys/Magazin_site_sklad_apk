@@ -2,12 +2,12 @@
 set -euo pipefail
 
 if [ "$#" -lt 1 ]; then
-  echo "Usage: $0 https://example.com"
+  echo "Usage: $0 https://example.com [expected_version]"
   exit 1
 fi
 
 BASE_URL="${1%/}"
-EXPECTED_VERSION="1.0.5"
+EXPECTED_VERSION="${2:-1.0.5}"
 FAILS=0
 
 red() { printf '\033[31m%s\033[0m\n' "$*"; }
@@ -78,10 +78,11 @@ check_release_json() {
     FAILS=$((FAILS + 1))
     return
   fi
-  if python3 - <<'PY'
+  if EXPECTED_VERSION="$EXPECTED_VERSION" python3 - <<'PY'
 import json
+import os
 from pathlib import Path
-expected = '1.0.5'
+expected = os.environ['EXPECTED_VERSION']
 body = Path('/tmp/arena_smoke_body.txt').read_text()
 data = json.loads(body)
 version = ''

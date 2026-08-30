@@ -5,6 +5,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 BRANCH="arena/continue-marketplace-content"
 DOMAIN="${DEPLOY_DOMAIN:-}"
+EXPECTED_VERSION="${DEPLOY_EXPECTED_VERSION:-1.0.5}"
 SKIP_PIP=0
 SKIP_SMOKE=0
 NO_CACHE=1
@@ -13,16 +14,17 @@ ALLOW_DIRTY=0
 usage() {
   cat <<'EOF'
 Usage:
-  ./deploy/deploy.sh [--branch BRANCH] [--domain https://example.com] [--skip-pip] [--skip-smoke] [--cache] [--allow-dirty]
+  ./deploy/deploy.sh [--branch BRANCH] [--domain https://example.com] [--expected-version 1.0.5] [--skip-pip] [--skip-smoke] [--cache] [--allow-dirty]
 
 Options:
-  --branch BRANCH   Git branch to deploy (default: arena/continue-marketplace-content)
-  --domain URL      Public base URL for post-deploy smoke-check
-  --skip-pip        Skip `pip install -r telegram-shop/requirements.txt`
-  --skip-smoke      Skip post-deploy smoke-check even if --domain is provided
-  --cache           Use cached docker build layers (default is --no-cache)
-  --allow-dirty     Do not abort when repo has local uncommitted changes
-  -h, --help        Show this help
+  --branch BRANCH            Git branch to deploy (default: arena/continue-marketplace-content)
+  --domain URL               Public base URL for post-deploy smoke-check
+  --expected-version VER     Expected Android release version for smoke-check (default: 1.0.5)
+  --skip-pip                 Skip `pip install -r telegram-shop/requirements.txt`
+  --skip-smoke               Skip post-deploy smoke-check even if --domain is provided
+  --cache                    Use cached docker build layers (default is --no-cache)
+  --allow-dirty              Do not abort when repo has local uncommitted changes
+  -h, --help                 Show this help
 EOF
 }
 
@@ -43,6 +45,10 @@ while [ "$#" -gt 0 ]; do
       ;;
     --domain)
       DOMAIN="${2:-}"
+      shift 2
+      ;;
+    --expected-version)
+      EXPECTED_VERSION="${2:-}"
       shift 2
       ;;
     --skip-pip)
@@ -108,8 +114,8 @@ fi
 
 if [ -n "$DOMAIN" ] && [ "$SKIP_SMOKE" -ne 1 ]; then
   if [ -x "$REPO_ROOT/telegram-shop/scripts/post_deploy_smoke_check.sh" ]; then
-    log "Running smoke-check for $DOMAIN"
-    "$REPO_ROOT/telegram-shop/scripts/post_deploy_smoke_check.sh" "$DOMAIN"
+    log "Running smoke-check for $DOMAIN (expected Android version: $EXPECTED_VERSION)"
+    "$REPO_ROOT/telegram-shop/scripts/post_deploy_smoke_check.sh" "$DOMAIN" "$EXPECTED_VERSION"
   else
     die "Smoke-check script not found: telegram-shop/scripts/post_deploy_smoke_check.sh"
   fi

@@ -50,7 +50,11 @@
 - `telegram-shop/PROD-DEPLOY-QUICKSTART.md`
 - `telegram-shop/MERGE-READY-PLAN.md`
 - `telegram-shop/MERGE-COMMAND-BLOCK.md`
+- `telegram-shop/FINAL-RELEASE-HANDOFF.md`
 - `telegram-shop/RUSTORE-CARD-CHECKLIST.md`
+- `telegram-shop/scripts/post_deploy_smoke_check.sh`
+- `telegram-shop/scripts/merge_feature_to_main.sh`
+- `telegram-shop/scripts/release_status.sh`
 
 ## Проверки
 

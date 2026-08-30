@@ -21,11 +21,12 @@ docker compose up -d
 
 ```bash
 cd /path/to/repo
-./deploy/deploy.sh --domain https://example.com
+./deploy/deploy.sh --domain https://example.com --expected-version 1.0.5
 ```
 
 Полезные флаги:
 - `--branch arena/continue-marketplace-content`
+- `--expected-version 1.0.5`
 - `--skip-smoke`
 - `--skip-pip`
 - `--cache`
@@ -50,6 +51,8 @@ cd /path/to/repo
 4. Проверить web-сканер QR/штрих-кодов
 5. Проверить native fallback scanner при проблемах WebView
 6. Проверить экран обновлений APK
+
+Сводка релиза: `FINAL-RELEASE-HANDOFF.md`
 
 ## SHA-256 текущих артефактов
 

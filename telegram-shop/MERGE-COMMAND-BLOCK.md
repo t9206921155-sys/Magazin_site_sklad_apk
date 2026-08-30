@@ -10,7 +10,7 @@
 
 ```bash
 cd /path/to/repo
-./deploy/deploy.sh --domain https://example.com
+./deploy/deploy.sh --domain https://example.com --expected-version 1.0.5
 ```
 
 ### Эквивалент вручную
@@ -49,6 +49,15 @@ git status
 
 ## 3. Merge в `main` после smoke-check
 
+### Через helper script
+
+```bash
+cd /path/to/repo
+./telegram-shop/scripts/merge_feature_to_main.sh --push
+```
+
+### Эквивалент вручную
+
 ```bash
 cd /path/to/repo
 git fetch origin
@@ -75,6 +84,8 @@ docker compose build --no-cache
 docker compose up -d
 ./telegram-shop/scripts/post_deploy_smoke_check.sh https://example.com
 ```
+
+Сводка релиза и handoff: `FINAL-RELEASE-HANDOFF.md`
 
 ## 5. Текущий ожидаемый результат
 
