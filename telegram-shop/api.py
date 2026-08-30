@@ -207,10 +207,32 @@ def create_app(store, providers: dict, bot=None, notify_new_order=None, notify_o
             **extra,
         }
 
+    def _visible_products() -> list:
+        mp = store.settings.get("marketplace") or {}
+        out = []
+        for p in store.products():
+            if not p.get("in_stock", True):
+                continue
+            if not p.get("on_showcase", True):
+                continue
+            if p.get("is_archived"):
+                continue
+            row = dict(p)
+            if mp.get("enabled"):
+                sid = int(row.get("seller_id") or 0)
+                if sid:
+                    seller = store.get_seller(sid)
+                    if not seller or seller["status"] != "active":
+                        continue
+                    row["seller_name"] = seller["store_name"]
+                    row["seller_slug"] = seller["slug"]
+            out.append(row)
+        return out
+
     @app.get("/")
     async def home(request: Request):
         s = store.settings
-        products = [p for p in store.products() if p.get("in_stock")]
+        products = _visible_products()
         top = store.top_sellers(4) or products[:4]
         discounts = [p for p in products if p.get("old_price") and p["old_price"] > p["price"]][:4]
         new_items = [p for p in products if "new" in (p.get("badges") or [])][:4]
@@ -225,20 +247,21 @@ def create_app(store, providers: dict, bot=None, notify_new_order=None, notify_o
                 latest_reviews.append({**r, "product_name": p["name"], "product_id": p["id"]})
             if len(latest_reviews) >= 6:
                 break
+        active_sellers = store.sellers(status="active")
+        mp_settings = store.marketplace_settings()
         ctx = _seo_ctx(
             request,
-            title=seo.page_title(s["shop_name"]),
-            description=f"{s['shop_name']} — интернет-магазин с доставкой по всей стране. "
-                        f"{' '.join(p['name'] for p in products[:4])}. Оплата картой, СБП, криптовалютой. "
-                        f"Акции, промокоды и бесплатная доставка от {int(s.get('free_delivery_from') or 0)} ₽.",
+            title=seo.page_title(s["shop_name"], "Маркетплейс в Telegram и на сайте"),
+            description=f"{s['shop_name']} — маркетплейс с SEO-сайтом, Telegram Mini App и мобильным складом. "
+                        f"{len(products)} товаров, {len(active_sellers)} продавцов, безопасная сделка, доставка и оплата онлайн.",
             canonical=url,
             og_image=_abs(request, "/site/img/og-main.png") if os.path.exists(os.path.join(config.SITE_DIR, "img", "og-main.png"))
             else (_abs(request, products[0]["photo"]) if products else ""),
             jsonld=seo.org_jsonld(s["shop_name"], url)
             + seo.faq_jsonld(s.get("faq") or [], url),
-            hero_title=f"Всё нужное — в одном магазине. С доставкой по всей стране",
-            hero_sub=f"{s['shop_name']}: гаджеты, аксессуары, уют для дома и подарки. "
-                     "Оформление онлайн за 2 минуты, отправка в день заказа.",
+            hero_title="Маркетплейс, Telegram-магазин и склад — в одном проекте",
+            hero_sub=f"{s['shop_name']} объединяет витрины продавцов, сайт, Mini App и мобильный склад. "
+                     "Покупатели заказывают онлайн, продавцы управляют товарами и доставкой из одного кабинета.",
             hero_products=products[:4],
             top_sellers=top,
             discount_products=discounts,
@@ -246,6 +269,10 @@ def create_app(store, providers: dict, bot=None, notify_new_order=None, notify_o
             categories=store.categories(),
             cat_emojis={c: cat_emoji(c) for c in store.categories()},
             product_count=len(products),
+            seller_count=len(active_sellers),
+            active_sellers=active_sellers[:3],
+            mp_enabled=bool(mp_settings.get("enabled", True)),
+            commission=int(mp_settings.get("commission_percent") or 0),
             seo_text=(s.get("texts") or {}).get("about", ""),
             faq=s.get("faq") or [],
             reviews=latest_reviews,

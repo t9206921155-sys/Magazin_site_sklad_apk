@@ -579,6 +579,92 @@ h1, h2 { line-height: 1.25; }
 }
 .chat-open-btn:hover { opacity: .9; }
 .seller-form-wrap { margin: 20px 0; }
+.comm-cta,
+.market-cta {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(280px, .8fr);
+  gap: 18px;
+  align-items: stretch;
+  margin: 30px 0;
+  padding: 24px;
+  border-radius: 24px;
+  color: #fff;
+  background: linear-gradient(120deg, #111827 0%, var(--brand) 58%, var(--brand2) 100%);
+  box-shadow: var(--shadow);
+}
+.comm-cta-txt,
+.market-cta-main { position: relative; z-index: 1; }
+.comm-cta h2,
+.market-cta h2,
+.warehouse-cta h2 { margin: 8px 0 10px; font-size: 30px; line-height: 1.2; }
+.comm-cta p,
+.market-cta p,
+.warehouse-cta p { margin: 0; font-size: 15px; line-height: 1.7; color: rgba(255,255,255,.9); }
+.comm-cta-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 14px;
+  border-radius: 999px;
+  background: rgba(255,255,255,.14);
+  border: 1px solid rgba(255,255,255,.24);
+  font-size: 13px;
+  font-weight: 700;
+}
+.comm-cta-side,
+.market-cta-side {
+  display: grid;
+  gap: 12px;
+  align-content: center;
+}
+.comm-step,
+.market-step,
+.warehouse-note {
+  background: rgba(255,255,255,.12);
+  border: 1px solid rgba(255,255,255,.18);
+  border-radius: 16px;
+  padding: 14px 16px;
+  backdrop-filter: blur(4px);
+}
+.comm-step,
+.market-step { display: flex; align-items: center; gap: 12px; }
+.comm-step b,
+.market-step b {
+  width: 34px;
+  height: 34px;
+  border-radius: 12px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: #fff;
+  color: var(--brand);
+  font-size: 16px;
+}
+.comm-step span,
+.market-step span,
+.warehouse-note span { font-size: 14px; line-height: 1.5; }
+.market-points { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-top: 18px; }
+.market-cta-actions { margin-bottom: 0; }
+.home-sellers { margin-top: 12px; }
+.warehouse-cta {
+  display: grid;
+  grid-template-columns: minmax(0, 1.1fr) auto;
+  gap: 18px;
+  align-items: center;
+  margin: 30px 0;
+  padding: 24px;
+  border-radius: 24px;
+  background: linear-gradient(120deg, #082f49 0%, #0369a1 58%, #0ea5e9 100%);
+  color: #fff;
+  box-shadow: var(--shadow);
+}
+.warehouse-cta-actions { display: flex; gap: 12px; flex-wrap: wrap; justify-content: flex-end; }
+.warehouse-note b { display: block; margin-bottom: 6px; font-size: 14px; }
 @media (max-width: 900px) {
   .sellers-grid { grid-template-columns: 1fr; }
+  .comm-cta,
+  .market-cta,
+  .warehouse-cta { grid-template-columns: 1fr; }
+  .warehouse-cta-actions { justify-content: flex-start; }
+  .market-points { grid-template-columns: 1fr; }
 }

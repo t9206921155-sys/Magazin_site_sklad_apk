@@ -1,22 +1,21 @@
 {% extends "base.html" %}
 {% block content %}
 
-<!-- Слайдер-баннер (как в шаблонах InSales: Vibe / Cream / Grand) -->
 <section class="slider" id="main-slider">
   <div class="slide active" data-slide="0">
     <div class="slide-inner slide-1">
       <div class="slide-txt">
-        <div class="hero-badge">🚚 Доставка по всей стране · 💳 Оплата картой, СБП, криптой</div>
+        <div class="hero-badge">🛍 Маркетплейс + Telegram + сайт + склад</div>
         <h1>{{ hero_title }}</h1>
         <p>{{ hero_sub }}</p>
         <div class="hero-cta">
-          <a class="btn-light" href="/catalog">Перейти в каталог</a>
-          <a class="btn-ghost" href="/shop#/delivery">Условия доставки</a>
+          <a class="btn-light" href="/catalog">Смотреть каталог</a>
+          {% if mp_enabled %}<a class="btn-ghost" href="/become-seller">Стать продавцом</a>{% else %}<a class="btn-ghost" href="/shop#/delivery">Доставка и оплата</a>{% endif %}
         </div>
         <div class="hero-stats">
           <div><b>{{ product_count }}+</b><span>товаров в каталоге</span></div>
-          <div><b>1–2 дня</b><span>отправка после оплаты</span></div>
-          <div><b>{% if free_delivery_from %}от {{ free_delivery_from }} ₽{% else %}любая{% endif %}</b><span>бесплатная доставка</span></div>
+          <div><b>{{ seller_count }}+</b><span>активных продавцов</span></div>
+          <div><b>{% if free_delivery_from %}от {{ free_delivery_from }} ₽{% else %}онлайн{% endif %}</b><span>доставка и оплата</span></div>
         </div>
       </div>
       <div class="hero-visual">
@@ -33,24 +32,26 @@
   <div class="slide" data-slide="1">
     <div class="slide-inner slide-2">
       <div class="slide-txt">
-        <div class="hero-badge">🎟 Скидки, акции и бонусы</div>
-        <h1>Выгодные покупки каждый день</h1>
-        <p>Промокод SALE20 даёт скидку 20% на всё, за каждый заказ начисляются бонусные баллы, а при заказе от 3 000 ₽ доставка бесплатна.</p>
+        <div class="hero-badge">🏪 Витрина продавца за 2 минуты</div>
+        <h1>Продавайте в своём магазине, а не только в мессенджере</h1>
+        <p>У каждого продавца — своя витрина, чат с покупателями, рейтинг, безопасная сделка, выплаты и инструменты продвижения. Площадка уже готова: остаётся добавить товары.</p>
         <div class="hero-cta">
-          <a class="btn-light" href="/catalog">К акциям</a>
-          <a class="btn-ghost" href="/catalog">Распродажа</a>
+          <a class="btn-light" href="/become-seller">Открыть витрину</a>
+          <a class="btn-ghost" href="/sellers">Смотреть продавцов</a>
         </div>
         <div class="hero-stats">
-          <div><b>−20%</b><span>промокод SALE20</span></div>
-          <div><b>от 3 000 ₽</b><span>бесплатная доставка</span></div>
-          <div><b>5%</b><span>бонусами за заказы</span></div>
+          <div><b>{{ commission }}%</b><span>базовая комиссия</span></div>
+          <div><b>SEO</b><span>индексация витрин и товаров</span></div>
+          <div><b>💬</b><span>чат и офферы в карточках</span></div>
         </div>
       </div>
       <div class="hero-visual">
-        <a class="hv-card hv-1" href="/p/4"><img src="/webapp/img/products/p4.jpg" alt="Скидка" loading="lazy"><span class="hv-price">1 290 ₽ −19%</span></a>
-        <a class="hv-card hv-2" href="/p/1"><img src="/webapp/img/products/p1.jpg" alt="Хит" loading="lazy"><span class="hv-price">🔥 Хит продаж</span></a>
-        <a class="hv-card hv-3" href="/p/3"><img src="/webapp/img/products/p3.jpg" alt="Новинка" loading="lazy"><span class="hv-price">✨ Новинка</span></a>
-        <a class="hv-card hv-4" href="/p/8"><img src="/webapp/img/products/p8.jpg" alt="Подарок" loading="lazy"><span class="hv-price">🎁 Идея подарка</span></a>
+        {% for p in hero_products[:4] %}
+        <a class="hv-card hv-{{ loop.index }}" href="/become-seller">
+          <img src="{{ p.photo }}" alt="Витрина продавца" loading="lazy">
+          <span class="hv-price">{% if loop.index == 1 %}🏪 Своя витрина{% elif loop.index == 2 %}⭐ Рейтинг и отзывы{% elif loop.index == 3 %}🚀 VIP и поднятие{% else %}💬 Чат с покупателем{% endif %}</span>
+        </a>
+        {% endfor %}
       </div>
     </div>
   </div>
@@ -58,24 +59,26 @@
   <div class="slide" data-slide="2">
     <div class="slide-inner slide-3">
       <div class="slide-txt">
-        <div class="hero-badge">🚚 Пять способов получить заказ</div>
-        <h1>Доставка, которая подстраивается под вас</h1>
-        <p>Курьер до двери, постаматы 5POST в «Пятёрочке» и «Перекрёстке», пункты СДЭК, Яндекс Доставка и почта. Стоимость считается онлайн — выбирайте, где удобнее забрать.</p>
+        <div class="hero-badge">📱 Склад работает с телефона и в APK</div>
+        <h1>Принимайте, фотографируйте и публикуйте товары прямо со смартфона</h1>
+        <p>PWA-склад и APK помогают вести остатки, печатать этикетки, сканировать штрих-коды, загружать до 20 фото и сразу выводить позицию на витрину сайта и в Telegram.</p>
         <div class="hero-cta">
-          <a class="btn-light" href="/catalog">Выбрать товар</a>
-          <a class="btn-ghost" href="/shop#/delivery">Все способы доставки</a>
+          <a class="btn-light" href="/warehouse">Открыть склад</a>
+          <a class="btn-ghost" href="/admin">Админка магазина</a>
         </div>
         <div class="hero-stats">
-          <div><b>5POST</b><span>постаматы у дома</span></div>
-          <div><b>СДЭК</b><span>пункты в каждом городе</span></div>
-          <div><b>Яндекс</b><span>курьер в день заказа</span></div>
+          <div><b>20 фото</b><span>на одну позицию</span></div>
+          <div><b>PDF/PRN</b><span>печать этикеток</span></div>
+          <div><b>APK</b><span>для Android-установки</span></div>
         </div>
       </div>
       <div class="hero-visual">
-        <a class="hv-card hv-1" href="/shop#/delivery"><img src="/webapp/img/products/p4.jpg" alt="Доставка" loading="lazy"><span class="hv-price">🅿️ 5POST — постаматы X5</span></a>
-        <a class="hv-card hv-2" href="/shop#/delivery"><img src="/webapp/img/products/p7.jpg" alt="Доставка" loading="lazy"><span class="hv-price">📦 СДЭК по всей стране</span></a>
-        <a class="hv-card hv-3" href="/shop#/delivery"><img src="/webapp/img/products/p3.jpg" alt="Доставка" loading="lazy"><span class="hv-price">🚕 Яндекс Доставка</span></a>
-        <a class="hv-card hv-4" href="/shop#/delivery"><img src="/webapp/img/products/p2.jpg" alt="Доставка" loading="lazy"><span class="hv-price">🚚 Курьер до двери</span></a>
+        {% for p in hero_products[:4] %}
+        <a class="hv-card hv-{{ loop.index }}" href="/warehouse">
+          <img src="{{ p.photo }}" alt="Склад в телефоне" loading="lazy">
+          <span class="hv-price">{% if loop.index == 1 %}📷 Фото и карточка{% elif loop.index == 2 %}📦 Остатки и место{% elif loop.index == 3 %}🖨 Этикетки{% else %}🤖 ИИ и публикация{% endif %}</span>
+        </a>
+        {% endfor %}
       </div>
     </div>
   </div>
@@ -88,32 +91,31 @@
 </section>
 
 <section class="trust-strip">
-  <div class="trust-item">🔒 <span><b>Безопасная оплата</b><small>карта, СБП, крипта</small></span></div>
-  <div class="trust-item">🚚 <span><b>Быстрая доставка</b><small>СДЭК · 5POST · Яндекс</small></span></div>
-  <div class="trust-item">↩️ <span><b>Возврат 14 дней</b><small>без лишних вопросов</small></span></div>
-  <div class="trust-item">🎁 <span><b>Акции и бонусы</b><small>промокоды и кэшбэк</small></span></div>
+  <div class="trust-item">🔒 <span><b>Безопасная сделка</b><small>холд средств и контроль статусов</small></span></div>
+  <div class="trust-item">🏪 <span><b>Мультипродавец</b><small>витрины, рейтинги, отзывы</small></span></div>
+  <div class="trust-item">✈️ <span><b>Telegram + сайт</b><small>бот, Mini App и SEO-витрина</small></span></div>
+  <div class="trust-item">📱 <span><b>Склад в телефоне</b><small>PWA, APK, штрих-коды и печать</small></span></div>
 </section>
 
 <section class="sect">
-  <div class="sect-head"><h2>Почему выбирают нас</h2><span class="sect-sub">четыре причины сделать заказ сегодня</span></div>
+  <div class="sect-head"><h2>Почему площадкой удобно пользоваться</h2><span class="sect-sub">для покупателей, продавцов и команды склада</span></div>
   <div class="benefits">
-    <div class="benefit"><div class="ico ico-1">🚚</div><b>Быстрая доставка</b><p>Курьер, почта, СДЭК, постаматы 5POST и Яндекс Доставка — стоимость считается онлайн при оформлении.</p></div>
-    <div class="benefit"><div class="ico ico-2">💳</div><b>Любая оплата</b><p>Карты (ЮKassa, Т-Банк), СБП-перевод, криптовалюта и Telegram Stars — выбирайте удобный способ.</p></div>
-    <div class="benefit"><div class="ico ico-3">✅</div><b>Проверенное качество</b><p>Каждый товар проверяется перед отправкой: бережно упаковываем и отвечаем за качество.</p></div>
-    <div class="benefit"><div class="ico ico-4">🎟</div><b>Скидки и бонусы</b><p>Промокоды, распродажи и бонусные баллы за каждый оплаченный заказ — экономьте с нами.</p></div>
+    <div class="benefit"><div class="ico ico-1">🛍️</div><b>Покупка без лишних шагов</b><p>Каталог, карточки, доставка, оплата и статус заказа доступны на сайте и в Telegram Mini App.</p></div>
+    <div class="benefit"><div class="ico ico-2">🏪</div><b>Отдельные витрины продавцов</b><p>Каждый продавец получает свой адрес, кабинет, акции, отзывы, чат и статистику продаж.</p></div>
+    <div class="benefit"><div class="ico ico-3">📦</div><b>Склад сразу связан с витриной</b><p>Добавили товар с телефона — он появляется в каталоге, а остатки и статус синхронизируются автоматически.</p></div>
+    <div class="benefit"><div class="ico ico-4">🚀</div><b>Продвижение и SEO</b><p>Индексация товаров, блог, фиды, автопостинг, VIP-выделение и поднятие карточек уже встроены в платформу.</p></div>
   </div>
 </section>
 
-<!-- Табы «Хиты / Новинки / Распродажа» (как в Grand / Newtone) -->
 <section class="sect">
   <div class="sect-head">
-    <h2>Популярное в магазине</h2>
+    <h2>Популярное на витрине</h2>
     <a class="see-all" href="/catalog">Весь каталог →</a>
   </div>
   <div class="tabs">
     <button class="tab active" data-tab="hits">🔥 Хиты продаж</button>
-    <button class="tab" data-tab="new">✨ Новинки</button>
-    <button class="tab" data-tab="sale">💸 Распродажа</button>
+    <button class="tab" data-tab="new">✨ Новые поступления</button>
+    <button class="tab" data-tab="sale">💸 Товары со скидкой</button>
   </div>
   <div class="tab-panel active" id="tab-hits">
     <div class="grid">{% for p in top_sellers %}{% include "_card.html" %}{% endfor %}</div>
@@ -122,34 +124,87 @@
     {% if new_products %}
     <div class="grid">{% for p in new_products %}{% include "_card.html" %}{% endfor %}</div>
     {% else %}
-    <div class="empty">Новинки скоро появятся — загляните позже! ✨</div>
+    <div class="empty">Новые поступления скоро появятся — загляните позже! ✨</div>
     {% endif %}
   </div>
   <div class="tab-panel" id="tab-sale">
     {% if discount_products %}
     <div class="grid">{% for p in discount_products %}{% include "_card.html" %}{% endfor %}</div>
     {% else %}
-    <div class="empty">Сейчас распродажи нет, но промокоды работают! 🎟</div>
+    <div class="empty">Сейчас распродажи нет, но промокоды и бонусы уже работают. 🎟</div>
     {% endif %}
   </div>
 </section>
 
 <section class="sect">
-  <div class="sect-head"><h2>Категории</h2><span class="sect-sub">найдите нужное за пару секунд</span></div>
+  <div class="sect-head"><h2>Категории</h2><span class="sect-sub">товары, которые уже можно купить или быстро разместить на витрине</span></div>
   <div class="cat-grid">
     {% for c in categories %}
     <a class="cat-card" href="/catalog?cat={{ c | urlencode }}">
       <span class="cat-emoji">{{ cat_emojis.get(c, '🛍️') }}</span>
       <span>{{ c }}</span>
-      <small>в каталоге →</small>
+      <small>в каталог →</small>
     </a>
     {% endfor %}
   </div>
 </section>
 
+{% if mp_enabled %}
+<section class="market-cta">
+  <div class="market-cta-main">
+    <div class="comm-cta-badge">🏪 Продавать можно уже сейчас</div>
+    <h2>Откройте свою витрину и принимайте заказы через сайт и Telegram</h2>
+    <p>Регистрация продавца, товары, чат с покупателями, отзывы, офферы, безопасная сделка, выплаты и продвижение уже готовы. Вам не нужно собирать всё из разных сервисов.</p>
+    <div class="hero-cta market-cta-actions">
+      <a class="btn-light" href="/become-seller">Стать продавцом</a>
+      <a class="btn-ghost" href="/seller/">Кабинет продавца</a>
+    </div>
+    <div class="market-points">
+      <div class="market-step"><b>1</b><span>Создайте витрину</span></div>
+      <div class="market-step"><b>2</b><span>Добавьте товары и цены</span></div>
+      <div class="market-step"><b>3</b><span>Получайте заказы и выплаты</span></div>
+    </div>
+  </div>
+  <div class="market-cta-side">
+    <div class="warehouse-note"><b>Что входит</b><span>SEO-страницы, Mini App, отзывы, рейтинг продавца, доставка, оплата, бонусы, автопостинг и отчёты.</span></div>
+    <div class="warehouse-note"><b>Для кого</b><span>Небольшие магазины, ресейл, комиссионка, складские остатки, продажи из Telegram-канала и собственной витрины.</span></div>
+  </div>
+</section>
+{% endif %}
+
+{% if active_sellers %}
+<section class="sect">
+  <div class="sect-head"><h2>Активные продавцы</h2><a class="see-all" href="/sellers">Все витрины →</a></div>
+  <div class="sellers-grid home-sellers">
+    {% for sl in active_sellers %}
+    <a class="seller-card" href="/seller/{{ sl.slug }}">
+      <div class="seller-ava">{{ sl.store_name[:1] | upper }}</div>
+      <div class="seller-info">
+        <b>{{ sl.store_name }}</b>
+        {% if sl.description %}<p>{{ sl.description[:120] }}</p>{% else %}<p>Отдельная витрина продавца с товарами, рейтингом и условиями доставки.</p>{% endif %}
+        <small>Открыть витрину →</small>
+      </div>
+    </a>
+    {% endfor %}
+  </div>
+</section>
+{% endif %}
+
+<section class="warehouse-cta">
+  <div>
+    <div class="comm-cta-badge">📱 Мобильный склад</div>
+    <h2>Снимайте товар, сканируйте штрих-код и публикуйте позицию без ноутбука</h2>
+    <p>Складская часть проекта рассчитана на работу с телефона: камера, галерея, сканер, массовое редактирование, облачная синхронизация, печать этикеток и быстрый вход по PIN/биометрии.</p>
+  </div>
+  <div class="warehouse-cta-actions">
+    <a class="btn-light" href="/warehouse">Открыть склад</a>
+    <a class="btn-ghost" href="/admin">Настроить магазин</a>
+  </div>
+</section>
+
 {% if reviews %}
 <section class="sect">
-  <div class="sect-head"><h2>⭐ Что говорят покупатели</h2><a class="see-all" href="/catalog">Купить так же →</a></div>
+  <div class="sect-head"><h2>⭐ Что говорят покупатели</h2><a class="see-all" href="/catalog">Выбрать товары →</a></div>
   <div class="reviews-strip">
     {% for r in reviews %}
     <div class="rev-card">
@@ -170,7 +225,7 @@
 
 {% if faq %}
 <section class="sect">
-  <div class="sect-head"><h2>❓ Частые вопросы</h2><span class="sect-sub">ответили заранее, чтобы вам было проще</span></div>
+  <div class="sect-head"><h2>❓ Частые вопросы</h2><span class="sect-sub">ответили заранее, чтобы запускать продажи было проще</span></div>
   <div class="faq-list">
     {% for item in faq %}
     <details class="faq-item">
@@ -183,13 +238,12 @@
 {% endif %}
 
 <section class="sect seo-text">
-  <h2>Интернет-магазин {{ shop }}</h2>
+  <h2>Маркетплейс {{ shop }}: сайт, Telegram и склад в одной системе</h2>
   <p>{{ seo_text }}</p>
-  <p>Оформляйте заказ онлайн за пару минут: добавьте товары в корзину, выберите удобную доставку — курьером до двери, в постамат или пункт выдачи — и оплатите картой, по СБП или криптовалютой. Каждый заказ мы бережно упаковываем и отправляем в течение 1–2 дней, а статус можно отслеживать в личном кабинете.</p>
+  <p>Платформа подходит как для обычного интернет-магазина, так и для мультипродавца: витрины продавцов индексируются поисковиками, карточки товаров получают SEO-разметку, а управление остатками, фото и публикацией доступно через мобильный склад. Покупатели оформляют заказ за пару минут, а продавцы получают инструменты продвижения и понятный кабинет.</p>
 </section>
 
 <script>
-// слайдер: авто-переключение + точки
 (function () {
   var slides = document.querySelectorAll('#main-slider .slide');
   var dots = document.querySelectorAll('#main-slider .sl-dot');
@@ -214,7 +268,6 @@
     x0 = null;
   });
   start();
-  // табы
   var tabs = document.querySelectorAll('.tabs .tab');
   tabs.forEach(function (t) {
     t.addEventListener('click', function () {
