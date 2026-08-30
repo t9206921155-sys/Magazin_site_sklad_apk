@@ -21,14 +21,14 @@ docker compose up -d
 
 ```bash
 cd /path/to/repo
-git fetch origin
-git checkout arena/continue-marketplace-content
-git pull --ff-only origin arena/continue-marketplace-content
-cd telegram-shop
-pip install -r requirements.txt
-cd ..
-./deploy/deploy.sh
+./deploy/deploy.sh --domain https://example.com
 ```
+
+Полезные флаги:
+- `--branch arena/continue-marketplace-content`
+- `--skip-smoke`
+- `--skip-pip`
+- `--cache`
 
 ## Что проверить сразу после деплоя
 

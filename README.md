@@ -70,6 +70,8 @@ docker compose up -d --build
 - `telegram-shop/MERGE-COMMAND-BLOCK.md` — точный блок команд для deploy + merge
 - `telegram-shop/PR-MERGE-SUMMARY-RU.md` — готовое русскоязычное summary для PR / merge
 - `telegram-shop/RUSTORE-CARD-CHECKLIST.md` — тексты и ассеты для RuStore
+- `telegram-shop/scripts/post_deploy_smoke_check.sh` — быстрый smoke-check production-домена
+- `telegram-shop/scripts/merge_feature_to_main.sh` — helper script для merge feature-ветки в `main`
 - `telegram-shop/PLAN.md` — развитие платформы
 - `telegram-shop/MARKETPLACE-PLAN.md` — дорожная карта маркетплейса
 - `telegram-shop/AUDIT.md` — аудит функционала

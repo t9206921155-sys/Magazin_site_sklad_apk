@@ -6,6 +6,15 @@
 
 Замените только путь `/path/to/repo` и домен `https://example.com`.
 
+### Самый короткий вариант
+
+```bash
+cd /path/to/repo
+./deploy/deploy.sh --domain https://example.com
+```
+
+### Эквивалент вручную
+
 ```bash
 cd /path/to/repo
 git fetch origin
