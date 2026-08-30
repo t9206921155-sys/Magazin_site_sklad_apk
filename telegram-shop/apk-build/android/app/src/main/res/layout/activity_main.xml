@@ -77,7 +77,7 @@
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="Введите адрес вручную, откройте deep link или сканируйте QR-код на странице загрузки."
+                    android:text="Введите адрес вручную, откройте deep link, сканируйте QR-код на странице загрузки или используйте камеру для поиска товара уже внутри склада."
                     android:textSize="13sp"
                     android:textColor="#64748B"
                     android:paddingTop="6dp"
@@ -191,7 +191,7 @@
                     android:id="@+id/update_info"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="Проверка станет доступна после подключения к серверу."
+                    android:text="Проверка станет доступна после подключения к серверу. Камера для сканера запросится при первом запуске сканирования."
                     android:textSize="13sp"
                     android:textColor="#475569"
                     android:paddingTop="8dp" />
@@ -235,7 +235,7 @@
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="• Долгое нажатие в приложении открывает настройки\n• Фото можно выбирать по одному и несколькими файлами\n• Если путь не указан, приложение добавит /warehouse/ автоматически\n• Новую версию APK можно отследить прямо из экрана настроек"
+                    android:text="• Долгое нажатие в приложении открывает настройки\n• Фото можно выбирать по одному и несколькими файлами\n• Если путь не указан, приложение добавит /warehouse/ автоматически\n• Камера в WebView используется для сканирования QR и штрих-кодов\n• Новую версию APK можно отследить прямо из экрана настроек"
                     android:textSize="12sp"
                     android:textColor="#64748B"
                     android:paddingTop="10dp" />

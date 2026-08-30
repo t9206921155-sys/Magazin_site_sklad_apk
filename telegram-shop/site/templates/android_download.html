@@ -8,7 +8,7 @@
   <div class="dl-hero-copy">
     <div class="dl-badge dark">📱 Android-релиз склада</div>
     <h1>Установите «Склад» на телефон и подключите к вашему серверу за пару минут</h1>
-    <p>Приложение работает как лёгкая Android-обёртка над <b>/warehouse</b>: открывает склад в WebView, сохраняет вход, поддерживает множественный выбор фото, умеет принимать deep link и теперь генерирует QR-код для быстрой настройки сотрудников.</p>
+    <p>Приложение работает как лёгкая Android-обёртка над <b>/warehouse</b>: открывает склад в WebView, сохраняет вход, поддерживает множественный выбор фото, умеет принимать deep link, генерирует QR-код для быстрой настройки сотрудников и позволяет сканировать QR/штрих-коды камерой прямо внутри APK.</p>
     <div class="dl-hero-actions">
       {% if latest_apk %}<a class="btn primary dl-btn" href="{{ latest_apk.download_url }}">Скачать APK</a>{% endif %}
       {% if latest_aab %}<a class="btn ghost dl-btn-light" href="{{ latest_aab.download_url }}">Скачать AAB</a>{% endif %}
@@ -18,7 +18,7 @@
     <div class="dl-hero-facts">
       <div><b>{{ latest_version }}</b><span>текущая версия</span></div>
       <div><b>APK + AAB</b><span>оба формата готовы</span></div>
-      <div><b>QR + Deep Link</b><span>подключение через `sklad://`</span></div>
+      <div><b>QR + Scanner</b><span>onboarding и сканирование в APK</span></div>
     </div>
   </div>
   <div class="dl-phone">
@@ -36,7 +36,7 @@
         </div>
         <div class="dl-screen-card">
           <b>3. Работайте со складом</b>
-          <span>фото, остатки, этикетки, публикация на витрину</span>
+          <span>фото, остатки, этикетки, публикация на витрину и сканирование кодов</span>
         </div>
         <div class="dl-screen-card">
           <b>4. Проверяйте обновления</b>

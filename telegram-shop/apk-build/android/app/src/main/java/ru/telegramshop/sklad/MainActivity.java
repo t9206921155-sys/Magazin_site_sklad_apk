@@ -1,15 +1,19 @@
 package ru.telegramshop.sklad;
 
+import android.Manifest;
 import android.annotation.SuppressLint;
 import android.app.Activity;
 import android.content.ActivityNotFoundException;
 import android.content.Intent;
 import android.content.SharedPreferences;
+import android.content.pm.PackageManager;
 import android.net.Uri;
+import android.os.Build;
 import android.os.Bundle;
 import android.text.TextUtils;
 import android.view.View;
 import android.webkit.CookieManager;
+import android.webkit.PermissionRequest;
 import android.webkit.ValueCallback;
 import android.webkit.WebChromeClient;
 import android.webkit.WebResourceError;
@@ -22,7 +26,9 @@ import android.widget.EditText;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.core.content.ContextCompat;
 
 import org.json.JSONObject;
 
@@ -41,6 +47,7 @@ import java.nio.charset.StandardCharsets;
  * - импорт адреса через deep link: sklad://setup?url=https://site/warehouse/
  * - мгновенное подключение через deep link: sklad://connect?url=https://site/warehouse/
  * - множественный выбор фото,
+ * - доступ WebView к камере для сканирования QR/штрих-кодов внутри APK,
  * - экран «О приложении»/настройки по долгому нажатию,
  * - проверку новых APK-релизов на подключённом сервере.
  */
@@ -49,7 +56,8 @@ public class MainActivity extends AppCompatActivity {
     private static final String PREFS = "sklad_prefs";
     private static final String KEY_URL = "server_url";
     private static final int REQ_FILE = 1001;
-    private static final String APP_UA = " SkladApp/1.0.3";
+    private static final int REQ_CAMERA = 1002;
+    private static final String APP_UA = " SkladApp/1.0.4";
 
     private WebView webView;
     private View mainView, setupView;
@@ -60,6 +68,7 @@ public class MainActivity extends AppCompatActivity {
     private String baseUrl = "";
     private String latestUpdateUrl = "";
     private ValueCallback<Uri[]> filePathCallback;
+    private PermissionRequest pendingCameraPermissionRequest;
 
     @SuppressLint("SetJavaScriptEnabled")
     @Override
@@ -242,7 +251,7 @@ public class MainActivity extends AppCompatActivity {
     private void updateMeta() {
         String current = (baseUrl == null || baseUrl.isEmpty()) ? "не подключён" : baseUrl;
         appMeta.setText("Версия " + BuildConfig.VERSION_NAME + " • package " + BuildConfig.APPLICATION_ID + "\nТекущий сервер: " + current);
-        setupHint.setText("Можно открыть ссылку вида sklad://setup?url=https://ваш-домен/warehouse/\nили sklad://connect?url=https://ваш-домен/warehouse/ для мгновенного подключения. QR-код генерируется на странице /download/android.");
+        setupHint.setText("Можно открыть ссылку вида sklad://setup?url=https://ваш-домен/warehouse/\nили sklad://connect?url=https://ваш-домен/warehouse/ для мгновенного подключения. QR-код генерируется на странице /download/android, а сканер внутри APK попросит доступ к камере автоматически.");
         btnBack.setVisibility(baseUrl == null || baseUrl.isEmpty() ? View.GONE : View.VISIBLE);
         btnReset.setVisibility(baseUrl == null || baseUrl.isEmpty() ? View.GONE : View.VISIBLE);
     }
@@ -367,6 +376,59 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
+    private boolean hasCameraPermission() {
+        return Build.VERSION.SDK_INT < Build.VERSION_CODES.M
+                || ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED;
+    }
+
+    private boolean isTrustedOrigin(Uri origin) {
+        if (origin == null) return false;
+        if (TextUtils.isEmpty(baseUrl)) return false;
+        try {
+            Uri current = Uri.parse(baseUrl);
+            String currentScheme = current.getScheme() == null ? "" : current.getScheme();
+            String originScheme = origin.getScheme() == null ? "" : origin.getScheme();
+            String currentHost = current.getHost();
+            String originHost = origin.getHost();
+            if (currentHost == null || originHost == null) return false;
+            int currentPort = current.getPort() != -1 ? current.getPort() : ("https".equalsIgnoreCase(currentScheme) ? 443 : 80);
+            int originPort = origin.getPort() != -1 ? origin.getPort() : ("https".equalsIgnoreCase(originScheme) ? 443 : 80);
+            return currentScheme.equalsIgnoreCase(originScheme)
+                    && currentHost.equalsIgnoreCase(originHost)
+                    && currentPort == originPort;
+        } catch (Exception ignored) {
+            return false;
+        }
+    }
+
+    private boolean wantsVideoCapture(PermissionRequest request) {
+        if (request == null) return false;
+        for (String resource : request.getResources()) {
+            if (PermissionRequest.RESOURCE_VIDEO_CAPTURE.equals(resource)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private void handleWebPermissionRequest(PermissionRequest request) {
+        if (request == null) return;
+        if (!wantsVideoCapture(request) || !isTrustedOrigin(request.getOrigin())) {
+            request.deny();
+            return;
+        }
+        if (hasCameraPermission()) {
+            request.grant(new String[]{PermissionRequest.RESOURCE_VIDEO_CAPTURE});
+            return;
+        }
+        pendingCameraPermissionRequest = request;
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            requestPermissions(new String[]{Manifest.permission.CAMERA}, REQ_CAMERA);
+        } else {
+            request.deny();
+        }
+    }
+
     private void showSetup(String error) {
         mainView.setVisibility(View.GONE);
         setupView.setVisibility(View.VISIBLE);
@@ -424,6 +486,18 @@ public class MainActivity extends AppCompatActivity {
 
         webView.setWebChromeClient(new WebChromeClient() {
             @Override
+            public void onPermissionRequest(final PermissionRequest request) {
+                runOnUiThread(() -> handleWebPermissionRequest(request));
+            }
+
+            @Override
+            public void onPermissionRequestCanceled(PermissionRequest request) {
+                if (pendingCameraPermissionRequest == request) {
+                    pendingCameraPermissionRequest = null;
+                }
+            }
+
+            @Override
             public boolean onShowFileChooser(WebView webView, ValueCallback<Uri[]> callback,
                                              FileChooserParams params) {
                 if (filePathCallback != null) filePathCallback.onReceiveValue(null);
@@ -466,6 +540,23 @@ public class MainActivity extends AppCompatActivity {
             }
             filePathCallback.onReceiveValue(results);
             filePathCallback = null;
+        }
+    }
+
+    @Override
+    public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+        if (requestCode != REQ_CAMERA) return;
+        PermissionRequest request = pendingCameraPermissionRequest;
+        pendingCameraPermissionRequest = null;
+        if (request == null) return;
+        boolean granted = grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED;
+        if (granted) {
+            request.grant(new String[]{PermissionRequest.RESOURCE_VIDEO_CAPTURE});
+            Toast.makeText(this, "Камера разрешена — можно сканировать штрих-коды и QR", Toast.LENGTH_SHORT).show();
+        } else {
+            request.deny();
+            Toast.makeText(this, "Без доступа к камере сканер в приложении не запустится", Toast.LENGTH_LONG).show();
         }
     }
 

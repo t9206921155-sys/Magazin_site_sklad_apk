@@ -23,14 +23,14 @@ Android-приложение «Склад» — это WebView-обёртка PW
 ## Готовые артефакты
 
 ```
-telegram-shop/apk/Sklad-1.0.3-release.apk
-telegram-shop/aab/Sklad-1.0.3-release.aab
+telegram-shop/apk/Sklad-1.0.4-release.apk
+telegram-shop/aab/Sklad-1.0.4-release.aab
 ```
 
 | Параметр | Значение |
 |---|---|
 | Имя пакета | `ru.telegramshop.sklad` |
-| Версия | 1.0.3 (versionCode 4) |
+| Версия | 1.0.4 (versionCode 5) |
 | minSdk | Android 6.0 (API 23) |
 | targetSdk | Android 14 (API 34) |
 | Подпись | release-ключ `keystore/telegramshop.keystore` (используется и для APK, и для AAB) |
@@ -56,10 +56,10 @@ cd apk-build
 Скрипт сам ставит JDK 17, Android SDK (platform 34, build-tools 34.0.0), Gradle 8.2.1
 в пользовательский cache (`~/.cache`), генерирует release-ключ и иконки, собирает и проверяет подпись.
 Результат:
-- `telegram-shop/apk/Sklad-1.0.3-release.apk`
-- `telegram-shop/aab/Sklad-1.0.3-release.aab`
+- `telegram-shop/apk/Sklad-1.0.4-release.apk`
+- `telegram-shop/aab/Sklad-1.0.4-release.aab`
 
-Текущая версия: `android/app/build.gradle` → `versionCode 4` / `versionName "1.0.3"`.
+Текущая версия: `android/app/build.gradle` → `versionCode 5` / `versionName "1.0.4"`.
 
 ## Публикация в RuStore
 
@@ -69,6 +69,8 @@ cd apk-build
 - страница материалов для публикации: `/download/android/rustore`
 - политика конфиденциальности: `/privacy`
 - QR и JSON-метаданные релиза: `/api/releases/android`, `/api/releases/android/qr.svg`
+- deploy-checklist: `DEPLOY-CHECKLIST.md`
+- чек-лист карточки RuStore: `RUSTORE-CARD-CHECKLIST.md`
 
 Консоль RuStore: developer.rustore.ru. TWA не требуется.
 

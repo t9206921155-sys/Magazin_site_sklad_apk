@@ -14,7 +14,7 @@ async def main():
             device_scale_factor=3,
             is_mobile=True,
             has_touch=True,
-            user_agent="Mozilla/5.0 (Linux; Android 14; Pixel 7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Mobile Safari/537.36 SkladApp/1.0.3",
+            user_agent="Mozilla/5.0 (Linux; Android 14; Pixel 7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Mobile Safari/537.36 SkladApp/1.0.4",
             locale="ru-RU",
         )
         page = await ctx.new_page()

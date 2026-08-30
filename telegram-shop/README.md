@@ -184,7 +184,7 @@ OpenAI-совместимый API (OpenAI, DeepSeek, OpenRouter…): в карт
 - **🤖 ИИ-генерация** (бесплатные OpenAI-совместимые API: Groq, Gemini, OpenRouter free,
   GigaChat — настройки в админке → ИИ): название (3 варианта), текст объявления,
   пост для Telegram-канала;
-- **📷 Камера-сканер** штрих-кодов (BarcodeDetector: EAN/Code-128/QR) для поиска товара;
+- **📷 Камера-сканер** штрих-кодов и QR (BarcodeDetector: EAN/Code-128/QR) для поиска товара; в Android APK камера запрашивается нативно через WebView;
 - **🖨 Печать наклеек**: PDF с Code-128, артикулом, местом и владельцем — по одному
   товару или пачкой через чекбоксы;
 - **✏️ Массовое редактирование**: чекбоксы → «Изменить» — цена, закупочная цена,
@@ -222,8 +222,8 @@ OpenAI-совместимый API (OpenAI, DeepSeek, OpenRouter…): в карт
   принтеров (добавление/редактирование/удаление), смена своего пароля,
   запоминание логина на устройстве, экспорт склада в Excel.
 
-**Android-релиз (✅ обновлено)**: собраны и подписаны `apk/Sklad-1.0.3-release.apk`
-и `aab/Sklad-1.0.3-release.aab` (пакет `ru.telegramshop.sklad`, Android 6.0+).
+**Android-релиз (✅ обновлено)**: собраны и подписаны `apk/Sklad-1.0.4-release.apk`
+и `aab/Sklad-1.0.4-release.aab` (пакет `ru.telegramshop.sklad`, Android 6.0+).
 Это WebView-обёртка PWA `/warehouse/` в духе PWABuilder «APK без TWA». Первый запуск —
 экран ввода адреса сервера, фото с камеры, множественный выбор изображений, смена
 сервера долгим нажатием, deep link-настройка через `sklad://setup` / `sklad://connect`,
@@ -231,7 +231,8 @@ QR-подключение и проверка обновлений APK прям�
 Исходники Android-wrapper: `apk-build/android/...`, скрипт
 пересборки: `apk-build/rebuild-apk.sh`, инструкция: `apk-build/README-APK.md`,
 страница скачивания: `/download/android`, RuStore-материалы: `/download/android/rustore`,
-JSON-метаданные: `/api/releases/android`, privacy page: `/privacy`.
+JSON-метаданные: `/api/releases/android`, privacy page: `/privacy`,
+deploy-checklist: `DEPLOY-CHECKLIST.md`, чек-лист карточки: `RUSTORE-CARD-CHECKLIST.md`.
 Дорожная карта, аналоги сервисов (МойСклад, LiteBox, Sortly), многопользовательский
 режим и монетизация — в `WAREHOUSE-PLAN.md`.
 

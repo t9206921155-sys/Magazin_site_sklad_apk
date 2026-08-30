@@ -84,6 +84,32 @@
 </section>
 
 <section class="sect">
+  <div class="sect-head"><h2>Ограничения карточки RuStore</h2><span class="sect-sub">быстрые ориентиры перед заполнением формы</span></div>
+  <div class="copy-grid meta-grid">
+    <div class="panel copy-card">
+      <h3>Текст</h3>
+      <ul class="checklist">
+        <li>название — до 50 символов</li>
+        <li>краткое описание — до 80 символов</li>
+        <li>полное описание — до 4000 символов</li>
+      </ul>
+    </div>
+    <div class="panel copy-card">
+      <h3>Медиа</h3>
+      <ul class="checklist">
+        <li>иконка 512×512, PNG/JPG, до 3 МБ</li>
+        <li>скриншоты PNG/JPG, от 1 до 10 файлов</li>
+        <li>для mobile-версии лучше держать один стиль и одну ориентацию</li>
+      </ul>
+    </div>
+    <div class="panel copy-card copy-card-wide">
+      <h3>Практический совет</h3>
+      <div class="hint">Не показывайте несуществующие функции и не загружайте скриншоты-заглушки: карточка должна точно соответствовать текущему приложению.</div>
+    </div>
+  </div>
+</section>
+
+<section class="sect">
   <div class="sect-head"><h2>Обязательные метаданные</h2><span class="sect-sub">ссылки и значения для карточки приложения</span></div>
   <div class="copy-grid meta-grid">
     <div class="panel copy-card">
@@ -123,6 +149,66 @@
 </section>
 
 <section class="sect">
+  <div class="sect-head"><h2>Скриншоты для карточки приложения</h2><span class="sect-sub">готовый порядок экранов для публикации в RuStore</span></div>
+  <div class="copy-grid meta-grid">
+    <div class="panel copy-card">
+      <h3>1. Список товаров</h3>
+      <div class="hint">Подпись: «Управляйте товарами и остатками с телефона»</div>
+      <ul class="checklist">
+        <li>список товаров</li>
+        <li>счётчик позиций</li>
+        <li>статусы «витрина / склад»</li>
+      </ul>
+    </div>
+    <div class="panel copy-card">
+      <h3>2. Карточка товара</h3>
+      <div class="hint">Подпись: «Редактируйте карточку, фото, цену и штрих-код»</div>
+      <ul class="checklist">
+        <li>фото товара</li>
+        <li>штрих-код / артикул</li>
+        <li>цена и место хранения</li>
+      </ul>
+    </div>
+    <div class="panel copy-card">
+      <h3>3. Сканер QR / штрих-кодов</h3>
+      <div class="hint">Подпись: «Сканируйте QR и штрих-коды камерой прямо в приложении»</div>
+      <ul class="checklist">
+        <li>экран выбора режима или активная камера</li>
+        <li>поиск / приёмка / продажа / инвентаризация</li>
+        <li>акцент на работу внутри APK</li>
+      </ul>
+    </div>
+    <div class="panel copy-card">
+      <h3>4. Печать этикеток</h3>
+      <div class="hint">Подпись: «Печать этикеток и складских наклеек в пару касаний»</div>
+      <ul class="checklist">
+        <li>выбор принтера</li>
+        <li>пакетная печать</li>
+        <li>PDF / ZPL / EPL</li>
+      </ul>
+    </div>
+    <div class="panel copy-card">
+      <h3>5. Подключение и обновления</h3>
+      <div class="hint">Подпись: «Быстрое подключение к вашему серверу и проверка обновлений»</div>
+      <ul class="checklist">
+        <li>экран ввода сервера</li>
+        <li>deep link / QR onboarding</li>
+        <li>update-блок APK</li>
+      </ul>
+    </div>
+    <div class="panel copy-card">
+      <h3>6. Синхронизация и команда</h3>
+      <div class="hint">Подпись: «Единая база для команды склада и контроль действий»</div>
+      <ul class="checklist">
+        <li>пользователи или журнал</li>
+        <li>единая база</li>
+        <li>контроль действий сотрудников</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<section class="sect">
   <div class="sect-head"><h2>Deep link и quick onboarding</h2><span class="sect-sub">можно приложить в инструкции для сотрудников</span></div>
   <div class="copy-grid meta-grid">
     <div class="panel copy-card">
@@ -132,6 +218,30 @@
     <div class="panel copy-card">
       <div class="copy-toolbar"><b>Setup link</b><button class="btn ghost btn-copy-inline" type="button" data-copy-target="setup-link">Копировать</button></div>
       <textarea id="setup-link" class="copy-box" readonly>{{ publication.setup_link }}</textarea>
+    </div>
+  </div>
+</section>
+
+<section class="sect">
+  <div class="sect-head"><h2>Deploy checklist</h2><span class="sect-sub">что проверить до прод-выкладки и модерации</span></div>
+  <div class="copy-grid meta-grid">
+    <div class="panel copy-card">
+      <h3>Production</h3>
+      <ul class="checklist">
+        <li>обновить код из ветки <code>arena/continue-marketplace-content</code></li>
+        <li>установить зависимости из <code>requirements.txt</code></li>
+        <li>перезапустить backend и проверить <code>/privacy</code></li>
+        <li>проверить <code>/api/releases/android</code> и <code>/api/releases/android/qr.svg</code></li>
+      </ul>
+    </div>
+    <div class="panel copy-card">
+      <h3>Android smoke-check</h3>
+      <ul class="checklist">
+        <li>установить актуальный APK</li>
+        <li>проверить deep link и QR onboarding</li>
+        <li>разрешить доступ к камере</li>
+        <li>проверить сканирование QR и штрих-кодов внутри APK</li>
+      </ul>
     </div>
   </div>
 </section>

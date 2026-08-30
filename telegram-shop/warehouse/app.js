@@ -438,17 +438,18 @@ let SCAN_MODE = 'search';
 async function openScanModes() {
   $('#sheet2-title').textContent = '📷 Сканер: выберите режим';
   $('#sheet2-body').innerHTML = `
+    <div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:12px;padding:10px 12px;margin-bottom:10px;color:#1d4ed8;font-size:12.5px">Поддерживаются EAN-13, EAN-8, Code 128, Code 39 и QR. В Android APK камера запросится автоматически при первом запуске сканера.</div>
     <div class="card" style="align-items:center" onclick="pickScanMode('search'); closeSheet2()">
-      <div class="info"><div class="name">🔍 Поиск</div><div class="meta">Сканировать → открыть карточку</div></div>
+      <div class="info"><div class="name">🔍 Поиск</div><div class="meta">Сканировать штрих-код/QR → открыть карточку</div></div>
     </div>
     <div class="card" style="align-items:center" onclick="pickScanMode('receive'); closeSheet2()">
-      <div class="info"><div class="name">➕ Приёмка</div><div class="meta">Сканировать → остаток +1</div></div>
+      <div class="info"><div class="name">➕ Приёмка</div><div class="meta">Сканировать штрих-код/QR → остаток +1</div></div>
     </div>
     <div class="card" style="align-items:center" onclick="pickScanMode('sell'); closeSheet2()">
-      <div class="info"><div class="name">➖ Продажа</div><div class="meta">Сканировать → остаток −1 (предупреждение при 0)</div></div>
+      <div class="info"><div class="name">➖ Продажа</div><div class="meta">Сканировать штрих-код/QR → остаток −1 (предупреждение при 0)</div></div>
     </div>
     <div class="card" style="align-items:center" onclick="pickScanMode('inventory'); closeSheet2()">
-      <div class="info"><div class="name">🧮 Инвентаризация</div><div class="meta">Сканировать → ввести фактический остаток</div></div>
+      <div class="info"><div class="name">🧮 Инвентаризация</div><div class="meta">Сканировать штрих-код/QR → ввести фактический остаток</div></div>
     </div>
     <div class="card" style="align-items:center" onclick="closeSheet2(); openVision()">
       <div class="info"><div class="name">🤖 ИИ-vision</div><div class="meta">Сфотографировать → найти карточку товара (Этап 3)</div></div>
@@ -485,7 +486,7 @@ async function openScanHistory() {
 
 async function startScan() {
   if (!('BarcodeDetector' in window)) {
-    const code = prompt('Сканер не поддерживается этим браузером.\nВведите штрих-код или артикул вручную:');
+    const code = prompt('Сканер не поддерживается этим браузером или WebView.\nВведите штрих-код, QR-значение или артикул вручную:');
     if (code) await handleScanCode(code.trim());
     return;
   }
@@ -510,7 +511,10 @@ async function startScan() {
     tick();
   } catch (e) {
     stopScan();
-    toast('Нет доступа к камере: ' + e.message, true);
+    const suffix = /permission|denied|SecurityError/i.test(String(e && e.message))
+      ? ' Разрешите доступ к камере в браузере или в настройках Android-приложения.'
+      : '';
+    toast('Нет доступа к камере: ' + e.message + suffix, true);
   }
 }
 
