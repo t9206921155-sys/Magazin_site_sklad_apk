@@ -188,6 +188,12 @@ def create_app(store, providers: dict, bot=None, notify_new_order=None, notify_o
     app.mount("/site", StaticFiles(directory=config.SITE_DIR), name="site")
     os.makedirs(os.path.join(config.DATA_DIR, "media"), exist_ok=True)
     app.mount("/media", StaticFiles(directory=os.path.join(config.DATA_DIR, "media")), name="media")
+    apk_dir = os.path.join(config.BASE_DIR, "apk")
+    aab_dir = os.path.join(config.BASE_DIR, "aab")
+    os.makedirs(apk_dir, exist_ok=True)
+    os.makedirs(aab_dir, exist_ok=True)
+    app.mount("/apk", StaticFiles(directory=apk_dir), name="apk")
+    app.mount("/aab", StaticFiles(directory=aab_dir), name="aab")
 
     # ------------------------------------------------------------------ SEO-страницы (SSR)
     def _abs(request: Request, path: str = "") -> str:
@@ -228,6 +234,74 @@ def create_app(store, providers: dict, bot=None, notify_new_order=None, notify_o
                     row["seller_slug"] = seller["slug"]
             out.append(row)
         return out
+
+
+    def _human_size(size: int) -> str:
+        value = float(size or 0)
+        units = ["B", "KB", "MB", "GB"]
+        for unit in units:
+            if value < 1024 or unit == units[-1]:
+                if unit == "B":
+                    return f"{int(value)} {unit}"
+                return f"{value:.1f} {unit}"
+            value /= 1024.0
+        return f"{size} B"
+
+    def _sha256_file(path: str) -> str:
+        h = hashlib.sha256()
+        with open(path, "rb") as f:
+            for chunk in iter(lambda: f.read(1024 * 1024), b""):
+                h.update(chunk)
+        return h.hexdigest()
+
+    def _android_release_files(request: Request) -> dict:
+        files = []
+        for kind, folder, url_prefix, ext in (("apk", apk_dir, "/apk/", ".apk"), ("aab", aab_dir, "/aab/", ".aab")):
+            for name in sorted(os.listdir(folder)):
+                if not name.lower().endswith(ext):
+                    continue
+                path = os.path.join(folder, name)
+                if not os.path.isfile(path):
+                    continue
+                st = os.stat(path)
+                files.append({
+                    "kind": kind,
+                    "filename": name,
+                    "version": name.replace("Sklad-", "").replace(f"-release{ext}", ""),
+                    "size_bytes": int(st.st_size),
+                    "size_human": _human_size(int(st.st_size)),
+                    "sha256": _sha256_file(path),
+                    "updated_at": datetime.datetime.fromtimestamp(st.st_mtime).strftime("%d.%m.%Y %H:%M"),
+                    "mtime": float(st.st_mtime),
+                    "download_url": _abs(request, url_prefix + urllib.parse.quote(name)),
+                })
+        files.sort(key=lambda x: x["mtime"], reverse=True)
+        latest_apk = next((x for x in files if x["kind"] == "apk"), None)
+        latest_aab = next((x for x in files if x["kind"] == "aab"), None)
+        return {"files": files, "latest_apk": latest_apk, "latest_aab": latest_aab}
+
+    @app.get("/api/releases/android")
+    async def api_android_releases(request: Request):
+        data = _android_release_files(request)
+        return {"apk": data["latest_apk"], "aab": data["latest_aab"], "files": data["files"]}
+
+    @app.get("/download/android")
+    async def android_download_page(request: Request):
+        data = _android_release_files(request)
+        url = _abs(request, "/download/android")
+        latest_apk = data["latest_apk"]
+        latest_aab = data["latest_aab"]
+        latest_version = (latest_apk or latest_aab or {}).get("version", "1.0.1")
+        ctx = _seo_ctx(
+            request,
+            title=seo.page_title(store.settings["shop_name"], "Скачать Android-приложение «Склад»"),
+            description=f"Скачайте Android-сборки «Склад»: APK для ручной установки и AAB для публикации в сторах. Текущая версия {latest_version}.",
+            canonical=url,
+            latest_apk=latest_apk,
+            latest_aab=latest_aab,
+            release_files=data["files"],
+        )
+        return _render(request, "android_download.html", ctx)
 
     @app.get("/")
     async def home(request: Request):

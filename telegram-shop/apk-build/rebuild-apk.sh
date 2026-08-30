@@ -1,10 +1,11 @@
 #!/usr/bin/env bash
 # ============================================================
-#  Сборка APK «Склад» (WebView-обёртка PWA /warehouse/)
+#  Сборка Android-релиза «Склад» (WebView-обёртка PWA /warehouse/)
 #  Запуск:  ./rebuild-apk.sh [URL_ПО_УМОЛЧАНИЮ]
 #  Пример:  ./rebuild-apk.sh https://shop.ru/warehouse/
 #  Без аргумента — при первом запуске приложение спросит адрес.
 #  Скрипт не требует sudo: все инструменты ставятся в ~/.cache.
+#  Результат: APK + AAB для публикации в сторах.
 # ============================================================
 set -euo pipefail
 cd "$(dirname "$0")"
@@ -13,6 +14,7 @@ DEFAULT_URL="${1:-}"
 APP_VERSION="1.0.1"
 APP_CODE="2"
 APK_NAME="Sklad-${APP_VERSION}-release.apk"
+AAB_NAME="Sklad-${APP_VERSION}-release.aab"
 GRADLE_VER="8.2.1"
 CACHE_BASE="${XDG_CACHE_HOME:-$HOME/.cache}/telegram-shop-apk"
 SDK_ROOT="${ANDROID_SDK_ROOT:-${CACHE_BASE}/android-sdk}"
@@ -124,31 +126,39 @@ PY
   fi
 }
 
-build_apk() {
+build_release_artifacts() {
   log "Проверяю версию Android-приложения (${APP_VERSION} / code ${APP_CODE})..."
   grep -q "versionName \"${APP_VERSION}\"" android/app/build.gradle
   grep -q "versionCode ${APP_CODE}" android/app/build.gradle
 
-  log "Собираю release APK..."
+  log "Собираю release APK и AAB..."
   pushd android >/dev/null
-  "${GRADLE_HOME}/bin/gradle" assembleRelease -PwarehouseUrl="${DEFAULT_URL}" --no-daemon --console=plain
+  "${GRADLE_HOME}/bin/gradle" assembleRelease bundleRelease -PwarehouseUrl="${DEFAULT_URL}" --no-daemon --console=plain
   popd >/dev/null
 
-  mkdir -p ../apk
+  mkdir -p ../apk ../aab
   local apk="android/app/build/outputs/apk/release/app-release.apk"
-  local out="../apk/${APK_NAME}"
-  cp -f "${apk}" "${out}"
+  local aab="android/app/build/outputs/bundle/release/app-release.aab"
+  local out_apk="../apk/${APK_NAME}"
+  local out_aab="../aab/${AAB_NAME}"
+  cp -f "${apk}" "${out_apk}"
+  cp -f "${aab}" "${out_aab}"
 
   local bt="${SDK_ROOT}/build-tools/34.0.0"
   if [ -x "${bt}/apksigner" ]; then
-    log "Проверка подписи:"
-    "${bt}/apksigner" verify --print-certs "${out}" | head -3 || true
+    log "Проверка подписи APK:"
+    "${bt}/apksigner" verify --print-certs "${out_apk}" | head -3 || true
+  fi
+  if command -v jarsigner >/dev/null 2>&1; then
+    log "Проверка подписи AAB:"
+    jarsigner -verify -certs "${out_aab}" >/dev/null && echo "AAB signature: OK"
   fi
   if [ -x "${bt}/aapt" ]; then
     log "Информация об APK:"
-    "${bt}/aapt" dump badging "${out}" | grep -E "^package|sdkVersion|targetSdkVersion|application-label:" || true
+    "${bt}/aapt" dump badging "${out_apk}" | grep -E "^package|sdkVersion|targetSdkVersion|application-label:" || true
   fi
-  echo -e "\n\033[1;32mГОТОВО:\033[0m ${out}  ($(du -h "${out}" | cut -f1))"
+  echo -e "\n\033[1;32mГОТОВО APK:\033[0m ${out_apk}  ($(du -h "${out_apk}" | cut -f1))"
+  echo -e "\033[1;32mГОТОВО AAB:\033[0m ${out_aab}  ($(du -h "${out_aab}" | cut -f1))"
 }
 
 ensure_jdk17
@@ -156,4 +166,4 @@ ensure_sdk
 ensure_gradle
 ensure_keystore
 generate_icons
-build_apk
+build_release_artifacts

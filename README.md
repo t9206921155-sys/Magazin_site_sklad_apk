@@ -47,10 +47,17 @@ python bot.py
 docker compose up -d --build
 ```
 
-## APK / мобильный склад
+## APK / AAB / мобильный склад
 
-Смотрите:
+Готовые артефакты:
 
+- `telegram-shop/apk/Sklad-1.0.1-release.apk`
+- `telegram-shop/aab/Sklad-1.0.1-release.aab`
+
+Исходники Android-wrapper и сборка:
+
+- `telegram-shop/apk-build/android/`
+- `telegram-shop/apk-build/rebuild-apk.sh`
 - `telegram-shop/apk-build/README-APK.md`
 - `mobile/build-apk.sh`
 

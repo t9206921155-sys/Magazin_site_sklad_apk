@@ -1,0 +1,92 @@
+{% extends "base.html" %}
+{% block content %}
+<nav class="crumbs">
+  <a href="/">Главная</a> <span>›</span> <span>Android-приложение</span>
+</nav>
+
+<section class="catalog-head">
+  <h1>Android-приложение «Склад»</h1>
+  <p>Здесь собраны актуальные Android-сборки проекта: <b>APK</b> для ручной установки на устройство и <b>AAB</b> для публикации в RuStore / Google Play.</p>
+</section>
+
+<section class="dl-grid">
+  <div class="panel dl-card dl-card-main">
+    <div class="dl-badge">📦 Для установки на телефон</div>
+    <h3>APK{% if latest_apk %} · версия {{ latest_apk.version }}{% endif %}</h3>
+    {% if latest_apk %}
+      <p>Готовый файл для отправки через Telegram, установки с диска или раздачи сотрудникам склада.</p>
+      <a class="btn primary dl-btn" href="{{ latest_apk.download_url }}">Скачать APK</a>
+      <div class="hint dl-meta">{{ latest_apk.filename }} · {{ latest_apk.size_human }} · обновлено {{ latest_apk.updated_at }}</div>
+      <code class="dl-code">SHA-256: {{ latest_apk.sha256 }}</code>
+    {% else %}
+      <div class="empty">APK пока не собран.</div>
+    {% endif %}
+  </div>
+
+  <div class="panel dl-card">
+    <div class="dl-badge">🏪 Для публикации в сторы</div>
+    <h3>AAB{% if latest_aab %} · версия {{ latest_aab.version }}{% endif %}</h3>
+    {% if latest_aab %}
+      <p>Подписанный Android App Bundle для загрузки в RuStore и Google Play Console.</p>
+      <a class="btn primary dl-btn" href="{{ latest_aab.download_url }}">Скачать AAB</a>
+      <div class="hint dl-meta">{{ latest_aab.filename }} · {{ latest_aab.size_human }} · обновлено {{ latest_aab.updated_at }}</div>
+      <code class="dl-code">SHA-256: {{ latest_aab.sha256 }}</code>
+    {% else %}
+      <div class="empty">AAB пока не собран.</div>
+    {% endif %}
+  </div>
+</section>
+
+<section class="sect">
+  <div class="sect-head"><h2>Где лежат исходники Android-обёртки</h2><span class="sect-sub">чтобы быстро найти нужные файлы в репозитории</span></div>
+  <div class="dl-source-list">
+    <div class="panel">
+      <h3>Основные пути</h3>
+      <ul class="dl-list">
+        <li><code>telegram-shop/apk-build/android/app/src/main/java/ru/telegramshop/sklad/MainActivity.java</code> — WebView-обёртка, выбор файлов, переходы, экран подключения</li>
+        <li><code>telegram-shop/apk-build/android/app/src/main/AndroidManifest.xml</code> — permissions, label, activity, cleartext traffic</li>
+        <li><code>telegram-shop/apk-build/android/app/build.gradle</code> — package name, versionCode, versionName, signing config</li>
+        <li><code>telegram-shop/apk-build/rebuild-apk.sh</code> — пересборка релизных Android-артефактов</li>
+        <li><code>telegram-shop/apk-build/README-APK.md</code> — инструкция по сборке и установке</li>
+        <li><code>telegram-shop/warehouse/</code> — само PWA-приложение склада, которое открывается внутри APK</li>
+      </ul>
+    </div>
+    <div class="panel">
+      <h3>Что скачать / куда выкладывать</h3>
+      <ul class="dl-list">
+        <li><code>telegram-shop/apk/Sklad-1.0.1-release.apk</code> — готовый APK</li>
+        <li><code>telegram-shop/aab/Sklad-1.0.1-release.aab</code> — bundle для RuStore / Google Play</li>
+        <li><code>/download/android</code> — веб-страница с последними релизами</li>
+        <li><code>/api/releases/android</code> — JSON с метаданными по APK/AAB</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+{% if release_files %}
+<section class="sect">
+  <div class="sect-head"><h2>Все доступные Android-сборки</h2><span class="sect-sub">история файлов в репозитории</span></div>
+  <div class="panel">
+    <div class="dl-table-wrap">
+      <table class="dl-table">
+        <thead>
+          <tr><th>Тип</th><th>Файл</th><th>Версия</th><th>Размер</th><th>Обновлено</th><th></th></tr>
+        </thead>
+        <tbody>
+          {% for f in release_files %}
+          <tr>
+            <td><span class="dl-kind {{ f.kind }}">{{ f.kind | upper }}</span></td>
+            <td><code>{{ f.filename }}</code></td>
+            <td>{{ f.version }}</td>
+            <td>{{ f.size_human }}</td>
+            <td>{{ f.updated_at }}</td>
+            <td><a class="see-all" href="{{ f.download_url }}">Скачать →</a></td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+{% endif %}
+{% endblock %}

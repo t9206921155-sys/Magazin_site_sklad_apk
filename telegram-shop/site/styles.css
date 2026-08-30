@@ -660,11 +660,42 @@ h1, h2 { line-height: 1.25; }
 }
 .warehouse-cta-actions { display: flex; gap: 12px; flex-wrap: wrap; justify-content: flex-end; }
 .warehouse-note b { display: block; margin-bottom: 6px; font-size: 14px; }
+.dl-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; margin: 18px 0 28px; }
+.dl-card { display: flex; flex-direction: column; gap: 12px; }
+.dl-card h3 { margin: 0; font-size: 22px; }
+.dl-card p { margin: 0; color: #475569; line-height: 1.65; }
+.dl-card-main { border-color: #c7d2fe; box-shadow: 0 12px 30px rgba(79, 70, 229, .08); }
+.dl-badge {
+  display: inline-flex; align-items: center; gap: 8px; align-self: flex-start;
+  padding: 6px 12px; border-radius: 999px; background: #eef2ff; color: var(--brand);
+  font-size: 12px; font-weight: 800;
+}
+.dl-btn { width: auto; align-self: flex-start; }
+.dl-meta { margin-top: -2px; }
+.dl-code {
+  display: block; background: #0f172a; color: #e2e8f0; border-radius: 12px;
+  padding: 12px 14px; font-size: 12px; line-height: 1.5; overflow-wrap: anywhere;
+}
+.dl-source-list { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; }
+.dl-list { margin: 0; padding-left: 20px; color: #475569; line-height: 1.7; }
+.dl-list li + li { margin-top: 8px; }
+.dl-table-wrap { overflow: auto; }
+.dl-table { width: 100%; border-collapse: collapse; font-size: 14px; }
+.dl-table th, .dl-table td { padding: 12px 10px; border-bottom: 1px solid var(--line); text-align: left; vertical-align: top; }
+.dl-table th { color: var(--hint); font-size: 12px; text-transform: uppercase; letter-spacing: .04em; }
+.dl-kind {
+  display: inline-flex; padding: 4px 10px; border-radius: 999px; font-size: 11px; font-weight: 800;
+  background: #e2e8f0; color: #334155;
+}
+.dl-kind.apk { background: #dcfce7; color: #166534; }
+.dl-kind.aab { background: #fee2e2; color: #b91c1c; }
 @media (max-width: 900px) {
   .sellers-grid { grid-template-columns: 1fr; }
   .comm-cta,
   .market-cta,
-  .warehouse-cta { grid-template-columns: 1fr; }
+  .warehouse-cta,
+  .dl-grid,
+  .dl-source-list { grid-template-columns: 1fr; }
   .warehouse-cta-actions { justify-content: flex-start; }
   .market-points { grid-template-columns: 1fr; }
 }

@@ -1,4 +1,4 @@
-# 📦 APK «Склад» — сборка и установка
+# 📦 Android «Склад» — APK и AAB
 
 **Этап 1 плана склада (WAREHOUSE-PLAN.md) — ВЫПОЛНЕН 26.08.2026.**
 
@@ -18,10 +18,11 @@ Android-приложение «Склад» — это WebView-обёртка PW
 | Внешние ссылки | t.me, оплата и т.п. открываются в браузере/приложениях |
 | Локальная сеть | Разрешён http (usesCleartextTraffic) — сервер в Wi-Fi сети склада без HTTPS |
 
-## Готовый APK
+## Готовые артефакты
 
 ```
 telegram-shop/apk/Sklad-1.0.1-release.apk
+telegram-shop/aab/Sklad-1.0.1-release.aab
 ```
 
 | Параметр | Значение |
@@ -30,7 +31,7 @@ telegram-shop/apk/Sklad-1.0.1-release.apk
 | Версия | 1.0.1 (versionCode 2) |
 | minSdk | Android 6.0 (API 23) |
 | targetSdk | Android 14 (API 34) |
-| Подпись | release-ключ `keystore/telegramshop.keystore` (пароль в rebuild-apk.sh) |
+| Подпись | release-ключ `keystore/telegramshop.keystore` (используется и для APK, и для AAB) |
 
 ## Установка на телефон (раздача вручную)
 
@@ -50,15 +51,17 @@ cd apk-build
 
 Скрипт сам ставит JDK 17, Android SDK (platform 34, build-tools 34.0.0), Gradle 8.2.1
 в пользовательский cache (`~/.cache`), генерирует release-ключ и иконки, собирает и проверяет подпись.
-Результат: `telegram-shop/apk/Sklad-1.0.1-release.apk`.
+Результат:
+- `telegram-shop/apk/Sklad-1.0.1-release.apk`
+- `telegram-shop/aab/Sklad-1.0.1-release.aab`
 
 Текущая версия: `android/app/build.gradle` → `versionCode 2` / `versionName "1.0.1"`.
 
 ## Публикация в RuStore (отложено пользователем)
 
-Когда дойдёт до стора — для RuStore достаточно подписанного AAB/APK:
-`gradle bundleRelease` → `app-release.aab`. Консоль: developer.rustore.ru
-(нужен аккаунт + документы). TWA не требуется.
+Для ручной установки используйте APK, для публикации в RuStore / Google Play — AAB.
+Скрипт `./rebuild-apk.sh` теперь собирает **оба артефакта сразу**.
+Консоль RuStore: developer.rustore.ru. TWA не требуется.
 
 ## Дальше по плану
 
