@@ -67,6 +67,8 @@ docker compose up -d --build
 - `telegram-shop/DEPLOY-CHECKLIST.md` — production-checklist релиза
 - `telegram-shop/PROD-DEPLOY-QUICKSTART.md` — короткая инструкция деплоя под копипасту
 - `telegram-shop/MERGE-READY-PLAN.md` — план подготовки ветки к merge в `main`
+- `telegram-shop/MERGE-COMMAND-BLOCK.md` — точный блок команд для deploy + merge
+- `telegram-shop/PR-MERGE-SUMMARY-RU.md` — готовое русскоязычное summary для PR / merge
 - `telegram-shop/RUSTORE-CARD-CHECKLIST.md` — тексты и ассеты для RuStore
 - `telegram-shop/PLAN.md` — развитие платформы
 - `telegram-shop/MARKETPLACE-PLAN.md` — дорожная карта маркетплейса
