@@ -72,13 +72,39 @@
     </div>
 
     <div class="panel copy-card">
-      <div class="copy-toolbar"><b>Что нового</b><button class="btn ghost btn-copy-inline" type="button" data-copy-target="whats-new">Копировать</button></div>
-      <textarea id="whats-new" class="copy-box" readonly>{{ publication.whats_new }}</textarea>
+      <div class="copy-toolbar"><b>Что нового</b><button class="btn ghost btn-copy-inline" type="button" data-copy-target="whats-new-main">Копировать</button></div>
+      <textarea id="whats-new-main" class="copy-box" readonly>{{ publication.whats_new }}</textarea>
     </div>
 
     <div class="panel copy-card">
       <div class="copy-toolbar"><b>Ключевые слова</b><button class="btn ghost btn-copy-inline" type="button" data-copy-target="keywords">Копировать</button></div>
       <textarea id="keywords" class="copy-box" readonly>{{ publication.keywords }}</textarea>
+    </div>
+  </div>
+</section>
+
+<section class="sect">
+  <div class="sect-head"><h2>Changelog и варианты «Что нового»</h2><span class="sect-sub">короткий store-friendly текст и ещё 2 варианта на выбор</span></div>
+  <div class="copy-grid meta-grid">
+    <div class="panel copy-card">
+      <div class="copy-toolbar"><b>Короткий changelog</b><button class="btn ghost btn-copy-inline" type="button" data-copy-target="release-changelog-short">Копировать</button></div>
+      <textarea id="release-changelog-short" class="copy-box" readonly>{{ publication.release_changelog_short }}</textarea>
+      <div class="hint">Самый короткий вариант для release notes или внутренней фиксации релиза.</div>
+    </div>
+    <div class="panel copy-card">
+      <div class="copy-toolbar"><b>Что нового — рекомендованный</b><button class="btn ghost btn-copy-inline" type="button" data-copy-target="whats-new-recommended">Копировать</button></div>
+      <textarea id="whats-new-recommended" class="copy-box" readonly>{{ publication.whats_new }}</textarea>
+      <div class="hint">Основной вариант для карточки RuStore.</div>
+    </div>
+    <div class="panel copy-card">
+      <div class="copy-toolbar"><b>Что нового — с пояснением</b><button class="btn ghost btn-copy-inline" type="button" data-copy-target="whats-new-alt-1">Копировать</button></div>
+      <textarea id="whats-new-alt-1" class="copy-box tall" readonly>{{ publication.whats_new_alt_1 }}</textarea>
+      <div class="hint">Подходит, если хочется явно объяснить поведение fallback-сканера.</div>
+    </div>
+    <div class="panel copy-card copy-card-wide">
+      <div class="copy-toolbar"><b>Что нового — бизнес-формулировка</b><button class="btn ghost btn-copy-inline" type="button" data-copy-target="whats-new-alt-2">Копировать</button></div>
+      <textarea id="whats-new-alt-2" class="copy-box" readonly>{{ publication.whats_new_alt_2 }}</textarea>
+      <div class="hint">Более мягкий маркетинговый вариант без лишней технической детализации.</div>
     </div>
   </div>
 </section>
@@ -239,6 +265,15 @@
         <li>проверить deep link и QR onboarding</li>
         <li>разрешить доступ к камере</li>
         <li>проверить сканирование QR и штрих-кодов внутри APK</li>
+        <li>при ошибке WebView убедиться, что открывается native fallback scanner</li>
+      </ul>
+    </div>
+    <div class="panel copy-card copy-card-wide">
+      <h3>Следующий шаг по проекту</h3>
+      <ul class="checklist">
+        <li>обновить production из ветки <code>arena/continue-marketplace-content</code></li>
+        <li>пройти smoke-check сайта, Android-лендинга и APK 1.0.5</li>
+        <li>после успешной проверки только тогда готовить merge в <code>main</code></li>
       </ul>
     </div>
   </div>

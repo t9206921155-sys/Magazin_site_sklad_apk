@@ -107,3 +107,21 @@ docker compose up -d
 - при ошибке BarcodeDetector срабатывает нативный fallback-сканер
 - страница работает по HTTPS либо разрешён нужный сценарий в локальной сети
 - в приложении установлена версия `1.0.5`
+
+## 11. Следующий шаг после этого релиза
+
+Минимальный порядок действий:
+1. обновить production из ветки `arena/continue-marketplace-content`
+2. пройти smoke-check сайта, Android-лендинга и APK `1.0.5`
+3. отдельно проверить deep link, QR onboarding и сценарий native fallback scanner
+4. зафиксировать SHA-256 APK/AAB в заметке релиза или внутреннем журнале
+5. только после успешной проверки готовить merge в `main`
+
+## 12. Merge-ready критерии
+
+Считать ветку готовой к merge, если одновременно выполнено всё ниже:
+- `origin/arena/continue-marketplace-content` содержит актуальный commit релиза
+- страницы `/download/android`, `/download/android/rustore` и `/privacy` открываются с production-домена
+- APK `1.0.5` устанавливается и подключается к складу по `sklad://connect?...`
+- web-сканер работает, а при сбое корректно открывается native fallback scanner
+- RuStore-карточка заполнена актуальными текстами, скриншотами и рабочими контактами поддержки

@@ -353,9 +353,19 @@ def create_app(store, providers: dict, bot=None, notify_new_order=None, notify_o
             "Если сервер уже настроен, достаточно установить APK или открыть deep link — адрес подставится автоматически. "
             "Это удобно для внутреннего внедрения, пилота и публикации в RuStore."
         )
+        release_changelog_short = (
+            f"{latest_version} — нативный fallback-сканер QR/штрих-кодов и обновлённый пакет публикации RuStore."
+        )
         whats_new = (
-            f"Версия {latest_version}: добавлен нативный fallback-сканер Android для QR и штрих-кодов, обновлены RuStore-материалы "
-            "и чек-лист релизной выкладки."
+            f"Версия {latest_version}: добавлен нативный fallback-сканер Android для QR и штрих-кодов, обновлены материалы публикации в RuStore."
+        )
+        whats_new_alt_1 = (
+            f"В релизе {latest_version} улучшено сканирование кодов в APK: при нестабильной работе WebView приложение "
+            "автоматически открывает нативный Android-сканер. Также обновлены тексты и материалы для RuStore."
+        )
+        whats_new_alt_2 = (
+            f"Сделали надёжнее мобильный склад в версии {latest_version}: добавили нативный fallback-сканер QR и штрих-кодов "
+            "и привели в порядок пакет публикации для RuStore."
         )
         return {
             "app_name": "Склад — Telegram Shop",
@@ -367,7 +377,10 @@ def create_app(store, providers: dict, bot=None, notify_new_order=None, notify_o
             "recommended_server_url": recommended_server_url,
             "short_description": short_description,
             "full_description": full_description,
+            "release_changelog_short": release_changelog_short,
             "whats_new": whats_new,
+            "whats_new_alt_1": whats_new_alt_1,
+            "whats_new_alt_2": whats_new_alt_2,
             "keywords": "склад, учёт товаров, остатки, магазин, витрина, telegram, продажи, RuStore",
             "category": "Бизнес",
             "age_rating": "0+",
