@@ -2389,6 +2389,16 @@ def create_app(store, providers: dict, bot=None, notify_new_order=None, notify_o
         user = wh_user_from_headers(x_wh_token, x_admin_token)
         s = store.settings
         cloud = dict(s.get("cloud") or {})
+        cloud["provider"] = "s3"
+        cloud["db_mode"] = "supabase" if cloudstore.database_mode(cloud) == "supabase" else "vps"
+        cloud["s3_preset"] = cloud.get("s3_preset") or "yandex"
+        cloud["bucket"] = cloud.get("bucket") or "shop-photos"
+        cloud["photo_prefix"] = cloud.get("photo_prefix") or "products"
+        cloud["catalog_prefix"] = cloud.get("catalog_prefix") or "catalog"
+        cloud["backup_bucket"] = cloud.get("backup_bucket") or "shop-backups"
+        cloud["backup_prefix"] = cloud.get("backup_prefix") or "sqlite"
+        cloud["supabase_schema"] = cloud.get("supabase_schema") or "public"
+        cloud["supabase_table"] = cloud.get("supabase_table") or "products"
         # Секреты не возвращаем в явном виде: пустое поле в UI означает «оставить как есть».
         cloud["key"] = "•••" if cloud.get("key") else ""
         cloud["s3_secret_key"] = "•••" if cloud.get("s3_secret_key") else ""
@@ -2443,7 +2453,7 @@ def create_app(store, providers: dict, bot=None, notify_new_order=None, notify_o
                                "instagram_token": instagram_token,
                                "instagram_user_id": str(body["social"].get("instagram_user_id", soc.get("instagram_user_id", "")))}
         store.update_settings(patch)
-        store.wh_log_add(user["name"], "изменил настройки", "облако/принтеры/публикация")
+        store.wh_log_add(user["name"], "изменил настройки", "база/облако/принтеры/публикация")
         return {"ok": True}
 
     @app.post("/api/warehouse/cloud/test")
@@ -2466,7 +2476,13 @@ def create_app(store, providers: dict, bot=None, notify_new_order=None, notify_o
         st = store.settings.get("cloud_state") or {}
         c = store.settings.get("cloud") or {}
         backup = st.get("backup") or {}
-        return {"enabled": bool(c.get("enabled")), "provider": c.get("provider"),
+        db_mode = "supabase" if cloudstore.database_mode(c) == "supabase" else "vps"
+        return {"enabled": bool(c.get("enabled")),
+                "provider": "s3",
+                "storage_preset": c.get("s3_preset") or "yandex",
+                "db_mode": db_mode,
+                "catalog_provider": st.get("catalog_provider") or ("supabase" if db_mode == "supabase" else "s3"),
+                "photo_provider": st.get("photo_provider") or "s3",
                 "use_cdn": bool(c.get("use_cdn", True)),
                 "last_sync": st.get("last_sync") or "",
                 "photos_synced": len(st.get("photos") or {}),

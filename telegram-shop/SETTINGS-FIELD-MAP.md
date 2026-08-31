@@ -107,25 +107,32 @@
 
 ## 4. `/warehouse/` → `⚙ Настройки` → `Облако`
 
-### 4.1 S3-совместимое хранилище
+### 4.1 Режим базы товаров
 
 | Поле в интерфейсе | Что вписать | Пример |
 |---|---|---|
-| `Использовать облако` | включить облачное хранение фото/резерва | `ON` |
-| `S3-совместимое (Selectel / Cloud.ru / VK Cloud / Яндекс / MinIO)` | выбрать тип подключения | `S3` |
-| `Provider / Preset` | провайдер из списка | `Selectel` |
-| `Endpoint (пусто = из пресета)` | endpoint S3, если не подставился автоматически | `s3.ru-1.storage.selcloud.ru` |
+| `Включить внешнюю синхронизацию` | включить синхронизацию каталога/фото/backup | `ON` |
+| `VPS / SQLite — живая база на сервере` | основной режим: живая БД остаётся на VPS | `VPS` |
+| `Supabase — внешний каталог товаров` | альтернативный режим каталога через Supabase REST | `Supabase` |
+
+### 4.2 Yandex / S3 Object Storage для фото и backup
+
+| Поле в интерфейсе | Что вписать | Пример |
+|---|---|---|
+| `Preset` | провайдер из списка, обычно `Яндекс` | `Яндекс` |
+| `Endpoint (пусто = из пресета)` | endpoint S3, если не подставился автоматически | `https://storage.yandexcloud.net` |
 | `Access Key` | access key S3 | `AKIA...` |
 | `Secret Key (пусто = не менять)` | secret key S3 | `secret...` |
-| `Bucket` | имя bucket для фото | `shop-photos` |
+| `Bucket для фото` | имя bucket для фото | `shop-photos` |
 | `Регион (пусто = из пресета)` | регион S3 | `ru-central1` |
 | `Папка/префикс для фото` | папка внутри bucket для картинок | `products` |
+| `Папка/префикс для catalog JSON` | путь для `products.json` в режиме VPS | `catalog` |
 | `Bucket для backup SQLite` | отдельный bucket под резервные копии `shop.db` | `shop-backups` |
 | `Папка/префикс для backup SQLite` | папка внутри backup bucket | `sqlite` |
 | `Подтягивать фото с облака (CDN-URL, быстрее загрузка)` | включить CDN-URL после синхронизации | `ON` |
 | `Автосинхронизация фото при сохранении товара` | включить автоотправку новых фото в S3 | `ON` |
 
-### После заполнения S3
+### После заполнения Yandex / S3
 
 Нажать по порядку:
 1. `Проверить`
@@ -133,24 +140,16 @@
 3. `Бэкап БД`
 4. при необходимости `⬇️ Из облака`
 
-### 4.2 MySQL / MariaDB
-
-| Поле в интерфейсе | Что вписать | Пример |
-|---|---|---|
-| `Хост (mysql.example.com)` | адрес сервера БД | `db.example.com` |
-| `Порт 3306` | порт MySQL | `3306` |
-| `Пользователь` | логин БД | `shop_user` |
-| `Пароль (пусто = не менять)` | пароль БД | `db_password` |
-| `База (shop)` | имя базы | `shop` |
-| `Таблица (products)` | таблица каталога | `products` |
-
 ### 4.3 Supabase
 
 | Поле в интерфейсе | Что вписать | Пример |
 |---|---|---|
-| `URL, например https://xxxx.supabase.co` | URL проекта Supabase | `https://abcd.supabase.co` |
-| `Ключ (anon/service)` | ключ доступа | `eyJ...` |
-| `Bucket для фото` | bucket для изображений | `shop-photos` |
+| `Supabase URL, например https://xxxx.supabase.co` | URL проекта Supabase | `https://abcd.supabase.co` |
+| `Supabase key (service role или ключ с правами на products)` | ключ доступа | `eyJ...` |
+| `Schema` | схема REST | `public` |
+| `Table / View` | таблица каталога | `products` |
+
+> Фото, картинки и backup даже в режиме Supabase остаются в Yandex / S3 Object Storage.
 
 ---
 

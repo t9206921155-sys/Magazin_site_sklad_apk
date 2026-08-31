@@ -1087,6 +1087,8 @@ async function openSettings() {
   try {
     const s = await api('/api/warehouse/settings');
     const isAdmin = WHOAMI && WHOAMI.role === 'admin';
+    const legacyDbMode = s.cloud.db_mode || ((s.cloud.provider === 'supabase' || s.cloud.provider === 'mysql') ? s.cloud.provider : 'vps');
+    const dbMode = legacyDbMode === 'supabase' ? 'supabase' : 'vps';
     const keyVal = s.cloud.key === '•••' ? '' : (s.cloud.key || '');
     const apkVersion = getNativeAppVersion();
     const apkServer = getNativeServerUrl();
@@ -1100,17 +1102,28 @@ async function openSettings() {
       </div>
     ` : '';
     $('#sheet2-title').textContent = '⚙️ Настройки';
-    const isS3 = (s.cloud.provider || 's3') === 's3';
     $('#sheet2-body').innerHTML = apkBlock + `
-      <h3 style="margin:14px 0 8px">☁️ Облако для фото и резервных копий</h3>
-      <p style="color:#64748b;font-size:12px;margin:0 0 8px">Живая база склада остаётся на VPS в <code>data/shop.db</code>. Облако используется для фото, CDN-ссылок и резервной копии SQLite. Для схемы VPS + Yandex Object Storage укажите bucket <b>shop-photos</b> для картинок и <b>shop-backups</b> для бэкапов.</p>
-      <label class="lb" style="display:flex;gap:8px;align-items:center"><input type="checkbox" id="cl-en" ${s.cloud.enabled ? 'checked' : ''} ${isAdmin ? '' : 'disabled'} style="accent-color:#0f766e"> Использовать облако</label>
-      <select class="fld" id="cl-provider" ${isAdmin ? '' : 'disabled'}>
-        <option value="s3" ${s.cloud.provider === 's3' ? 'selected' : ''}>S3-совместимое (Selectel / Cloud.ru / VK Cloud / Яндекс / MinIO)</option>
-        <option value="supabase" ${s.cloud.provider === 'supabase' ? 'selected' : ''}>Supabase (REST)</option>
-        <option value="mysql" ${s.cloud.provider === 'mysql' ? 'selected' : ''}>MySQL / MariaDB (каталог отдельно)</option>
+      <h3 style="margin:14px 0 8px">🗄 База товаров: VPS или Supabase</h3>
+      <p style="color:#64748b;font-size:12px;margin:0 0 8px">APK и раздел <code>/warehouse/</code> всегда работают через backend на VPS. Здесь выбирается, где дополнительно хранить каталог товаров: только на VPS в SQLite или ещё и в Supabase. Фото и backup ниже всегда идут в Yandex Object Storage.</p>
+      <label class="lb" style="display:flex;gap:8px;align-items:center"><input type="checkbox" id="cl-en" ${s.cloud.enabled ? 'checked' : ''} ${isAdmin ? '' : 'disabled'} style="accent-color:#0f766e"> Включить внешнюю синхронизацию</label>
+      <select class="fld" id="cl-db-mode" ${isAdmin ? '' : 'disabled'}>
+        <option value="vps" ${dbMode === 'vps' ? 'selected' : ''}>VPS / SQLite — живая база на сервере</option>
+        <option value="supabase" ${dbMode === 'supabase' ? 'selected' : ''}>Supabase — внешний каталог товаров</option>
       </select>
-      <div id="s3-fields" style="${isS3 ? '' : 'display:none'}">
+      <div id="db-vps-note" style="${dbMode === 'vps' ? '' : 'display:none'};background:#eff6ff;border:1px solid #bfdbfe;border-radius:12px;padding:10px 12px;margin:0 0 10px;color:#1d4ed8;font-size:12px">Основная рабочая база склада остаётся в <code>data/shop.db</code> на VPS. Кнопка «Синхронизировать» будет отправлять каталог JSON и фото в Yandex Object Storage, а APK продолжит работать через ваш сервер.</div>
+      <div id="sb-fields" style="${dbMode === 'supabase' ? '' : 'display:none'}">
+        <input class="fld" id="cl-url" placeholder="Supabase URL, например https://xxxx.supabase.co" value="${esc(s.cloud.url)}" ${isAdmin ? '' : 'disabled'}>
+        <input class="fld" id="cl-key" type="password" placeholder="Supabase key (service role или ключ с правами на products)" value="${esc(keyVal)}" ${isAdmin ? '' : 'disabled'}>
+        <div class="row2">
+          <input class="fld" id="sb-schema" placeholder="Schema" value="${esc(s.cloud.supabase_schema || 'public')}" ${isAdmin ? '' : 'disabled'}>
+          <input class="fld" id="sb-table" placeholder="Table / View" value="${esc(s.cloud.supabase_table || 'products')}" ${isAdmin ? '' : 'disabled'}>
+        </div>
+        <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;padding:10px 12px;margin:0 0 10px;color:#475569;font-size:12px">Supabase используется как внешний каталог товаров: backend на VPS пишет/читает таблицу через REST API. Для записи нужен ключ с правами <code>select/insert/update</code> на таблицу <code>products</code>.</div>
+      </div>
+
+      <h3 style="margin:14px 0 8px">☁️ Фото, картинки и backup — Yandex Object Storage</h3>
+      <p style="color:#64748b;font-size:12px;margin:0 0 8px">Эти поля используются и для режима <b>VPS</b>, и для режима <b>Supabase</b>. Рекомендуемая схема: <b>shop-photos</b> для фото и <b>shop-backups</b> для резервных копий SQLite.</p>
+      <div id="s3-fields">
         <select class="fld" id="s3-preset" ${isAdmin ? '' : 'disabled'}>
           <option value="selectel">Selectel — Объектное хранилище</option>
           <option value="cloudru">Cloud.ru — Object Storage</option>
@@ -1131,25 +1144,9 @@ async function openSettings() {
           <input class="fld" id="s3-photo-prefix" placeholder="Папка/префикс для фото" value="${esc(s.cloud.photo_prefix || 'products')}" ${isAdmin ? '' : 'disabled'}>
           <input class="fld" id="s3-backup-bucket" placeholder="Bucket для backup SQLite" value="${esc(s.cloud.backup_bucket || 'shop-backups')}" ${isAdmin ? '' : 'disabled'}>
         </div>
-        <input class="fld" id="s3-backup-prefix" placeholder="Папка/префикс для backup SQLite" value="${esc(s.cloud.backup_prefix || 'sqlite')}" ${isAdmin ? '' : 'disabled'}>
-      </div>
-      <div id="sb-fields" style="${s.cloud.provider === 'supabase' ? '' : 'display:none'}">
-        <input class="fld" id="cl-url" placeholder="URL, например https://xxxx.supabase.co" value="${esc(s.cloud.url)}" ${isAdmin ? '' : 'disabled'}>
-        <input class="fld" id="cl-key" type="password" placeholder="Ключ (anon/service)" value="${esc(keyVal)}" ${isAdmin ? '' : 'disabled'}>
-        <input class="fld" id="cl-bucket2" placeholder="Bucket для фото" value="${esc(s.cloud.bucket || 'shop-photos')}" ${isAdmin ? '' : 'disabled'}>
-      </div>
-      <div id="my-fields" style="${s.cloud.provider === 'mysql' ? '' : 'display:none'}">
         <div class="row2">
-          <input class="fld" id="my-host" placeholder="Хост (mysql.example.com)" value="${esc(s.cloud.mysql_host || '')}" ${isAdmin ? '' : 'disabled'}>
-          <input class="fld" id="my-port" type="number" placeholder="Порт 3306" value="${s.cloud.mysql_port || 3306}" ${isAdmin ? '' : 'disabled'}>
-        </div>
-        <div class="row2">
-          <input class="fld" id="my-user" placeholder="Пользователь" value="${esc(s.cloud.mysql_user || '')}" ${isAdmin ? '' : 'disabled'}>
-          <input class="fld" id="my-pass" type="password" placeholder="Пароль (пусто = не менять)" ${isAdmin ? '' : 'disabled'}>
-        </div>
-        <div class="row2">
-          <input class="fld" id="my-db" placeholder="База (shop)" value="${esc(s.cloud.mysql_database || '')}" ${isAdmin ? '' : 'disabled'}>
-          <input class="fld" id="my-table" placeholder="Таблица (products)" value="${esc(s.cloud.mysql_table || 'products')}" ${isAdmin ? '' : 'disabled'}>
+          <input class="fld" id="s3-catalog-prefix" placeholder="Папка/префикс для catalog JSON" value="${esc(s.cloud.catalog_prefix || 'catalog')}" ${isAdmin ? '' : 'disabled'}>
+          <input class="fld" id="s3-backup-prefix" placeholder="Папка/префикс для backup SQLite" value="${esc(s.cloud.backup_prefix || 'sqlite')}" ${isAdmin ? '' : 'disabled'}>
         </div>
       </div>
       <label class="lb" style="display:flex;gap:8px;align-items:center;margin-top:6px">
@@ -1223,11 +1220,10 @@ async function openSettings() {
       ${isAdmin ? `<button class="btn primary" style="margin-top:14px" onclick="saveSettings()">💾 Сохранить настройки</button>` : ''}
     `;
     renderPrinterList(s.printers);
-    $('#cl-provider').addEventListener('change', e => {
+    $('#cl-db-mode').addEventListener('change', e => {
       const v = e.target.value;
-      $('#s3-fields').style.display = v === 's3' ? '' : 'none';
       $('#sb-fields').style.display = v === 'supabase' ? '' : 'none';
-      $('#my-fields').style.display = v === 'mysql' ? '' : 'none';
+      $('#db-vps-note').style.display = v === 'vps' ? '' : 'none';
     });
     $('#s3-preset').value = s.cloud.s3_preset || 'yandex';
     $('#s3-preset').addEventListener('change', e => applyS3Preset(e.target.value, true));
@@ -1267,11 +1263,13 @@ async function loadCloudStatus() {
   try {
     const st = await api('/api/warehouse/cloud/status');
     const backup = st.backup || {};
+    const dbLabel = st.db_mode === 'supabase' ? 'SUPABASE' : 'VPS';
+    const storageLabel = (st.storage_preset || 's3').toUpperCase();
     $('#cloud-status').textContent = st.enabled
-      ? `☁️ ${(st.provider || 'cloud').toUpperCase()} · CDN: ${st.use_cdn ? 'вкл' : 'выкл'} · фото в облаке: ${st.photos_synced}` +
+      ? `🗄 БД: ${dbLabel} · ☁️ storage: ${storageLabel} · CDN: ${st.use_cdn ? 'вкл' : 'выкл'} · фото в облаке: ${st.photos_synced}` +
         (st.last_sync ? ` · синхронизировано ${new Date(st.last_sync).toLocaleString('ru-RU')}` : ' · ещё не синхронизировали') +
         (backup.at ? ` · backup SQLite: ${backup.bucket}/${backup.key}` : '')
-      : '☁️ облако выключено — фото отдаются с сервера';
+      : '☁️ внешняя синхронизация выключена — живая база остаётся на VPS';
   } catch (e) { $('#cloud-status').textContent = ''; }
 }
 
@@ -1323,19 +1321,19 @@ function delPrinter(i) { PRINTERS.splice(i, 1); renderPrinterList(PRINTERS); }
 async function saveSettings() {
   try {
     await api('/api/warehouse/settings', { method: 'PUT', body: JSON.stringify({
-      cloud: { enabled: $('#cl-en').checked, provider: $('#cl-provider').value,
+      cloud: { enabled: $('#cl-en').checked, provider: 's3', db_mode: $('#cl-db-mode').value,
                use_cdn: $('#cl-cdn').checked,
                url: $('#cl-url').value.trim(), key: $('#cl-key').value.trim(),
-               bucket: ($('#s3-bucket').value.trim() || $('#cl-bucket2').value.trim()) || 'shop-photos',
+               supabase_schema: $('#sb-schema').value.trim() || 'public',
+               supabase_table: $('#sb-table').value.trim() || 'products',
+               bucket: $('#s3-bucket').value.trim() || 'shop-photos',
                photo_prefix: $('#s3-photo-prefix').value.trim() || 'products',
+               catalog_prefix: $('#s3-catalog-prefix').value.trim() || 'catalog',
                backup_bucket: $('#s3-backup-bucket').value.trim() || 'shop-backups',
                backup_prefix: $('#s3-backup-prefix').value.trim() || 'sqlite',
                s3_preset: $('#s3-preset').value, s3_endpoint: $('#s3-ep').value.trim(),
                s3_access_key: $('#s3-ak').value.trim(),
-               s3_secret_key: $('#s3-sk').value.trim(), s3_region: $('#s3-region').value.trim(),
-               mysql_host: $('#my-host').value.trim(), mysql_port: +$('#my-port').value || 3306,
-               mysql_user: $('#my-user').value.trim(), mysql_password: $('#my-pass').value.trim(),
-               mysql_database: $('#my-db').value.trim(), mysql_table: $('#my-table').value.trim() || 'products' },
+               s3_secret_key: $('#s3-sk').value.trim(), s3_region: $('#s3-region').value.trim() },
       warehouse: { auto_sync_cloud: $('#cl-autosync').checked },
       printers: PRINTERS,
       social: { auto_post_new: $('#pub-auto').checked, telegram_channel: $('#pub-tg').value.trim(),
@@ -1348,10 +1346,17 @@ async function saveSettings() {
 }
 
 async function cloudTest() {
-  $('#cloud-note').textContent = 'Проверяем…';
+  $('#cloud-note').textContent = 'Проверяем подключение к БД и Object Storage…';
   try {
     const r = await api('/api/warehouse/cloud/test', { method: 'POST', body: '{}' });
-    $('#cloud-note').textContent = r.ok ? `✅ Облако доступно (HTTP ${r.status})` : '❌ ' + (r.error || 'нет ответа');
+    const storage = r.storage || {};
+    const database = r.database || {};
+    const parts = [
+      `БД ${String(database.mode || 'vps').toUpperCase()}: ${database.ok ? 'OK' : 'ERROR'}`,
+      `Object Storage: ${storage.ok ? 'OK' : 'ERROR'}`
+    ];
+    $('#cloud-note').textContent = (r.ok ? '✅ ' : '⚠️ ') + parts.join(' · ')
+      + (!r.ok && (database.error || storage.error) ? ` · ${database.error || storage.error}` : '');
   } catch (e) { $('#cloud-note').textContent = '❌ ' + e.message; }
 }
 

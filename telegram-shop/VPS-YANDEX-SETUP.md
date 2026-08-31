@@ -81,7 +81,10 @@ http://IP_СЕРВЕРА/warehouse/
 
 Заполните так:
 
-- **Provider**: `S3-совместимое`
+### База товаров
+- **Режим базы**: `VPS / SQLite — живая база на сервере`
+
+### Фото и backup
 - **Preset**: `Яндекс — Объектное хранилище`
 - **Endpoint**: `https://storage.yandexcloud.net`
 - **Access Key**: ваш ключ Яндекса
@@ -89,6 +92,7 @@ http://IP_СЕРВЕРА/warehouse/
 - **Bucket для фото**: `shop-photos`
 - **Регион**: `ru-central1`
 - **Папка/префикс для фото**: `products`
+- **Папка/префикс для catalog JSON**: `catalog`
 - **Bucket для backup SQLite**: `shop-backups`
 - **Папка/префикс для backup SQLite**: `sqlite`
 

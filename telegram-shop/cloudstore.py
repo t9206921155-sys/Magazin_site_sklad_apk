@@ -5,10 +5,10 @@
 - облако используется для фото, CDN-URL и резервных копий;
 - APK и веб-склад работают с API сервера на VPS, а не с объектным хранилищем напрямую.
 
-Поддерживаются провайдеры:
-- s3       — S3-совместимое хранилище (Selectel / Cloud.ru / VK Cloud / Yandex / MinIO)
-- supabase — Storage + REST-таблица products
-- mysql    — внешний каталог в MySQL / MariaDB (фото при этом всё равно можно класть в S3)
+Поддерживаются режимы:
+- db_mode=vps       — живая SQLite-база на VPS, каталог/backup/фото уходят в S3/Yandex
+- db_mode=supabase  — каталог товаров синхронизируется в Supabase, фото/backup всё равно в S3/Yandex
+- db_mode=mysql     — legacy-режим внешнего каталога в MySQL / MariaDB
 """
 
 from __future__ import annotations
@@ -45,26 +45,43 @@ def _s3_http_url(endpoint: str, bucket: str, key: str) -> str:
 
 
 class SupabaseClient:
-    def __init__(self, url: str, key: str, bucket: str = "shop-photos"):
+    def __init__(self, url: str, key: str, bucket: str = "shop-photos",
+                 schema: str = "public", table: str = "products"):
         self.url = (url or "").rstrip("/")
         self.key = key
         self.bucket = bucket or "shop-photos"
+        self.schema = (schema or "public").strip() or "public"
+        self.table = (table or "products").strip() or "products"
 
     @property
     def enabled(self) -> bool:
-        return bool(self.url and self.key)
+        return bool(self.url and self.key and self.table)
 
-    def _h(self, extra=None) -> dict:
+    def _h(self, extra=None, *, for_read: bool = False, for_write: bool = False) -> dict:
         h = {"apikey": self.key, "Authorization": "Bearer " + self.key}
+        if self.schema and self.schema != "public":
+            if for_read:
+                h["Accept-Profile"] = self.schema
+            if for_write:
+                h["Content-Profile"] = self.schema
         if extra:
             h.update(extra)
         return h
 
+    def _products_url(self) -> str:
+        return f"{self.url}/rest/v1/{quote(self.table, safe='-_.~')}"
+
     def ping(self) -> dict:
         if not self.enabled:
-            return {"ok": False, "error": "Не заданы URL и ключ"}
+            return {"ok": False, "error": "Не заданы URL, ключ или таблица Supabase"}
         try:
-            r = requests.get(f"{self.url}/rest/v1/", headers=self._h(), timeout=15)
+            r = requests.get(
+                self._products_url() + "?select=id&limit=1",
+                headers=self._h(for_read=True),
+                timeout=15,
+            )
+            if r.status_code >= 300:
+                return {"ok": False, "status": r.status_code, "error": f"{r.status_code}: {r.text[:150]}"}
             return {"ok": True, "status": r.status_code}
         except Exception as e:
             return {"ok": False, "error": str(e)[:200]}
@@ -89,13 +106,13 @@ class SupabaseClient:
     def push_products(self, products: list) -> dict:
         try:
             r = requests.post(
-                f"{self.url}/rest/v1/products",
+                self._products_url(),
                 json=products,
-                headers={**self._h(), "Prefer": "resolution=merge-duplicates"},
+                headers={**self._h(for_write=True), "Prefer": "resolution=merge-duplicates"},
                 timeout=90,
             )
             if r.status_code >= 300:
-                return {"ok": False, "error": f"{r.status_code}: {r.text[:150]}"}
+                return {"ok": False, "status": r.status_code, "error": f"{r.status_code}: {r.text[:150]}"}
             return {"ok": True, "count": len(products)}
         except Exception as e:
             return {"ok": False, "error": str(e)[:200]}
@@ -103,12 +120,12 @@ class SupabaseClient:
     def pull_products(self) -> dict:
         try:
             r = requests.get(
-                f"{self.url}/rest/v1/products?select=*",
-                headers={**self._h(), "Accept": "application/json"},
+                self._products_url() + "?select=*",
+                headers={**self._h(for_read=True), "Accept": "application/json"},
                 timeout=60,
             )
             if r.status_code >= 300:
-                return {"ok": False, "error": f"{r.status_code}: {r.text[:150]}"}
+                return {"ok": False, "status": r.status_code, "error": f"{r.status_code}: {r.text[:150]}"}
             return {"ok": True, "products": r.json()}
         except Exception as e:
             return {"ok": False, "error": str(e)[:200]}
@@ -413,9 +430,60 @@ class MySQLClient:
             return {"ok": False, "error": str(e)[:200]}
 
 
-def _client(store) -> SupabaseClient:
-    c = store.settings.get("cloud") or {}
-    return SupabaseClient(c.get("url", ""), c.get("key", ""), c.get("bucket", "shop-photos"))
+def database_mode(cloud: dict) -> str:
+    c = dict(cloud or {})
+    mode = str(c.get("db_mode") or "").strip().lower()
+    if mode in {"vps", "supabase", "mysql"}:
+        return mode
+    legacy = str(c.get("provider") or "").strip().lower()
+    if legacy in {"supabase", "mysql"}:
+        return legacy
+    return "vps"
+
+
+def _storage_client_from_cloud(cloud: dict) -> S3Client:
+    c = apply_s3_preset(cloud or {})
+    return S3Client(
+        c.get("s3_endpoint", ""),
+        c.get("s3_access_key", ""),
+        c.get("s3_secret_key", ""),
+        c.get("bucket", "shop-photos"),
+        c.get("s3_region", "ru-central1"),
+        photo_prefix=c.get("photo_prefix", "products"),
+        catalog_prefix=c.get("catalog_prefix", "catalog"),
+    )
+
+
+def _supabase_client_from_cloud(cloud: dict) -> SupabaseClient:
+    c = dict(cloud or {})
+    return SupabaseClient(
+        c.get("url", ""),
+        c.get("key", ""),
+        c.get("bucket", "shop-photos"),
+        c.get("supabase_schema", "public"),
+        c.get("supabase_table", "products"),
+    )
+
+
+def _mysql_client_from_cloud(cloud: dict) -> MySQLClient:
+    c = dict(cloud or {})
+    return MySQLClient(
+        c.get("mysql_host", ""),
+        c.get("mysql_port", 3306),
+        c.get("mysql_user", ""),
+        c.get("mysql_password", ""),
+        c.get("mysql_database", ""),
+        c.get("mysql_table", "products"),
+    )
+
+
+def _catalog_client_from_cloud(cloud: dict):
+    mode = database_mode(cloud)
+    if mode == "supabase":
+        return mode, _supabase_client_from_cloud(cloud)
+    if mode == "mysql":
+        return mode, _mysql_client_from_cloud(cloud)
+    return mode, _storage_client_from_cloud(cloud)
 
 
 def local_photo_path(photo: str) -> str:
@@ -444,55 +512,24 @@ def _product_record(p: dict) -> dict:
     }
 
 
-def _clients(store) -> tuple:
-    c = store.settings.get("cloud") or {}
-    provider = c.get("provider") or "s3"
-    if provider == "s3":
-        c2 = apply_s3_preset(c)
-        return provider, S3Client(
-            c2.get("s3_endpoint", ""),
-            c2.get("s3_access_key", ""),
-            c2.get("s3_secret_key", ""),
-            c2.get("bucket", "shop-photos"),
-            c2.get("s3_region", "ru-central1"),
-            photo_prefix=c2.get("photo_prefix", "products"),
-            catalog_prefix=c2.get("catalog_prefix", "catalog"),
-        )
-    if provider == "mysql":
-        return provider, MySQLClient(
-            c.get("mysql_host", ""),
-            c.get("mysql_port", 3306),
-            c.get("mysql_user", ""),
-            c.get("mysql_password", ""),
-            c.get("mysql_database", ""),
-            c.get("mysql_table", "products"),
-        )
-    return provider, SupabaseClient(c.get("url", ""), c.get("key", ""), c.get("bucket", "shop-photos"))
-
-
-def _photo_client(store, provider, main_client):
-    if provider == "mysql":
-        c = apply_s3_preset(store.settings.get("cloud") or {})
-        s3 = S3Client(
-            c.get("s3_endpoint", ""),
-            c.get("s3_access_key", ""),
-            c.get("s3_secret_key", ""),
-            c.get("bucket", "shop-photos"),
-            c.get("s3_region", "ru-central1"),
-            photo_prefix=c.get("photo_prefix", "products"),
-            catalog_prefix=c.get("catalog_prefix", "catalog"),
-        )
-        return s3 if s3.enabled else None
-    return main_client if hasattr(main_client, "upload_photo") else None
+def _catalog_payload(store, db_mode: str, product: dict | None = None) -> list:
+    if db_mode in {"supabase", "mysql"} and product is not None:
+        return [_product_record(product)]
+    return [_product_record(p) for p in store.products()]
 
 
 def sync_to_cloud(store) -> dict:
-    provider, client = _clients(store)
-    if not client.enabled:
-        return {"ok": False, "error": "Облако не настроено (нет ключей)"}
+    cloud = store.settings.get("cloud") or {}
+    db_mode, catalog_client = _catalog_client_from_cloud(cloud)
+    storage_client = _storage_client_from_cloud(cloud)
+
+    if not storage_client.enabled:
+        return {"ok": False, "error": "Не настроен Yandex/S3 Object Storage для фото и backup"}
+    if db_mode != "vps" and not getattr(catalog_client, "enabled", False):
+        return {"ok": False, "error": f"Не настроено подключение к {db_mode}"}
+
     photos = {"uploaded": 0, "errors": 0}
     photo_map = dict((store.settings.get("cloud_state") or {}).get("photos") or {})
-    photo_client = _photo_client(store, provider, client)
     for p in store.products():
         for ph in [p.get("photo")] + p.get("photos", []):
             lp = local_photo_path(ph)
@@ -500,28 +537,32 @@ def sync_to_cloud(store) -> dict:
                 continue
             if str(ph) in photo_map and photo_map[str(ph)]:
                 continue
-            if photo_client is None:
-                continue
-            res = photo_client.upload_photo(lp)
+            res = storage_client.upload_photo(lp)
             if res.get("ok"):
                 photo_map[str(ph)] = res["url"]
                 photos["uploaded"] += 1
             else:
                 photos["errors"] += 1
                 log.warning("облако: %s -> %s", lp, res.get("error"))
-    prods = [_product_record(p) for p in store.products()]
-    products_res = client.push_products(prods)
+
+    prods = _catalog_payload(store, db_mode)
+    products_res = catalog_client.push_products(prods)
     if products_res.get("ok"):
         state = dict(store.settings.get("cloud_state") or {})
         state.update({
-            "provider": provider,
+            "provider": "s3",
+            "db_mode": db_mode,
+            "photo_provider": "s3",
+            "catalog_provider": "supabase" if db_mode == "supabase" else ("mysql" if db_mode == "mysql" else "s3"),
             "photos": photo_map,
             "last_sync": datetime.now(timezone.utc).isoformat(),
-            "catalog_count": len(prods),
+            "catalog_count": len(_catalog_payload(store, db_mode)),
         })
         store.set_cloud_state(state)
     return {
         "ok": products_res.get("ok", False),
+        "db_mode": db_mode,
+        "catalog_provider": "supabase" if db_mode == "supabase" else ("mysql" if db_mode == "mysql" else "s3"),
         "products": products_res.get("count", 0) if products_res.get("ok") else 0,
         "photos": photos,
         "error": products_res.get("error") or "",
@@ -529,8 +570,35 @@ def sync_to_cloud(store) -> dict:
 
 
 def test_cloud(store) -> dict:
-    provider, client = _clients(store)
-    return {**client.ping(), "provider": provider}
+    cloud = store.settings.get("cloud") or {}
+    db_mode = database_mode(cloud)
+    storage_client = _storage_client_from_cloud(cloud)
+    storage = {**storage_client.ping(),
+               "provider": "s3",
+               "preset": (cloud.get("s3_preset") or "yandex"),
+               "bucket": (cloud.get("bucket") or "shop-photos")}
+    if db_mode == "supabase":
+        database = {**_supabase_client_from_cloud(cloud).ping(),
+                    "mode": "supabase",
+                    "table": cloud.get("supabase_table") or "products",
+                    "schema": cloud.get("supabase_schema") or "public"}
+    elif db_mode == "mysql":
+        database = {**_mysql_client_from_cloud(cloud).ping(),
+                    "mode": "mysql",
+                    "table": cloud.get("mysql_table") or "products",
+                    "database": cloud.get("mysql_database") or "shop"}
+    else:
+        database = {"ok": True, "status": 200, "mode": "vps",
+                    "message": "Живая база склада работает на VPS в SQLite (data/shop.db)."}
+    ok = bool(storage.get("ok")) and bool(database.get("ok"))
+    return {
+        "ok": ok,
+        "status": 200 if ok else (database.get("status") or storage.get("status") or 500),
+        "provider": "s3",
+        "db_mode": db_mode,
+        "storage": storage,
+        "database": database,
+    }
 
 
 def resolve_photo_url(store, photo: str) -> str:
@@ -538,7 +606,7 @@ def resolve_photo_url(store, photo: str) -> str:
         return photo
     c = store.settings.get("cloud") or {}
     st = store.settings.get("cloud_state") or {}
-    if c.get("enabled") and c.get("use_cdn", True) and st.get("provider") == c.get("provider"):
+    if c.get("enabled") and c.get("use_cdn", True):
         url = (st.get("photos") or {}).get(str(photo))
         if url:
             return url
@@ -546,34 +614,48 @@ def resolve_photo_url(store, photo: str) -> str:
 
 
 def sync_one_product(store, product: dict) -> dict:
-    provider, client = _clients(store)
-    if not client.enabled:
-        return {"ok": False, "error": "Облако не настроено"}
+    cloud = store.settings.get("cloud") or {}
+    db_mode, catalog_client = _catalog_client_from_cloud(cloud)
+    storage_client = _storage_client_from_cloud(cloud)
+    if not storage_client.enabled:
+        return {"ok": False, "error": "Не настроен Yandex/S3 Object Storage"}
+    if db_mode != "vps" and not getattr(catalog_client, "enabled", False):
+        return {"ok": False, "error": f"Не настроено подключение к {db_mode}"}
+
     photos_map = dict((store.settings.get("cloud_state") or {}).get("photos") or {})
-    photo_client = _photo_client(store, provider, client)
     for ph in [product.get("photo")] + list(product.get("photos") or []):
         lp = local_photo_path(ph)
-        if not lp or not os.path.exists(lp) or photo_client is None:
+        if not lp or not os.path.exists(lp):
             continue
-        res = photo_client.upload_photo(lp)
+        res = storage_client.upload_photo(lp)
         if res.get("ok"):
             photos_map[str(ph)] = res["url"]
-    pres = client.push_products([_product_record(product)])
+
+    payload = _catalog_payload(store, db_mode, product=product)
+    pres = catalog_client.push_products(payload)
     if pres.get("ok"):
         st = dict(store.settings.get("cloud_state") or {})
         st.update({
-            "provider": provider,
+            "provider": "s3",
+            "db_mode": db_mode,
+            "photo_provider": "s3",
+            "catalog_provider": "supabase" if db_mode == "supabase" else ("mysql" if db_mode == "mysql" else "s3"),
             "photos": photos_map,
             "last_sync": datetime.now(timezone.utc).isoformat(),
+            "catalog_count": len(_catalog_payload(store, db_mode)),
         })
         store.set_cloud_state(st)
-    return {"ok": pres.get("ok"), "photos": len(photos_map), "error": pres.get("error") or ""}
+    return {"ok": pres.get("ok"), "db_mode": db_mode, "photos": len(photos_map), "error": pres.get("error") or ""}
 
 
 def restore_from_cloud(store) -> dict:
-    provider, client = _clients(store)
-    if not client.enabled:
-        return {"ok": False, "error": "Облако не настроено"}
+    cloud = store.settings.get("cloud") or {}
+    db_mode, client = _catalog_client_from_cloud(cloud)
+    if db_mode == "vps":
+        if not _storage_client_from_cloud(cloud).enabled:
+            return {"ok": False, "error": "Не настроен Yandex/S3 Object Storage"}
+    elif not getattr(client, "enabled", False):
+        return {"ok": False, "error": f"Не настроено подключение к {db_mode}"}
     res = client.pull_products()
     if not res.get("ok"):
         return res
@@ -592,7 +674,7 @@ def restore_from_cloud(store) -> dict:
         else:
             store.add_product({**data, "id": None, "name": rec.get("name") or "Товар из облака"})
             created += 1
-    return {"ok": True, "created": created, "updated": updated}
+    return {"ok": True, "db_mode": db_mode, "created": created, "updated": updated}
 
 
 def backup_db_to_cloud(store, *, bucket: str | None = None, prefix: str | None = None) -> dict:
@@ -600,13 +682,10 @@ def backup_db_to_cloud(store, *, bucket: str | None = None, prefix: str | None =
 
     Сценарий для варианта пользователя:
     - живая база продолжает жить на VPS;
-    - резервная копия файла `shop.db` уходит в отдельный bucket, например `shop-backups`.
+    - резервная копия файла `shop.db` уходит в отдельный bucket, например `shop-backups`;
+    - Supabase, если включён, используется только как дополнительный внешний каталог, а не как место backup SQLite.
     """
     cloud = apply_s3_preset(store.settings.get("cloud") or {})
-    provider = cloud.get("provider") or "s3"
-    if provider != "s3":
-        return {"ok": False, "error": "Для бэкапа SQLite включите S3-совместимое облако (например Яндекс Object Storage)."}
-
     backup_bucket = (bucket or cloud.get("backup_bucket") or "shop-backups").strip()
     backup_prefix = str(prefix or cloud.get("backup_prefix") or "sqlite").strip().strip("/")
     client = S3Client(
