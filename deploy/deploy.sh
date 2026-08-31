@@ -3,9 +3,9 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
-BRANCH="arena/continue-marketplace-content"
+BRANCH="main"
 DOMAIN="${DEPLOY_DOMAIN:-}"
-EXPECTED_VERSION="${DEPLOY_EXPECTED_VERSION:-1.0.5}"
+EXPECTED_VERSION="${DEPLOY_EXPECTED_VERSION:-1.0.6}"
 SKIP_PIP=0
 SKIP_SMOKE=0
 NO_CACHE=1
@@ -14,12 +14,12 @@ ALLOW_DIRTY=0
 usage() {
   cat <<'EOF'
 Usage:
-  ./deploy/deploy.sh [--branch BRANCH] [--domain https://example.com] [--expected-version 1.0.5] [--skip-pip] [--skip-smoke] [--cache] [--allow-dirty]
+  ./deploy/deploy.sh [--branch BRANCH] [--domain https://example.com] [--expected-version 1.0.6] [--skip-pip] [--skip-smoke] [--cache] [--allow-dirty]
 
 Options:
-  --branch BRANCH            Git branch to deploy (default: arena/continue-marketplace-content)
+  --branch BRANCH            Git branch to deploy (default: main)
   --domain URL               Public base URL for post-deploy smoke-check
-  --expected-version VER     Expected Android release version for smoke-check (default: 1.0.5)
+  --expected-version VER     Expected Android release version for smoke-check (default: 1.0.6)
   --skip-pip                 Skip `pip install -r telegram-shop/requirements.txt`
   --skip-smoke               Skip post-deploy smoke-check even if --domain is provided
   --cache                    Use cached docker build layers (default is --no-cache)
@@ -126,4 +126,4 @@ printf 'Branch: %s\n' "$BRANCH"
 if [ -n "$DOMAIN" ]; then
   printf 'Domain: %s\n' "$DOMAIN"
 fi
-printf 'Tip: verify APK 1.0.5 on a real Android device before merge into main.\n'
+printf 'Tip: verify APK 1.0.6 on a real Android device after deploy.\n'

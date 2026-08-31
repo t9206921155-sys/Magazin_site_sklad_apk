@@ -1,10 +1,11 @@
 # 📦 Final release handoff — Android «Склад» 1.0.6
 
-Итоговый handoff-пакет по ветке `arena/continue-marketplace-content`.
+Итоговый handoff-пакет по релизу, который уже влит в `main`.
 
 ## 1. Текущее состояние
 
-- рабочая ветка: `arena/continue-marketplace-content`
+- production-ветка: `main`
+- feature-ветка: `arena/continue-marketplace-content`
 - целевой Android-релиз: `1.0.6`
 - package: `ru.telegramshop.sklad`
 - основной Android commit chain:
@@ -23,8 +24,8 @@
 SHA-256:
 
 ```text
-APK  c5991257914eca1e0277d79ef9ab6a7b0d41a7c555b3420d272025296eb9f940
-AAB  68230e812b2ff81f9f449d64dbc134abdac24dbd17911da1da5686c0a483dd32
+APK  fbbd2b10bf03c5f37aa2fea7ed8d32869141832e296e1f5f23005f09436878df
+AAB  0411fad61826701a31e32cd76af90ed9c38906b380a1feb566aaa908e6d2aef0
 ```
 
 ## 3. Что уже доведено до готового состояния
@@ -107,8 +108,8 @@ cd /path/to/repo
 
 Релиз можно считать полностью закрытым, когда одновременно выполнено всё ниже:
 
-- production поднят с ветки `arena/continue-marketplace-content`
+- production поднят с ветки `main`
 - smoke-check прошёл успешно
 - Android APK проверен на устройстве
 - RuStore-карточка заполнена актуальными материалами
-- принято решение: либо публиковать в RuStore, либо делать merge в `main`
+- релиз развёрнут на VPS и готов либо к внутренней раздаче APK, либо к публикации в RuStore

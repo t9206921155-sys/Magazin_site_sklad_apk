@@ -1,14 +1,14 @@
 # 🚀 PROD deploy quickstart — copy/paste
 
-Короткая инструкция для выкладки ветки `arena/continue-marketplace-content` в production.
+Короткая инструкция для выкладки актуальной ветки `main` в production.
 
 ## Вариант A — Docker deploy из корня репозитория
 
 ```bash
 cd /path/to/repo
 git fetch origin
-git checkout arena/continue-marketplace-content
-git pull --ff-only origin arena/continue-marketplace-content
+git checkout main
+git pull --ff-only origin main
 cd telegram-shop
 pip install -r requirements.txt
 cd ..
@@ -25,7 +25,7 @@ cd /path/to/repo
 ```
 
 Полезные флаги:
-- `--branch arena/continue-marketplace-content`
+- `--branch main`
 - `--expected-version 1.0.6`
 - `--skip-smoke`
 - `--skip-pip`
@@ -57,8 +57,8 @@ cd /path/to/repo
 ## SHA-256 текущих артефактов
 
 ```text
-APK  c5991257914eca1e0277d79ef9ab6a7b0d41a7c555b3420d272025296eb9f940
-AAB  68230e812b2ff81f9f449d64dbc134abdac24dbd17911da1da5686c0a483dd32
+APK  fbbd2b10bf03c5f37aa2fea7ed8d32869141832e296e1f5f23005f09436878df
+AAB  0411fad61826701a31e32cd76af90ed9c38906b380a1feb566aaa908e6d2aef0
 ```
 
 ## Если что-то не работает
