@@ -884,6 +884,24 @@ class Store:
             self._conn.commit()
             return dict(p)
 
+    def upsert_product_with_id(self, data: dict) -> dict:
+        """Создать или обновить товар с фиксированным id.
+
+        Нужен для direct Supabase режима, когда клиент пишет в Supabase напрямую,
+        а VPS зеркалирует те же изменения обратно в локальную SQLite.
+        """
+        with _lock:
+            pid = int(data.get("id") or 0)
+            p = self.get_product(pid) if pid else None
+            if not p:
+                p = {"id": pid or self.next_product_id(), "name": "", "category": "Прочее", "price": 0,
+                     "old_price": 0, "stock": -1, "description": "", "photo": PLACEHOLDER_PHOTO,
+                     "code": "", "in_stock": True, "badges": [], "created_at": _now_iso()}
+            self._apply_product_fields(p, data)
+            self._insert_product(p)
+            self._conn.commit()
+            return dict(p)
+
     def delete_product(self, product_id) -> bool:
         with _lock:
             self._conn.execute("DELETE FROM products WHERE id=?", (int(product_id),))
@@ -1595,8 +1613,11 @@ class Store:
         return self._count("SELECT COUNT(*) c FROM subscribers")
 
     # ---------------- маркетплейс: продавцы ----------------
-    def _mp(self) -> dict:
+    def marketplace_settings(self) -> dict:
         return self._settings.get("marketplace") or {}
+
+    def _mp(self) -> dict:
+        return self.marketplace_settings()
 
     def sellers(self, status: str = "") -> list:
         sql = "SELECT * FROM sellers"

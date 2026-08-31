@@ -313,7 +313,13 @@ async function ensureDirectConfig(force = false) {
 }
 
 function supaHeaders(cfg, write, extra = {}) {
-  const headers = { apikey: cfg.key, Authorization: 'Bearer ' + cfg.key, ...extra };
+  const key = String((cfg && cfg.key) || '').trim();
+  const headers = { apikey: key, ...extra };
+  // Modern Supabase publishable/secret keys are passed via apikey only.
+  // Legacy anon/service_role JWT keys still work as Bearer.
+  if (key && !key.startsWith('sb_publishable_') && !key.startsWith('sb_secret_')) {
+    headers.Authorization = 'Bearer ' + key;
+  }
   if (cfg.schema && cfg.schema !== 'public') {
     headers['Accept-Profile'] = cfg.schema;
     if (write) headers['Content-Profile'] = cfg.schema;

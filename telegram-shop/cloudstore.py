@@ -60,7 +60,12 @@ class SupabaseClient:
         return bool(self.url and self.key and self.table)
 
     def _h(self, extra=None, *, for_read: bool = False, for_write: bool = False) -> dict:
-        h = {"apikey": self.key, "Authorization": "Bearer " + self.key}
+        key = str(self.key or "").strip()
+        h = {"apikey": key}
+        # Modern Supabase publishable/secret keys are not JWTs and should go via apikey.
+        # Legacy anon/service_role JWT keys may still be sent as Bearer for compatibility.
+        if key and not key.startswith(("sb_publishable_", "sb_secret_")):
+            h["Authorization"] = "Bearer " + key
         if self.schema and self.schema != "public":
             if for_read:
                 h["Accept-Profile"] = self.schema
