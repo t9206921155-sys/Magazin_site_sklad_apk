@@ -1890,6 +1890,15 @@ def create_app(store, providers: dict, bot=None, notify_new_order=None, notify_o
                    or ql in p["owner_name"].lower()]
         return {"products": out, "stats": store.stats()}
 
+    @app.get("/api/warehouse/products/{pid}")
+    async def wh_product_one(pid: int, x_wh_token: str = Header(default=""),
+                             x_admin_token: str = Header(default="")):
+        wh_user_from_headers(x_wh_token, x_admin_token)
+        p = store.get_product(pid)
+        if not p:
+            raise HTTPException(404, "Товар не найден")
+        return {"products": [_wh_product(p)]}
+
     @app.post("/api/warehouse/products", status_code=201)
     async def wh_add(body: dict, x_wh_token: str = Header(default=""),
                      x_admin_token: str = Header(default="")):
@@ -2390,7 +2399,7 @@ def create_app(store, providers: dict, bot=None, notify_new_order=None, notify_o
         s = store.settings
         cloud = dict(s.get("cloud") or {})
         cloud["provider"] = "s3"
-        cloud["db_mode"] = "supabase" if cloudstore.database_mode(cloud) == "supabase" else "vps"
+        cloud["db_mode"] = cloudstore.database_mode(cloud)
         cloud["s3_preset"] = cloud.get("s3_preset") or "yandex"
         cloud["bucket"] = cloud.get("bucket") or "shop-photos"
         cloud["photo_prefix"] = cloud.get("photo_prefix") or "products"
@@ -2401,6 +2410,7 @@ def create_app(store, providers: dict, bot=None, notify_new_order=None, notify_o
         cloud["supabase_table"] = cloud.get("supabase_table") or "products"
         # Секреты не возвращаем в явном виде: пустое поле в UI означает «оставить как есть».
         cloud["key"] = "•••" if cloud.get("key") else ""
+        cloud["public_key"] = "•••" if cloud.get("public_key") else ""
         cloud["s3_secret_key"] = "•••" if cloud.get("s3_secret_key") else ""
         cloud["mysql_password"] = "•••" if cloud.get("mysql_password") else ""
         soc = s.get("social") or {}
@@ -2427,7 +2437,7 @@ def create_app(store, providers: dict, bot=None, notify_new_order=None, notify_o
         if "cloud" in body:
             current_cloud = dict(store.settings.get("cloud") or {})
             incoming_cloud = dict(body["cloud"] or {})
-            for secret_field in ("key", "s3_secret_key", "mysql_password"):
+            for secret_field in ("key", "public_key", "s3_secret_key", "mysql_password"):
                 incoming_value = str(incoming_cloud.get(secret_field, "") or "")
                 if incoming_value in ("", "•••"):
                     incoming_cloud[secret_field] = current_cloud.get(secret_field, "")
@@ -2476,12 +2486,12 @@ def create_app(store, providers: dict, bot=None, notify_new_order=None, notify_o
         st = store.settings.get("cloud_state") or {}
         c = store.settings.get("cloud") or {}
         backup = st.get("backup") or {}
-        db_mode = "supabase" if cloudstore.database_mode(c) == "supabase" else "vps"
+        db_mode = cloudstore.database_mode(c)
         return {"enabled": bool(c.get("enabled")),
                 "provider": "s3",
                 "storage_preset": c.get("s3_preset") or "yandex",
                 "db_mode": db_mode,
-                "catalog_provider": st.get("catalog_provider") or ("supabase" if db_mode == "supabase" else "s3"),
+                "catalog_provider": st.get("catalog_provider") or ("supabase" if db_mode in ("supabase_proxy", "supabase_direct") else "s3"),
                 "photo_provider": st.get("photo_provider") or "s3",
                 "use_cdn": bool(c.get("use_cdn", True)),
                 "last_sync": st.get("last_sync") or "",
@@ -2490,6 +2500,95 @@ def create_app(store, providers: dict, bot=None, notify_new_order=None, notify_o
                 "backup": {"at": backup.get("at") or "", "bucket": backup.get("bucket") or "",
                            "key": backup.get("key") or "", "size": backup.get("size") or 0,
                            "path": backup.get("path") or ""}}
+
+    @app.get("/api/warehouse/direct/config")
+    async def wh_direct_config(x_wh_token: str = Header(default=""),
+                               x_admin_token: str = Header(default="")):
+        """Публичная client-конфигурация direct Supabase.
+
+        Выдаётся только после обычного warehouse-login на VPS.
+        Здесь нет service-role ключа — только anon/public key для direct REST.
+        """
+        wh_user_from_headers(x_wh_token, x_admin_token)
+        cfg = cloudstore.direct_client_config(store)
+        if not cfg.get("enabled"):
+            return {"enabled": False, "mode": cfg.get("mode") or cloudstore.database_mode(store.settings.get("cloud") or {})}
+        return cfg
+
+    @app.post("/api/warehouse/direct/next-id")
+    async def wh_direct_next_id(x_wh_token: str = Header(default=""),
+                                x_admin_token: str = Header(default="")):
+        wh_user_from_headers(x_wh_token, x_admin_token)
+        return {"ok": True, "id": cloudstore.next_catalog_product_id(store)}
+
+    @app.post("/api/warehouse/direct/photos")
+    async def wh_direct_prepare_photos(body: dict, x_wh_token: str = Header(default=""),
+                                       x_admin_token: str = Header(default="")):
+        wh_user_from_headers(x_wh_token, x_admin_token)
+        return cloudstore.prepare_direct_photos(store, body.get("photos") or [])
+
+    @app.post("/api/warehouse/direct/mirror")
+    async def wh_direct_mirror(body: dict, x_wh_token: str = Header(default=""),
+                               x_admin_token: str = Header(default="")):
+        user = wh_user_from_headers(x_wh_token, x_admin_token)
+        if body.get("delete"):
+            pid = int(body.get("product_id") or 0)
+            if not pid:
+                raise HTTPException(422, "product_id обязателен")
+            store.delete_product(pid)
+            store.wh_log_add(user["name"], str(body.get("action") or "удалил товар (direct)"),
+                             str(body.get("details") or f"id {pid}"))
+            return {"ok": True, "deleted": pid}
+
+        raw = dict(body.get("product") or {})
+        pid = int(raw.get("id") or 0)
+        if not pid:
+            raise HTTPException(422, "product.id обязателен")
+        allowed = {
+            "id", "code", "name", "category", "price", "old_price", "stock", "description",
+            "photo", "photos", "storage_location", "owner_name", "barcode", "on_showcase",
+            "in_stock", "purchase_price", "is_archived", "condition", "subcategory", "params",
+            "seller_id"
+        }
+        payload = {k: raw.get(k) for k in allowed if k in raw}
+        product = store.upsert_product_with_id(payload)
+        store.wh_log_add(user["name"], str(body.get("action") or "синхронизировал товар (direct)"),
+                         str(body.get("details") or f"{product.get('name', 'Товар')} (id {product['id']})"))
+        scan = body.get("scan") or {}
+        if scan:
+            store.wh_scan_add(user["name"], str(scan.get("mode") or "search"),
+                              str(scan.get("code") or product.get("barcode") or product.get("code") or ""),
+                              int(product.get("id") or 0), int(scan.get("qty") or 1),
+                              str(scan.get("result") or "Direct scan sync"))
+        return {"ok": True, "product": _wh_product(product)}
+
+    @app.post("/api/warehouse/direct/mirror-bulk")
+    async def wh_direct_mirror_bulk(body: dict, x_wh_token: str = Header(default=""),
+                                    x_admin_token: str = Header(default="")):
+        user = wh_user_from_headers(x_wh_token, x_admin_token)
+        items = list(body.get("products") or [])[:500]
+        if not items:
+            raise HTTPException(422, "Передайте products")
+        updated = 0
+        for raw in items:
+            if not isinstance(raw, dict):
+                continue
+            pid = int(raw.get("id") or 0)
+            if not pid:
+                continue
+            allowed = {
+                "id", "code", "name", "category", "price", "old_price", "stock", "description",
+                "photo", "photos", "storage_location", "owner_name", "barcode", "on_showcase",
+                "in_stock", "purchase_price", "is_archived", "condition", "subcategory", "params",
+                "seller_id"
+            }
+            payload = {k: raw.get(k) for k in allowed if k in raw}
+            store.upsert_product_with_id(payload)
+            updated += 1
+        patch_keys = [str(x) for x in (body.get("patch_keys") or [])[:20] if str(x).strip()]
+        store.wh_log_add(user["name"], str(body.get("action") or "массовое редактирование (direct)"),
+                         f"{updated} товаров" + (f": {', '.join(patch_keys)}" if patch_keys else ""))
+        return {"ok": True, "updated": updated}
 
     @app.post("/api/warehouse/cloud/pull")
     async def wh_cloud_pull(x_wh_token: str = Header(default=""),

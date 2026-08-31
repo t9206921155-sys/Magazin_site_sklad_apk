@@ -12,6 +12,8 @@ let PHOTO_COUNT = 0;
 let selected = new Set();
 let scannerStream = null;
 let nativeScanInFlight = false;
+let WAREHOUSE_SETTINGS = null;
+let DIRECT_CFG = null;
 
 function toast(msg, err) {
   const el = document.createElement('div');
@@ -46,6 +48,8 @@ async function doLogin() {
     if (!res.ok) throw new Error(data.detail || 'Неверный логин или пароль');
     TOKEN = data.token;
     WHOAMI = data;
+    WAREHOUSE_SETTINGS = null;
+    DIRECT_CFG = null;
     localStorage.setItem('wh_token', TOKEN);
     if ($('#remember').checked) localStorage.setItem('wh_login', login);
     else localStorage.removeItem('wh_login');
@@ -114,6 +118,8 @@ async function quickLoginWithPin() {
     if (!res.ok) { $('#quickNote').textContent = data.detail || 'Быстрый вход отключён — войдите по паролю'; $('#quickPinBox').classList.add('hidden'); return; }
     TOKEN = data.token;
     WHOAMI = data.user;
+    WAREHOUSE_SETTINGS = null;
+    DIRECT_CFG = null;
     localStorage.setItem('wh_token', TOKEN);
     $('#login').classList.add('hidden');
     $('#quick-pin').value = '';
@@ -184,6 +190,8 @@ async function quickBioLogin(login) {
     if (!res.ok) { $('#quickNote').textContent = data.detail || 'Не удалось подтвердить'; return; }
     TOKEN = data.token;
     WHOAMI = data.user;
+    WAREHOUSE_SETTINGS = null;
+    DIRECT_CFG = null;
     localStorage.setItem('wh_token', TOKEN);
     $('#login').classList.add('hidden');
     loadList(); syncTick();
@@ -257,13 +265,229 @@ if (savedLogin) $('#login-inp').value = savedLogin;
 refreshQuickBox();
 renderApkSettingsBox();
 
+function normalizeDbMode(mode, provider) {
+  const m = String(mode || '').trim().toLowerCase();
+  if (m === 'supabase_direct' || m === 'supabase_proxy' || m === 'vps' || m === 'mysql') return m;
+  if (m === 'supabase') return 'supabase_proxy';
+  const p = String(provider || '').trim().toLowerCase();
+  if (p === 'supabase') return 'supabase_proxy';
+  if (p === 'mysql') return 'mysql';
+  return 'vps';
+}
+
+async function ensureWarehouseSettings(force = false) {
+  if (!TOKEN) return null;
+  if (force || !WAREHOUSE_SETTINGS) WAREHOUSE_SETTINGS = await api('/api/warehouse/settings');
+  return WAREHOUSE_SETTINGS;
+}
+
+function currentCloudSettings() {
+  return (WAREHOUSE_SETTINGS && WAREHOUSE_SETTINGS.cloud) || {};
+}
+
+function currentDbMode() {
+  const cloud = currentCloudSettings();
+  return normalizeDbMode(cloud.db_mode, cloud.provider);
+}
+
+function isDirectMode() {
+  return currentDbMode() === 'supabase_direct';
+}
+
+function dbModeLabel(mode) {
+  if (mode === 'supabase_direct') return 'DIRECT SUPABASE';
+  if (mode === 'supabase_proxy') return 'VPS → SUPABASE';
+  if (mode === 'mysql') return 'MYSQL';
+  return 'VPS';
+}
+
+async function ensureDirectConfig(force = false) {
+  await ensureWarehouseSettings(force);
+  if (!isDirectMode()) { DIRECT_CFG = null; return null; }
+  if (force || !DIRECT_CFG) {
+    const cfg = await api('/api/warehouse/direct/config');
+    if (!cfg || !cfg.enabled) throw new Error('Direct Supabase не настроен');
+    DIRECT_CFG = cfg;
+  }
+  return DIRECT_CFG;
+}
+
+function supaHeaders(cfg, write, extra = {}) {
+  const headers = { apikey: cfg.key, Authorization: 'Bearer ' + cfg.key, ...extra };
+  if (cfg.schema && cfg.schema !== 'public') {
+    headers['Accept-Profile'] = cfg.schema;
+    if (write) headers['Content-Profile'] = cfg.schema;
+  }
+  return headers;
+}
+
+function supaTableUrl(cfg, query = '') {
+  return `${cfg.url}/rest/v1/${encodeURIComponent(cfg.table)}${query || ''}`;
+}
+
+async function supaRequest(cfg, method, query = '', body = null, extraHeaders = {}) {
+  const write = !['GET', 'HEAD'].includes(String(method || 'GET').toUpperCase());
+  const res = await fetch(supaTableUrl(cfg, query), {
+    method,
+    headers: supaHeaders(cfg, write, { 'Content-Type': 'application/json', ...extraHeaders }),
+    body: body === null ? undefined : JSON.stringify(body),
+  });
+  let data = null;
+  try { data = await res.json(); } catch (e) {}
+  if (!res.ok) throw new Error((data && (data.message || data.error_description || data.details || data.hint)) || ('Supabase error ' + res.status));
+  return data;
+}
+
+function parseMaybeJson(value, fallback) {
+  if (Array.isArray(fallback) && Array.isArray(value)) return value;
+  if (fallback && typeof fallback === 'object' && !Array.isArray(fallback) && value && typeof value === 'object' && !Array.isArray(value)) return value;
+  if (typeof value !== 'string') return fallback;
+  try {
+    const parsed = JSON.parse(value);
+    return parsed == null ? fallback : parsed;
+  } catch (e) {
+    return fallback;
+  }
+}
+
+function normalizeDirectProduct(p) {
+  const photos = Array.isArray(p.photos) ? p.photos : parseMaybeJson(p.photos, []);
+  const params = (p.params && typeof p.params === 'object' && !Array.isArray(p.params)) ? p.params : parseMaybeJson(p.params, {});
+  const stock = Number(p.stock ?? -1);
+  const price = Number(p.price ?? 0);
+  const photo = p.photo || photos[0] || '/webapp/img/products/placeholder.jpg';
+  return {
+    id: Number(p.id || 0),
+    code: String(p.code || ''),
+    barcode: String(p.barcode || ''),
+    name: String(p.name || ''),
+    category: String(p.category || ''),
+    storage_location: String(p.storage_location || ''),
+    owner_name: String(p.owner_name || ''),
+    stock,
+    price,
+    old_price: Number(p.old_price ?? 0),
+    purchase_price: Number(p.purchase_price ?? 0),
+    description: String(p.description || ''),
+    is_archived: !!p.is_archived,
+    sum: stock < 0 ? price : price * stock,
+    on_showcase: !(p.on_showcase === false || p.on_showcase === 0 || p.on_showcase === 'false'),
+    in_stock: !(p.in_stock === false || p.in_stock === 0 || p.in_stock === 'false'),
+    photos: photos.map(x => String(x || '')).filter(Boolean),
+    photo: String(photo),
+    photo_local: String(p.photo || ''),
+    seller_id: Number(p.seller_id || 0),
+    condition: String(p.condition || 'new'),
+    subcategory: String(p.subcategory || ''),
+    params,
+  };
+}
+
+function toDirectRow(p) {
+  return {
+    id: Number(p.id || 0),
+    code: String(p.code || ''),
+    name: String(p.name || ''),
+    category: String(p.category || ''),
+    price: Number(p.price || 0),
+    old_price: Number(p.old_price || 0),
+    stock: Number(p.stock ?? -1),
+    description: String(p.description || ''),
+    photo: String(p.photo || ''),
+    photos: Array.isArray(p.photos) ? p.photos.map(x => String(x || '')).filter(Boolean) : [],
+    storage_location: String(p.storage_location || ''),
+    owner_name: String(p.owner_name || ''),
+    barcode: String(p.barcode || ''),
+    on_showcase: !!p.on_showcase,
+    in_stock: !!p.in_stock,
+    purchase_price: Number(p.purchase_price || 0),
+    is_archived: !!p.is_archived,
+    condition: String(p.condition || 'new'),
+    subcategory: String(p.subcategory || ''),
+    params: (p.params && typeof p.params === 'object' && !Array.isArray(p.params)) ? p.params : {},
+  };
+}
+
+function filterWarehouseProducts(list, q) {
+  if (!q || !q.trim()) return list;
+  const ql = q.trim().toLowerCase();
+  return list.filter(p =>
+    String(p.name || '').toLowerCase().includes(ql) ||
+    String(p.code || '').toLowerCase().includes(ql) ||
+    String(p.barcode || '').toLowerCase().includes(ql) ||
+    String(p.storage_location || '').toLowerCase().includes(ql) ||
+    String(p.owner_name || '').toLowerCase().includes(ql)
+  );
+}
+
+async function directLoadProducts(q = '') {
+  const cfg = await ensureDirectConfig();
+  const rows = await supaRequest(cfg, 'GET', '?select=*&order=id.asc');
+  const products = filterWarehouseProducts((rows || []).map(normalizeDirectProduct).filter(p => !p.is_archived), q);
+  return { products, stats: { products: products.length } };
+}
+
+async function directNextId() {
+  const r = await api('/api/warehouse/direct/next-id', { method: 'POST', body: '{}' });
+  return Number(r.id || 0);
+}
+
+async function directPreparePhotos(photos) {
+  return api('/api/warehouse/direct/photos', { method: 'POST', body: JSON.stringify({ photos }) });
+}
+
+async function mirrorDirectProduct(product, action, details, scan) {
+  return api('/api/warehouse/direct/mirror', {
+    method: 'POST',
+    body: JSON.stringify({ product: toDirectRow(product), action, details, scan }),
+  });
+}
+
+async function mirrorDirectDelete(productId, action, details) {
+  return api('/api/warehouse/direct/mirror', {
+    method: 'POST',
+    body: JSON.stringify({ delete: true, product_id: productId, action, details }),
+  });
+}
+
+async function directUpsertProducts(products) {
+  const cfg = await ensureDirectConfig();
+  const payload = products.map(toDirectRow);
+  const data = await supaRequest(cfg, 'POST', '?on_conflict=id&select=*', payload, { 'Prefer': 'resolution=merge-duplicates,return=representation' });
+  return (Array.isArray(data) ? data : payload).map(normalizeDirectProduct);
+}
+
+async function directSaveOne(product, meta = {}) {
+  const saved = (await directUpsertProducts([product]))[0] || normalizeDirectProduct(product);
+  await mirrorDirectProduct(saved, meta.action || 'синхронизировал товар (direct)', meta.details || '', meta.scan || null);
+  return saved;
+}
+
+async function directDeleteOne(product) {
+  const cfg = await ensureDirectConfig();
+  await supaRequest(cfg, 'DELETE', `?id=eq.${encodeURIComponent(product.id)}&select=id`, null, { 'Prefer': 'return=representation' });
+  await mirrorDirectDelete(product.id, 'удалил товар (direct)', `${product.name} (id ${product.id})`);
+}
+
+async function directBulkSave(products, patchKeys = []) {
+  const saved = await directUpsertProducts(products);
+  await api('/api/warehouse/direct/mirror-bulk', {
+    method: 'POST',
+    body: JSON.stringify({ products: saved.map(toDirectRow), patch_keys: patchKeys, action: 'массовое редактирование (direct)' }),
+  });
+  return saved;
+}
+
 /* ---------- список ---------- */
 async function loadList() {
   try {
+    await ensureWarehouseSettings();
     const q = $('#q').value.trim();
-    const r = await api('/api/warehouse/products' + (q ? '?q=' + encodeURIComponent(q) : ''));
-    PRODUCTS = r.products;
-    $('#cnt').textContent = r.products.length + ' поз.';
+    const r = isDirectMode()
+      ? await directLoadProducts(q)
+      : await api('/api/warehouse/products' + (q ? '?q=' + encodeURIComponent(q) : ''));
+    PRODUCTS = r.products || [];
+    $('#cnt').textContent = PRODUCTS.length + ' поз.';
     renderList();
   } catch (e) { /* вход */ }
 }
@@ -311,7 +535,16 @@ function toggleSel(id, on) {
 
 async function toggleShowcase(id, on) {
   try {
-    await api('/api/warehouse/products/' + id, { method: 'PUT', body: JSON.stringify({ on_showcase: on }) });
+    if (isDirectMode()) {
+      const src = PRODUCTS.find(x => x.id === id);
+      if (!src) throw new Error('Товар не найден');
+      await directSaveOne({ ...src, on_showcase: on }, {
+        action: 'изменил товар (direct)',
+        details: `${src.name} (id ${src.id})`,
+      });
+    } else {
+      await api('/api/warehouse/products/' + id, { method: 'PUT', body: JSON.stringify({ on_showcase: on }) });
+    }
     toast(on ? 'Выставлено на витрину 🟢' : 'Снято с витрины');
     loadList();
     loadCloudStatus();
@@ -402,12 +635,30 @@ async function saveProduct() {
     purchase_price: +$('#f-purchase').value || 0,
     category: $('#f-cat').value.trim() || 'Прочее', description: $('#f-desc').value.trim(),
     on_showcase: $('#f-showcase').checked,
+    in_stock: ($('#f-qty').value === '' ? true : (+$('#f-qty').value > 0)),
     photos: EDIT_PHOTOS.map(ph => ph.newData || ph.src),
   };
   try {
     let pid = EDIT_ID;
-    if (EDIT_ID) await api('/api/warehouse/products/' + EDIT_ID, { method: 'PUT', body: JSON.stringify(body) });
-    else {
+    if (isDirectMode()) {
+      const prepared = await directPreparePhotos(body.photos);
+      const existing = EDIT_ID ? (PRODUCTS.find(x => x.id === EDIT_ID) || {}) : {};
+      const product = {
+        ...existing,
+        ...body,
+        id: EDIT_ID || await directNextId(),
+        photos: prepared.photos || [],
+        photo: prepared.photo || '',
+        is_archived: !!existing.is_archived,
+      };
+      const saved = await directSaveOne(product, {
+        action: EDIT_ID ? 'изменил товар (direct)' : 'создал товар (direct)',
+        details: `${name} (id ${product.id})`,
+      });
+      pid = saved.id;
+    } else if (EDIT_ID) {
+      await api('/api/warehouse/products/' + EDIT_ID, { method: 'PUT', body: JSON.stringify(body) });
+    } else {
       const created = await api('/api/warehouse/products', { method: 'POST', body: JSON.stringify(body) });
       pid = created.id;
     }
@@ -438,8 +689,24 @@ function exportOne(id) {
 
 async function copyOne(id) {
   try {
-    const c = await api(`/api/warehouse/products/${id}/copy`, { method: 'POST', body: '{}' });
-    toast(`Копия создана: ${c.code} ✅`);
+    if (isDirectMode()) {
+      const src = PRODUCTS.find(x => x.id === id);
+      if (!src) throw new Error('Товар не найден');
+      const base = src.code || `TG-${src.id}`;
+      let i = 2;
+      let newCode = `${base}-${i}`;
+      const existingCodes = new Set(PRODUCTS.map(p => String(p.code || '')));
+      while (existingCodes.has(newCode)) { i += 1; newCode = `${base}-${i}`; }
+      const copy = { ...src, id: await directNextId(), code: newCode, is_archived: false };
+      await directSaveOne(copy, {
+        action: 'создал копию товара (direct)',
+        details: `${copy.name} (id ${copy.id})`,
+      });
+      toast(`Копия создана: ${newCode} ✅`);
+    } else {
+      const c = await api(`/api/warehouse/products/${id}/copy`, { method: 'POST', body: '{}' });
+      toast(`Копия создана: ${c.code} ✅`);
+    }
     loadList();
     loadCloudStatus();
   } catch (e) { toast(e.message, true); }
@@ -448,7 +715,16 @@ async function copyOne(id) {
 async function archiveOne(id) {
   if (!confirm('Отправить товар в архив? (мягкое удаление — можно восстановить в админ-панели сайта)')) return;
   try {
-    await api(`/api/warehouse/products/${id}/archive`, { method: 'POST', body: '{}' });
+    if (isDirectMode()) {
+      const src = PRODUCTS.find(x => x.id === id);
+      if (!src) throw new Error('Товар не найден');
+      await directSaveOne({ ...src, is_archived: true, in_stock: false }, {
+        action: 'архивировал товар (direct)',
+        details: `${src.name} (id ${src.id})`,
+      });
+    } else {
+      await api(`/api/warehouse/products/${id}/archive`, { method: 'POST', body: '{}' });
+    }
     toast('В архиве 🗄');
     loadList();
     loadCloudStatus();
@@ -459,7 +735,12 @@ async function delProduct() {
   if (!EDIT_ID) return;
   if (!confirm('Удалить товар?')) return;
   try {
-    await api('/admin/api/products/' + EDIT_ID, { method: 'DELETE' });
+    if (isDirectMode()) {
+      const src = PRODUCTS.find(x => x.id === EDIT_ID) || { id: EDIT_ID, name: 'Товар' };
+      await directDeleteOne(src);
+    } else {
+      await api('/admin/api/products/' + EDIT_ID, { method: 'DELETE' });
+    }
     toast('Удалён 🗑');
     closeForm(); loadList();
   } catch (e) { toast(e.message, true); }
@@ -635,10 +916,53 @@ async function handleScanCode(code) {
       if (input === null) return;
       qty = +input || 0;
     }
-    const r = await api('/api/warehouse/scan', { method: 'POST',
-      body: JSON.stringify({ code, mode: SCAN_MODE, qty }) });
-    toast((r.warning ? '⚠️ ' : '') + r.message, !r.found || r.warning);
-    if (SCAN_MODE === 'search' && r.found) openForm(r.product.id);
+    if (isDirectMode()) {
+      const product = PRODUCTS.find(p => String(p.barcode || '') === code || String(p.code || '') === code);
+      if (!product) {
+        toast('Товар с таким кодом не найден', true);
+        return;
+      }
+      let message = '', warning = false;
+      let next = { ...product };
+      if (SCAN_MODE === 'search') {
+        message = `Найден: ${product.name}`;
+      } else if (SCAN_MODE === 'receive') {
+        const newStock = (product.stock >= 0 ? product.stock : 0) + qty;
+        next.stock = newStock; next.in_stock = true;
+        message = `Приёмка +${qty} → остаток ${newStock}`;
+      } else if (SCAN_MODE === 'sell') {
+        const cur = product.stock;
+        if (cur <= 0) {
+          message = `⚠️ ${product.name}: остаток 0 — продажа невозможна`;
+          warning = true;
+        } else {
+          const newStock = Math.max(0, cur - qty);
+          next.stock = newStock; next.in_stock = newStock > 0;
+          message = `Продажа −${qty} → остаток ${newStock}`;
+          warning = newStock === 0;
+        }
+      } else if (SCAN_MODE === 'inventory') {
+        next.stock = Math.max(0, qty); next.in_stock = qty > 0;
+        message = `Инвентаризация: остаток установлен ${Math.max(0, qty)}`;
+      }
+      if (SCAN_MODE === 'search') {
+        await mirrorDirectProduct(product, 'сканирование (direct)', `${product.name} (id ${product.id})`,
+          { mode: SCAN_MODE, code, qty, result: message });
+      } else if (!warning) {
+        await directSaveOne(next, {
+          action: 'сканирование (direct)',
+          details: `${product.name} (id ${product.id})`,
+          scan: { mode: SCAN_MODE, code, qty, result: message },
+        });
+      }
+      toast((warning ? '⚠️ ' : '') + message, warning);
+      if (SCAN_MODE === 'search') openForm(product.id);
+    } else {
+      const r = await api('/api/warehouse/scan', { method: 'POST',
+        body: JSON.stringify({ code, mode: SCAN_MODE, qty }) });
+      toast((r.warning ? '⚠️ ' : '') + r.message, !r.found || r.warning);
+      if (SCAN_MODE === 'search' && r.found) openForm(r.product.id);
+    }
     loadList();
     loadCloudStatus();
   } catch (e) { toast(e.message, true); }
@@ -734,11 +1058,18 @@ async function applyBulk() {
   if ($('#bk-instock').checked) patch.in_stock = true;
   if (!Object.keys(patch).length) return toast('Ничего не выбрано для изменения', true);
   try {
-    const r = await api('/api/warehouse/products/bulk', {
-      method: 'POST',
-      body: JSON.stringify({ ids: [...selected].map(Number), patch }),
-    });
-    toast(`Обновлено товаров: ${r.updated} ✅`);
+    if (isDirectMode()) {
+      const ids = [...selected].map(Number);
+      const changed = PRODUCTS.filter(p => ids.includes(p.id)).map(p => ({ ...p, ...patch }));
+      const saved = await directBulkSave(changed, Object.keys(patch));
+      toast(`Обновлено товаров: ${saved.length} ✅`);
+    } else {
+      const r = await api('/api/warehouse/products/bulk', {
+        method: 'POST',
+        body: JSON.stringify({ ids: [...selected].map(Number), patch }),
+      });
+      toast(`Обновлено товаров: ${r.updated} ✅`);
+    }
     selected = new Set();
     closeBulk();
     loadList();
@@ -1085,11 +1416,11 @@ async function printByFilter() {
 // ------------------------------------------------------------------ настройки
 async function openSettings() {
   try {
-    const s = await api('/api/warehouse/settings');
+    const s = await ensureWarehouseSettings(true);
     const isAdmin = WHOAMI && WHOAMI.role === 'admin';
-    const legacyDbMode = s.cloud.db_mode || ((s.cloud.provider === 'supabase' || s.cloud.provider === 'mysql') ? s.cloud.provider : 'vps');
-    const dbMode = legacyDbMode === 'supabase' ? 'supabase' : 'vps';
+    const dbMode = normalizeDbMode(s.cloud.db_mode, s.cloud.provider);
     const keyVal = s.cloud.key === '•••' ? '' : (s.cloud.key || '');
+    const publicKeyVal = s.cloud.public_key === '•••' ? '' : (s.cloud.public_key || '');
     const apkVersion = getNativeAppVersion();
     const apkServer = getNativeServerUrl();
     const apkBlock = canOpenNativeAppSettings() ? `
@@ -1103,26 +1434,30 @@ async function openSettings() {
     ` : '';
     $('#sheet2-title').textContent = '⚙️ Настройки';
     $('#sheet2-body').innerHTML = apkBlock + `
-      <h3 style="margin:14px 0 8px">🗄 База товаров: VPS или Supabase</h3>
-      <p style="color:#64748b;font-size:12px;margin:0 0 8px">APK и раздел <code>/warehouse/</code> всегда работают через backend на VPS. Здесь выбирается, где дополнительно хранить каталог товаров: только на VPS в SQLite или ещё и в Supabase. Фото и backup ниже всегда идут в Yandex Object Storage.</p>
-      <label class="lb" style="display:flex;gap:8px;align-items:center"><input type="checkbox" id="cl-en" ${s.cloud.enabled ? 'checked' : ''} ${isAdmin ? '' : 'disabled'} style="accent-color:#0f766e"> Включить внешнюю синхронизацию</label>
+      <h3 style="margin:14px 0 8px">🗄 База товаров: 3 режима подключения</h3>
+      <p style="color:#64748b;font-size:12px;margin:0 0 8px">Можно выбрать: <b>VPS</b>, <b>VPS → Supabase</b> или <b>Direct Supabase</b>. Во всех режимах фото, картинки и backup ниже остаются в Yandex Object Storage.</p>
+      <label class="lb" style="display:flex;gap:8px;align-items:center"><input type="checkbox" id="cl-en" ${s.cloud.enabled ? 'checked' : ''} ${isAdmin ? '' : 'disabled'} style="accent-color:#0f766e"> Включить внешнюю синхронизацию / гибридную БД</label>
       <select class="fld" id="cl-db-mode" ${isAdmin ? '' : 'disabled'}>
         <option value="vps" ${dbMode === 'vps' ? 'selected' : ''}>VPS / SQLite — живая база на сервере</option>
-        <option value="supabase" ${dbMode === 'supabase' ? 'selected' : ''}>Supabase — внешний каталог товаров</option>
+        <option value="supabase_proxy" ${dbMode === 'supabase_proxy' ? 'selected' : ''}>VPS → Supabase — backend работает с Supabase</option>
+        <option value="supabase_direct" ${dbMode === 'supabase_direct' ? 'selected' : ''}>Direct Supabase — приложение работает с Supabase напрямую</option>
       </select>
-      <div id="db-vps-note" style="${dbMode === 'vps' ? '' : 'display:none'};background:#eff6ff;border:1px solid #bfdbfe;border-radius:12px;padding:10px 12px;margin:0 0 10px;color:#1d4ed8;font-size:12px">Основная рабочая база склада остаётся в <code>data/shop.db</code> на VPS. Кнопка «Синхронизировать» будет отправлять каталог JSON и фото в Yandex Object Storage, а APK продолжит работать через ваш сервер.</div>
-      <div id="sb-fields" style="${dbMode === 'supabase' ? '' : 'display:none'}">
+      <div id="db-vps-note" style="${dbMode === 'vps' ? '' : 'display:none'};background:#eff6ff;border:1px solid #bfdbfe;border-radius:12px;padding:10px 12px;margin:0 0 10px;color:#1d4ed8;font-size:12px">Живая база склада остаётся в <code>data/shop.db</code> на VPS. APK подключается только к вашему серверу, а каталог/фото/backup можно синхронизировать отдельно.</div>
+      <div id="db-proxy-note" style="${dbMode === 'supabase_proxy' ? '' : 'display:none'};background:#ecfeff;border:1px solid #a5f3fc;border-radius:12px;padding:10px 12px;margin:0 0 10px;color:#0f766e;font-size:12px">Гибридный режим: APK входит через VPS, а backend читает и пишет каталог в Supabase. Это самый безопасный вариант для совместной работы.</div>
+      <div id="db-direct-note" style="${dbMode === 'supabase_direct' ? '' : 'display:none'};background:#fff7ed;border:1px solid #fdba74;border-radius:12px;padding:10px 12px;margin:0 0 10px;color:#c2410c;font-size:12px">Direct-режим: после обычного входа через VPS приложение читает и пишет каталог напрямую в Supabase по public key. VPS при этом зеркалирует изменения в локальную SQLite для витрины, заказов и служебных API.</div>
+      <div id="sb-fields" style="${dbMode === 'supabase_proxy' || dbMode === 'supabase_direct' ? '' : 'display:none'}">
         <input class="fld" id="cl-url" placeholder="Supabase URL, например https://xxxx.supabase.co" value="${esc(s.cloud.url)}" ${isAdmin ? '' : 'disabled'}>
-        <input class="fld" id="cl-key" type="password" placeholder="Supabase key (service role или ключ с правами на products)" value="${esc(keyVal)}" ${isAdmin ? '' : 'disabled'}>
+        <input class="fld" id="cl-key" type="password" placeholder="Server key для VPS → Supabase (service role или ключ с правами на products)" value="${esc(keyVal)}" ${isAdmin ? '' : 'disabled'}>
+        <input class="fld" id="sb-public-key" type="password" placeholder="Direct public/anon key для APK/Web → Supabase (нужен только для Direct режима)" value="${esc(publicKeyVal)}" ${isAdmin ? '' : 'disabled'}>
         <div class="row2">
           <input class="fld" id="sb-schema" placeholder="Schema" value="${esc(s.cloud.supabase_schema || 'public')}" ${isAdmin ? '' : 'disabled'}>
           <input class="fld" id="sb-table" placeholder="Table / View" value="${esc(s.cloud.supabase_table || 'products')}" ${isAdmin ? '' : 'disabled'}>
         </div>
-        <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;padding:10px 12px;margin:0 0 10px;color:#475569;font-size:12px">Supabase используется как внешний каталог товаров: backend на VPS пишет/читает таблицу через REST API. Для записи нужен ключ с правами <code>select/insert/update</code> на таблицу <code>products</code>.</div>
+        <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;padding:10px 12px;margin:0 0 10px;color:#475569;font-size:12px">В режиме <b>VPS → Supabase</b> используется server key на VPS. В режиме <b>Direct Supabase</b> приложение получает только public/anon key после warehouse-login на VPS, а сервисный ключ остаётся на сервере.</div>
       </div>
 
       <h3 style="margin:14px 0 8px">☁️ Фото, картинки и backup — Yandex Object Storage</h3>
-      <p style="color:#64748b;font-size:12px;margin:0 0 8px">Эти поля используются и для режима <b>VPS</b>, и для режима <b>Supabase</b>. Рекомендуемая схема: <b>shop-photos</b> для фото и <b>shop-backups</b> для резервных копий SQLite.</p>
+      <p style="color:#64748b;font-size:12px;margin:0 0 8px">Эти поля используются для всех трёх режимов базы. Рекомендуемая схема: <b>shop-photos</b> для фото и <b>shop-backups</b> для резервных копий SQLite.</p>
       <div id="s3-fields">
         <select class="fld" id="s3-preset" ${isAdmin ? '' : 'disabled'}>
           <option value="selectel">Selectel — Объектное хранилище</option>
@@ -1222,8 +1557,10 @@ async function openSettings() {
     renderPrinterList(s.printers);
     $('#cl-db-mode').addEventListener('change', e => {
       const v = e.target.value;
-      $('#sb-fields').style.display = v === 'supabase' ? '' : 'none';
+      $('#sb-fields').style.display = (v === 'supabase_proxy' || v === 'supabase_direct') ? '' : 'none';
       $('#db-vps-note').style.display = v === 'vps' ? '' : 'none';
+      $('#db-proxy-note').style.display = v === 'supabase_proxy' ? '' : 'none';
+      $('#db-direct-note').style.display = v === 'supabase_direct' ? '' : 'none';
     });
     $('#s3-preset').value = s.cloud.s3_preset || 'yandex';
     $('#s3-preset').addEventListener('change', e => applyS3Preset(e.target.value, true));
@@ -1263,7 +1600,7 @@ async function loadCloudStatus() {
   try {
     const st = await api('/api/warehouse/cloud/status');
     const backup = st.backup || {};
-    const dbLabel = st.db_mode === 'supabase' ? 'SUPABASE' : 'VPS';
+    const dbLabel = dbModeLabel(st.db_mode);
     const storageLabel = (st.storage_preset || 's3').toUpperCase();
     $('#cloud-status').textContent = st.enabled
       ? `🗄 БД: ${dbLabel} · ☁️ storage: ${storageLabel} · CDN: ${st.use_cdn ? 'вкл' : 'выкл'} · фото в облаке: ${st.photos_synced}` +
@@ -1323,7 +1660,7 @@ async function saveSettings() {
     await api('/api/warehouse/settings', { method: 'PUT', body: JSON.stringify({
       cloud: { enabled: $('#cl-en').checked, provider: 's3', db_mode: $('#cl-db-mode').value,
                use_cdn: $('#cl-cdn').checked,
-               url: $('#cl-url').value.trim(), key: $('#cl-key').value.trim(),
+               url: $('#cl-url').value.trim(), key: $('#cl-key').value.trim(), public_key: $('#sb-public-key').value.trim(),
                supabase_schema: $('#sb-schema').value.trim() || 'public',
                supabase_table: $('#sb-table').value.trim() || 'products',
                bucket: $('#s3-bucket').value.trim() || 'shop-photos',
@@ -1340,8 +1677,12 @@ async function saveSettings() {
                 vk_group_id: $('#pub-vk').value.trim(),
                 instagram_user_id: $('#pub-ig').value.trim(), instagram_token: $('#pub-igt').value.trim() },
     }) });
+    WAREHOUSE_SETTINGS = null;
+    DIRECT_CFG = null;
     toast('Настройки сохранены ✅');
     closeSheet2();
+    loadList();
+    loadCloudStatus();
   } catch (e) { toast(e.message, true); }
 }
 
@@ -1355,8 +1696,11 @@ async function cloudTest() {
       `БД ${String(database.mode || 'vps').toUpperCase()}: ${database.ok ? 'OK' : 'ERROR'}`,
       `Object Storage: ${storage.ok ? 'OK' : 'ERROR'}`
     ];
+    if (database.mode === 'supabase_direct' && database.direct_public) {
+      parts.push(`Direct key: ${database.direct_public.ok ? 'OK' : 'ERROR'}`);
+    }
     $('#cloud-note').textContent = (r.ok ? '✅ ' : '⚠️ ') + parts.join(' · ')
-      + (!r.ok && (database.error || storage.error) ? ` · ${database.error || storage.error}` : '');
+      + (!r.ok && (database.error || (database.direct_public || {}).error || storage.error) ? ` · ${database.error || (database.direct_public || {}).error || storage.error}` : '');
   } catch (e) { $('#cloud-note').textContent = '❌ ' + e.message; }
 }
 

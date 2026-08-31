@@ -346,32 +346,33 @@ DEFAULT_SETTINGS = {
     "loyalty": {"enabled": False, "rate_percent": 5},   # % от оплаченного заказа в бонусы
     "marketplace": {"enabled": True, "auto_approve_sellers": True, "commission_percent": 15},
     "cloud": {
-        "provider": "s3",                # storage provider для фото и backup: S3/Yandex
-        "db_mode": "vps",                # vps | supabase | mysql
-        "enabled": False,                # использовать внешнее хранилище / внешнюю БД каталога
-        "use_cdn": True,                 # подтягивать фото с Object Storage (CDN-URL)
-        "url": "",                       # Supabase project URL: https://xxxx.supabase.co
-        "key": "",                       # Supabase key (service role или ключ с правами на products)
-        "supabase_schema": "public",     # Supabase schema для REST
-        "supabase_table": "products",    # Supabase table/view для каталога
-        "bucket": "shop-photos",         # Yandex/S3 bucket для фото
-        "photo_prefix": "products",      # папка/префикс для фото
-        "catalog_prefix": "catalog",     # папка/префикс для products.json при режиме VPS
-        "backup_bucket": "shop-backups", # Yandex/S3 bucket для backup SQLite
-        "backup_prefix": "sqlite",       # папка/префикс для backup SQLite
-        "s3_preset": "yandex",           # selectel | cloudru | vk | yandex | minio | custom
-        "s3_endpoint": "",               # S3: https://storage.yandexcloud.net и т.п. (пусто = из пресета)
-        "s3_access_key": "",             # S3: access key
-        "s3_secret_key": "",             # S3: secret key
-        "s3_region": "",                 # S3: регион (пусто = из пресета)
-        "mysql_host": "",                # MySQL: хост (legacy/optional)
-        "mysql_port": 3306,              # MySQL: порт
-        "mysql_user": "",                # MySQL: пользователь
-        "mysql_password": "",            # MySQL: пароль
-        "mysql_database": "shop",        # MySQL: база
-        "mysql_table": "products",       # MySQL: таблица
+        "provider": "s3",                  # storage provider для фото и backup: S3/Yandex
+        "db_mode": "vps",                  # vps | supabase_proxy | supabase_direct | mysql
+        "enabled": False,                   # использовать внешнее хранилище / внешнюю БД каталога
+        "use_cdn": True,                    # подтягивать фото с Object Storage (CDN-URL)
+        "url": "",                         # Supabase project URL: https://xxxx.supabase.co
+        "key": "",                         # Supabase server key для режима VPS->Supabase
+        "public_key": "",                  # Supabase anon/public key для direct-режима из APK/web
+        "supabase_schema": "public",       # Supabase schema для REST
+        "supabase_table": "products",      # Supabase table/view для каталога
+        "bucket": "shop-photos",           # Yandex/S3 bucket для фото
+        "photo_prefix": "products",        # папка/префикс для фото
+        "catalog_prefix": "catalog",       # папка/префикс для products.json при режиме VPS
+        "backup_bucket": "shop-backups",   # Yandex/S3 bucket для backup SQLite
+        "backup_prefix": "sqlite",         # папка/префикс для backup SQLite
+        "s3_preset": "yandex",             # selectel | cloudru | vk | yandex | minio | custom
+        "s3_endpoint": "",                 # S3: https://storage.yandexcloud.net и т.п. (пусто = из пресета)
+        "s3_access_key": "",               # S3: access key
+        "s3_secret_key": "",               # S3: secret key
+        "s3_region": "",                   # S3: регион (пусто = из пресета)
+        "mysql_host": "",                  # MySQL: хост (legacy/optional)
+        "mysql_port": 3306,                 # MySQL: порт
+        "mysql_user": "",                  # MySQL: пользователь
+        "mysql_password": "",              # MySQL: пароль
+        "mysql_database": "shop",          # MySQL: база
+        "mysql_table": "products",         # MySQL: таблица
     },
-    "cloud_state": {},                 # {provider, photos:{local->url}, last_sync} — состояние синхронизации
+    "cloud_state": {},                   # {provider, db_mode, photos:{local->url}, last_sync, backup} — состояние синхронизации
     "warehouse": {"publish_on_create": False, "remember_login": True, "auto_sync_cloud": False},
     "warehouse_printers": [
         {"name": "Термопринтер 58×40 мм (PDF)", "width_mm": 58, "height_mm": 40, "format": "pdf", "copies": 1},
@@ -767,6 +768,8 @@ class Store:
             cl = patch.get("cloud", {})
             if cl and not cl.get("key"):
                 cl["key"] = self._settings["cloud"]["key"]
+            if cl and not cl.get("public_key"):
+                cl["public_key"] = self._settings["cloud"].get("public_key", "")
             if cl and not cl.get("s3_secret_key"):
                 cl["s3_secret_key"] = self._settings["cloud"]["s3_secret_key"]
             if cl and not cl.get("mysql_password"):
