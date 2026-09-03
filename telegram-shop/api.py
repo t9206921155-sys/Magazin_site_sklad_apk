@@ -2019,6 +2019,27 @@ def create_app(store, providers: dict, bot=None, notify_new_order=None, notify_o
         store.wh_log_add(user["name"], "создал копию товара", f"{copy['name']} (id {copy['id']})")
         return _wh_product(copy)
 
+    @app.delete("/api/warehouse/products/{pid}")
+    async def wh_delete_product(pid: int, x_wh_token: str = Header(default=""),
+                                x_admin_token: str = Header(default="")):
+        """Удаление товара со склада.
+
+        Раньше UI склада ходил в /admin/api/products/{pid}, который требует
+        админ-токен магазина, поэтому кладовщик получал 403, а прямой
+        DELETE /api/warehouse/products/{pid} вовсе отсутствовал (405).
+        """
+        user = wh_user_from_headers(x_wh_token, x_admin_token)
+        if user["role"] != "admin":
+            raise HTTPException(403, "Только администратор склада")
+        p = store.get_product(pid)
+        if not p:
+            raise HTTPException(404, "Товар не найден")
+        name = p.get("name", "")
+        if not store.delete_product(pid):
+            raise HTTPException(404, "Товар не найден")
+        store.wh_log_add(user["name"], "удалил товар", f"{name} (id {pid})")
+        return {"ok": True, "id": pid}
+
     @app.post("/api/warehouse/products/{pid}/archive")
     async def wh_archive(pid: int, x_wh_token: str = Header(default=""),
                          x_admin_token: str = Header(default="")):

@@ -1,0 +1,99 @@
+# Local runtime smoke — 2026-09-03
+
+Продолжение сессии от 2026-08-31 (`LOCAL-RUNTIME-SMOKE-2026-08-31.md`).
+
+## Environment
+- Запуск из `telegram-shop/bot.py`, бот отключён (`BOT_TOKEN` пустой).
+- `.env` создан из `.env.example`, `BOT_TOKEN` очищен.
+- Зависимости из `requirements.txt` установлены полностью (aiogram, fastapi, boto3, qrcode, webauthn, pywebpush и др.).
+- База — локальный SQLite, режим склада `db_mode = vps`.
+
+## Результат: проект поднимается и работает
+
+Публичные маршруты:
+
+| Маршрут | Код |
+|---|---|
+| `/` | 200 |
+| `/catalog` | 200 |
+| `/shop` | 200 |
+| `/app` (Mini App) | 200 |
+| `/admin` | 307 (редирект на логин — штатно) |
+| `/warehouse/` | 200 |
+| `/warehouse/app.js` | 200 |
+| `/sitemap.xml` | 200 |
+| `/robots.txt` | 200 |
+
+Регрессий по итогам прошлой сессии не обнаружено: `marketplace_settings()`
+и `upsert_product_with_id()` на месте, корень сайта не падает.
+
+## Склад: авторизация и API
+
+- `POST /api/warehouse/login` (`admin` / `ADMIN_PASSWORD`) -> **OK**, выдаёт `X-WH-Token`.
+- Без токена защищённые эндпоинты корректно отдают **403**.
+
+С токеном:
+
+| Эндпоинт | Код |
+|---|---|
+| `GET /api/warehouse/products` | 200 |
+| `GET /api/warehouse/products/{pid}` | 200 |
+| `POST /api/warehouse/products` | 201 |
+| `PUT /api/warehouse/products/{pid}` | 200 |
+| `GET /api/warehouse/cloud/status` | 200 |
+| `GET /api/warehouse/scans` | 200 |
+| `GET /api/warehouse/sync` | 200 |
+| `GET /api/warehouse/settings` | 200 |
+
+Режимы сканирования `POST /api/warehouse/scan` — все **200**:
+`search`, `receive`, `sell`, `inventory`. Записи корректно попадают в журнал сканов.
+
+`cloud/status` отдаёт `db_mode: vps`, `storage_preset: yandex` — трёхрежимная
+схема из прошлой сессии цела.
+
+## Найденный и исправленный баг: удаление товара со склада
+
+**Симптом.** Кладовщик не мог удалить товар из интерфейса склада.
+
+**Причина — две несогласованности:**
+
+1. Эндпоинта `DELETE /api/warehouse/products/{pid}` **не существовало** — прямой
+   вызов возвращал **405 Method Not Allowed**. Были только `archive` и `bulk`.
+2. UI склада (`warehouse/app.js`, функция `delProduct`) ходил в
+   `DELETE /admin/api/products/{pid}` — а этот маршрут защищён `require_admin()`
+   и требует **админ-токен магазина**. Кладовщик со своим `X-WH-Token`
+   получал **403 «Нет доступа»**.
+
+Воспроизведено до правки: создание товара -> `DELETE /admin/api/products/{id}`
+с `X-WH-Token` -> `403 {"detail":"Нет доступа"}`.
+
+**Исправление:**
+
+- `api.py`: добавлен эндпоинт `DELETE /api/warehouse/products/{pid}` рядом с
+  `archive`. Требует роль `admin` склада, проверяет существование товара,
+  пишет запись в журнал действий через `store.wh_log_add`.
+- `warehouse/app.js`: `delProduct()` теперь вызывает
+  `/api/warehouse/products/{id}` вместо `/admin/api/products/{id}`.
+  Ветка `isDirectMode()` (Supabase direct) не тронута.
+
+**Проверка после правки:**
+
+| Сценарий | Ожидание | Факт |
+|---|---|---|
+| `DELETE` существующего товара | 200 | **200** `{"ok":true,"id":11}` |
+| `GET` удалённого товара | 404 | **404** |
+| `DELETE` несуществующего id | 404 | **404** |
+| `DELETE` без токена | 403 | **403** |
+| Запись в журнале | есть | **есть** — «удалил товар Del тест 2 (id 11)» |
+
+Синтаксис проверен: `api.py` — `ast.parse` OK, `warehouse/app.js` — `node --check` OK.
+
+## Cleanup
+- Все временные smoke-товары удалены.
+- Настройки склада не менялись (оставлен режим `vps`).
+
+## Не покрыто (как и в прошлый раз)
+- Реальные креды Supabase и Yandex Object Storage.
+- Ручной UX на живом Android-устройстве.
+- Настоящая камера / нативный сканер на телефоне.
+- Платёжные вебхуки с реальными провайдерами.

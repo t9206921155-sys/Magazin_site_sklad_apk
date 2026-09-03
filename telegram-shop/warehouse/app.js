@@ -745,7 +745,7 @@ async function delProduct() {
       const src = PRODUCTS.find(x => x.id === EDIT_ID) || { id: EDIT_ID, name: 'Товар' };
       await directDeleteOne(src);
     } else {
-      await api('/admin/api/products/' + EDIT_ID, { method: 'DELETE' });
+      await api('/api/warehouse/products/' + EDIT_ID, { method: 'DELETE' });
     }
     toast('Удалён 🗑');
     closeForm(); loadList();
