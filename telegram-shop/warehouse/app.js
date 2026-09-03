@@ -842,7 +842,7 @@ async function openScanModes() {
       <div class="info"><div class="name">📜 История сканирований</div><div class="meta">Последние 50 операций</div></div>
     </div>
     <div class="card" style="align-items:center" onclick="closeSheet2(); openHidScanMode()">
-      <div class="info"><div class="name">📶 Bluetooth / ТСД (HID)</div><div class="meta">Заглушка: HID-ввод с клавиатуры (заглушка Этап 3)</div></div>
+      <div class="info"><div class="name">📶 Bluetooth / ТСД (HID)</div><div class="meta">Сканер как клавиатура: авто-приём кода</div></div>
     </div>`;
   $('#sheet2').classList.remove('hidden');
 }
@@ -1273,69 +1273,133 @@ function showVisionResults(result) {
 
 function closeSheet2() { $('#sheet2').classList.add('hidden'); }
 
-/* ---------- Bluetooth / ТСД-сканеры (HID-режим) — Этап 3 склада — ЗАГЛУШКА ---------- */
-// Bluetooth-сканеры в HID-режиме работают как клавиатура: вводят штрих-код и нажимают Enter.
-// Заглушка (stub): фреймворк готов, реальное подключение Bluetooth требует теста на устройстве.
+/* ---------- Bluetooth / ТСД-сканеры (HID-режим) — Этап 3 склада ---------- */
+// Bluetooth-сканеры в HID-режиме работают как клавиатура: вводят штрих-код и обычно
+// шлют Enter в конце. Поддержаны оба варианта — с Enter-суффиксом и без него
+// (отправка по паузе). Ввод человека отсекается по межсимвольному интервалу.
 let HID_SCANNER_ACTIVE = false;
 let HID_SCANNER_BUFFER = '';
+let HID_LAST_CODE = '';
+let HID_LAST_AT = 0;
 
 function openHidScanMode() {
   HID_SCANNER_ACTIVE = true;
   HID_SCANNER_BUFFER = '';
-  $('#sheet2-title').textContent = '📶 Bluetooth / ТСД (HID) — заглушка';
+  HID_LAST_CODE = '';
+  HID_LAST_AT = 0;
+  const modeName = { search: 'Поиск', receive: 'Приёмка', sell: 'Продажа', inventory: 'Инвентаризация' };
+  $('#sheet2-title').textContent = '📶 Bluetooth / ТСД (HID)';
   $('#sheet2-body').innerHTML = `
-    <div style="background:#fff7ed;border:1px dashed #f97316;border-radius:12px;padding:12px;margin-bottom:12px;color:#c2410c;font-size:13px">
-      <b>⚠️ Заглушка (stub)</b><br>
-      Bluetooth-ТСД в HID-режиме работает как клавиатура. Для теста нажмите «Активировать HID-ввод» и сканируйте штрих-код или введите код вручную.<br><br>
-      <b>Что нужно для полной интеграции:</b><br>
-      • Тест на реальном устройстве с подключённым Bluetooth-сканером (Zebra DS3678, Атол SB2108)<br>
-      • Проверка автоматического ввода штрих-кода в поле<br>
-      • Настройка префикса/суффикса сканера (обычно Enter в конце)<br>
-      • Обработка ошибок при потере связи с ТСД
+    <div style="background:#f0f9ff;border:1px solid #bae6fd;border-radius:12px;padding:12px;margin-bottom:12px;color:#075985;font-size:13px">
+      Bluetooth-сканер в HID-режиме работает как клавиатура: подключите его к устройству
+      и сканируйте — код подставится сам. Текущий режим:
+      <b>${modeName[SCAN_MODE] || SCAN_MODE}</b>.
     </div>
-    <button class="btn primary" onclick="activateHidInput()">📶 Активировать HID-ввод (клавиатура)</button>
+    <button class="btn primary" id="hid-toggle" onclick="toggleHidInput()">📶 Включить HID-приём</button>
     <div class="row2" style="margin-top:10px">
-      <input class="fld" id="hid-manual" placeholder="Или введите штрих-код вручную (заглушка)" onkeydown="if(event.key==='Enter'){handleScanCode(this.value.trim());this.value='';}">
+      <input class="fld" id="hid-manual" inputmode="none" autocomplete="off"
+             placeholder="Сюда попадёт код со сканера (или введите вручную)"
+             onkeydown="if(event.key==='Enter'){event.preventDefault();const v=this.value.trim();this.value='';if(v)handleScanCode(v);}">
     </div>
-    <button class="btn ghost" onclick="deactivateHidInput()">✕ Отключить HID-сканер</button>
-    <div id="hid-status" style="margin-top:8px;color:#64748b;font-size:12px"></div>`;
+    <div class="row2" style="margin-top:8px">
+      <label style="font-size:12px;color:#475569;display:flex;align-items:center;gap:6px">
+        <input type="checkbox" id="hid-suffix" checked> Сканер шлёт Enter в конце
+      </label>
+    </div>
+    <div id="hid-status" style="margin-top:8px;color:#64748b;font-size:12px"></div>
+    <div id="hid-log" style="margin-top:10px;max-height:160px;overflow:auto;font-size:12px"></div>`;
   $('#sheet2').classList.remove('hidden');
+  activateHidInput();
 }
 
 function activateHidInput() {
   HID_SCANNER_ACTIVE = true;
-  $('#hid-status').innerHTML = '<b style="color:#15803d">✅ HID-сканер активен</b> — сканируйте штрих-код или введите вручную.';
-  toast('📶 HID-сканер (заглушка) активирован. Сканируйте код или введите вручную.', false);
-  setTimeout(() => { $('#hid-manual').focus(); }, 200);
+  HID_SCANNER_BUFFER = '';
+  const b = $('#hid-toggle');
+  if (b) { b.textContent = '⏸ Выключить HID-приём'; b.classList.remove('primary'); b.classList.add('ghost'); }
+  const s = $('#hid-status');
+  if (s) s.innerHTML = '<b style="color:#15803d">✅ HID-приём включён</b> — сканируйте штрих-код.';
+  setTimeout(() => { const i = $('#hid-manual'); if (i) i.focus(); }, 200);
 }
 
 function deactivateHidInput() {
   HID_SCANNER_ACTIVE = false;
   HID_SCANNER_BUFFER = '';
-  $('#hid-status').textContent = 'HID-сканер отключён.';
+  const b = $('#hid-toggle');
+  if (b) { b.textContent = '📶 Включить HID-приём'; b.classList.add('primary'); b.classList.remove('ghost'); }
+  const s = $('#hid-status');
+  if (s) s.textContent = 'HID-приём отключён.';
 }
 
-// Перехват клавиатурного ввода для HID-сканера
-(function initHidKeyboardStub() {
-  let lastKeyTime = Date.now();
+function toggleHidInput() {
+  if (HID_SCANNER_ACTIVE) deactivateHidInput(); else activateHidInput();
+}
+
+function hidLog(code, ok) {
+  const el = $('#hid-log');
+  if (!el) return;
+  const t = new Date().toLocaleTimeString('ru-RU');
+  el.insertAdjacentHTML('afterbegin',
+    `<div style="padding:5px 8px;border-radius:7px;margin-bottom:4px;background:${ok ? '#f0fdf4' : '#fef2f2'};color:${ok ? '#166534' : '#991b1b'}">
+       <b>${code}</b> <span style="opacity:.7">· ${t}</span></div>`);
+}
+
+// Перехват клавиатурного ввода для HID-сканера (Bluetooth/ТСД в режиме клавиатуры).
+//
+// Сканер печатает символы гораздо быстрее человека, поэтому код отделяется от
+// ручного ввода по межсимвольному интервалу. Раньше здесь были ошибки:
+// обе ветки проверки скорости делали одно и то же (клавиатурный ввод человека
+// тоже копился в буфер), при отсутствии Enter буфер не сбрасывался и коды
+// склеивались, а повторный скан того же кода срабатывал дважды.
+(function initHidKeyboard() {
+  let lastKeyTime = 0;
+  let flushTimer = null;
+
+  const FAST_MS = 35;      // не больше этого между символами — значит, сканер
+  const IDLE_FLUSH = 120;  // тишина после серии — код закончился (сканер без Enter)
+  const MIN_LEN = 4;       // короче — шум
+  const DEDUP_MS = 700;    // защита от дребезга/повторной отправки
+
+  function submit(code) {
+    if (flushTimer) { clearTimeout(flushTimer); flushTimer = null; }
+    HID_SCANNER_BUFFER = '';
+    if (!code || code.length < MIN_LEN) return;
+    const now = Date.now();
+    if (code === HID_LAST_CODE && now - HID_LAST_AT < DEDUP_MS) return;
+    HID_LAST_CODE = code; HID_LAST_AT = now;
+    const inp = $('#hid-manual');
+    if (inp) inp.value = code;
+    hidLog(code, true);
+    handleScanCode(code);
+  }
+
   document.addEventListener('keydown', function(e) {
     if (!HID_SCANNER_ACTIVE) return;
     if (e.ctrlKey || e.altKey || e.metaKey) return;
-    if ([9, 16, 17, 18, 20, 27, 91, 93].includes(e.keyCode)) return;
+
     const now = Date.now();
     const delta = now - lastKeyTime;
     lastKeyTime = now;
-    if (delta < 150 && delta > 5) {
-      if (e.key.length === 1) HID_SCANNER_BUFFER += e.key;
-    } else {
-      if (e.key.length === 1) HID_SCANNER_BUFFER += e.key;
-    }
-    if (e.key === 'Enter' && HID_SCANNER_BUFFER.length > 2) {
-      e.preventDefault();
+
+    if (e.key === 'Enter') {
       const code = HID_SCANNER_BUFFER.trim();
-      HID_SCANNER_BUFFER = '';
-      handleScanCode(code);
+      if (code) { e.preventDefault(); submit(code); }
+      return;
     }
+    if (e.key.length !== 1) return;   // Shift, стрелки, F-клавиши и т.п.
+
+    // Пауза между символами слишком велика — это человек, начинаем буфер заново.
+    if (delta > FAST_MS) HID_SCANNER_BUFFER = '';
+    HID_SCANNER_BUFFER += e.key;
+
+    // Сканеры без Enter-суффикса: отправляем по паузе.
+    if (flushTimer) clearTimeout(flushTimer);
+    flushTimer = setTimeout(() => {
+      const noSuffix = $('#hid-suffix') && !$('#hid-suffix').checked;
+      const code = HID_SCANNER_BUFFER.trim();
+      if (noSuffix && code.length >= MIN_LEN) submit(code);
+      else HID_SCANNER_BUFFER = '';   // иначе просто чистим, чтобы коды не склеивались
+    }, IDLE_FLUSH);
   });
 })();
 
