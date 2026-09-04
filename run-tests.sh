@@ -17,6 +17,7 @@ node tests-hid-scanner.js || status=1
 python3 tests-stage5.py "$BASE" || status=1
 python3 tests-block06.py "$BASE" || status=1
 python3 tests-block09.py "$BASE" || status=1
+python3 scripts/check-env-keys.py || status=1
 python3 -m py_compile *.py || status=1
 for f in warehouse/*.js webapp/*.js; do node --check "$f" || status=1; done
 exit "$status"
