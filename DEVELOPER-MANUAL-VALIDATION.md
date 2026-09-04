@@ -165,3 +165,9 @@ python3 telegram-shop/scripts/restore_sqlite.py backup.db \
 - [ ] Проверить preflight `OPTIONS` только с разрешённого origin.
 - [ ] Проверить `X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy` и HSTS по HTTPS.
 - [ ] Проверить, что сторонний origin не может читать ответы API.
+
+### Контрольная сумма backup
+
+- [ ] Сохранить SHA-256, выведенный `restore_sqlite.py`.
+- [ ] Сравнить его с checksum файла после скачивания из Object Storage.
+- [ ] Выполнять restore только после совпадения размера, checksum и `integrity_check`.
