@@ -158,3 +158,10 @@ python3 telegram-shop/scripts/restore_sqlite.py backup.db \
 - [ ] Проверить, что превышение лимита возвращает `429`.
 - [ ] Убедиться, что после окна в 60 секунд вход снова доступен.
 - [ ] При нескольких экземплярах приложения вынести bucket rate limiter в Redis.
+
+### CORS и security headers
+
+- [ ] В production заменить `CORS_ORIGINS=*` на конкретные HTTPS-origin.
+- [ ] Проверить preflight `OPTIONS` только с разрешённого origin.
+- [ ] Проверить `X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy` и HSTS по HTTPS.
+- [ ] Проверить, что сторонний origin не может читать ответы API.
