@@ -1658,6 +1658,17 @@ def create_app(store, providers: dict, bot=None, notify_new_order=None, notify_o
             acc+=r["revenue"]; share=acc/total if total else 0; rows.append({"product_id":pid,"sold":r["qty"],"revenue":r["revenue"],"group":"A" if share<=.8 else ("B" if share<=.95 else "C")})
         return {"total_revenue":total,"rows":rows}
 
+    @app.get("/api/warehouse/reports/{kind}.pdf")
+    async def wh_report_pdf(kind: str, date_from: str = "", date_to: str = "", x_wh_token: str = Header(default=""), x_admin_token: str = Header(default="")):
+        wh_user_from_headers(x_wh_token, x_admin_token)
+        if kind == "turnover": rep = await wh_report_turnover(date_from, date_to, x_wh_token, x_admin_token); rows=rep["rows"]
+        elif kind == "dead-stock": rep = await wh_report_dead(60, x_wh_token, x_admin_token); rows=rep["products"]
+        elif kind == "stock-value": rep = await wh_report_stock_value(x_wh_token, x_admin_token); rows=rep["categories"]
+        elif kind == "abc": rep = await wh_report_abc(date_from, date_to, x_wh_token, x_admin_token); rows=rep["rows"]
+        else: raise HTTPException(404, "Неизвестный отчёт")
+        pdf=pdfreport.warehouse_report_pdf("Складской отчёт: "+kind, rows, None)
+        return Response(content=pdf, media_type="application/pdf", headers={"Content-Disposition": f'attachment; filename="warehouse-{kind}.pdf"'})
+
     # --- отчёты и экспорт ---
     @app.get("/admin/api/reports")
     async def admin_reports(x_admin_token: str = Header(default="")):

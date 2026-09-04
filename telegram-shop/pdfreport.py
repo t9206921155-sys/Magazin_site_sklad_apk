@@ -398,3 +398,21 @@ def price_tags_pdf(products: list, width_mm: float = 58, height_mm: float = 40,
 
     c.save()
     return buf.getvalue()
+
+def warehouse_report_pdf(title, rows, totals=None):
+    from reportlab.lib.pagesizes import A4
+    from reportlab.lib import colors
+    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+    from reportlab.lib.units import mm
+    from reportlab.pdfbase import pdfmetrics
+    from reportlab.pdfbase.ttfonts import TTFont
+    from reportlab.platypus import SimpleDocTemplate, Paragraph, Table, TableStyle
+    pdfmetrics.registerFont(TTFont('WarehouseDejaVu', FONT_REG))
+    pdfmetrics.registerFont(TTFont('WarehouseDejaVu-Bold', FONT_BOLD))
+    b=io.BytesIO(); d=SimpleDocTemplate(b,pagesize=A4,leftMargin=12*mm,rightMargin=12*mm,topMargin=12*mm,bottomMargin=12*mm)
+    st=getSampleStyleSheet(); h=ParagraphStyle('whh',parent=st['Title'],fontName='WarehouseDejaVu-Bold'); c=ParagraphStyle('whc',parent=st['Normal'],fontName='WarehouseDejaVu',fontSize=8)
+    keys=list(rows[0].keys()) if rows else list((totals or {}).keys()); data=[[Paragraph(str(k),c) for k in keys]]
+    data += [[Paragraph(str(r.get(k,'')),c) for k in keys] for r in rows]
+    if totals: data.append([Paragraph(str(totals.get(k,'')),c) for k in keys])
+    t=Table(data,repeatRows=1); t.setStyle(TableStyle([('FONTNAME',(0,0),(-1,-1),'WarehouseDejaVu'),('BACKGROUND',(0,0),(-1,0),colors.HexColor('#dbeafe')),('GRID',(0,0),(-1,-1),.3,colors.grey),('VALIGN',(0,0),(-1,-1),'TOP')]))
+    d.build([Paragraph(title,h),t]); return b.getvalue()
