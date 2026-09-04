@@ -1139,8 +1139,8 @@ async function printWithPrinter(i) {
     if (!pr) return toast('Профиль принтера не найден', true);
     const q = `ids=${ids.join(',')}&width=${pr.width_mm}&height=${pr.height_mm}&copies=${pr.copies || 1}`;
     if (pr.format === 'zpl' || pr.format === 'epl') {
-      await downloadAuthed(`/api/warehouse/labels.prn?${q}&format=${pr.format}`, 'labels.prn', false);
-      toast('Файл .prn скачан — отправьте на принтер (Zebra: через драйвер/сеть; Eltron: через утилиту)');
+      const raw = await fetch(`/api/warehouse/labels.prn?${q}&format=${pr.format}`, {headers:{'X-Wh-Token':TOKEN,'X-Admin-Token':TOKEN}}).then(r=>r.text());
+      if (pr.host) { const r=await api('/api/warehouse/print/network',{method:'POST',body:JSON.stringify({host:pr.host,port:pr.port||9100,format:pr.format,data:raw})}); toast('Отправлено на принтер ✅ ('+r.bytes+' байт)'); } else { await downloadAuthed(`/api/warehouse/labels.prn?${q}&format=${pr.format}`, 'labels.prn', false); toast('Файл .prn скачан — укажите IP для прямой печати'); }
     } else {
       await downloadAuthed(`/api/warehouse/labels.pdf?${q}`, 'labels.pdf', true);
       toast('PDF готов — печатайте через диалог принтера');
@@ -1867,6 +1867,8 @@ function renderPrinterList(list) {
             <option value="epl" ${p.format === 'epl' ? 'selected' : ''}>EPL</option>
           </select>
           <input class="fld" data-i="${i}" data-f="copies" type="number" value="${p.copies || 1}" placeholder="Копий" style="margin:0;max-width:64px">
+          <input class="fld" data-i="${i}" data-f="host" value="${esc(p.host || "")}" placeholder="IP принтера" style="margin:0">
+          <input class="fld" data-i="${i}" data-f="port" type="number" value="${p.port || 9100}" placeholder="Порт" style="margin:0;max-width:75px">
         </div>
       </div>
       <button class="mini danger" onclick="delPrinter(${i})">✕</button>
@@ -1877,7 +1879,7 @@ function renderPrinterList(list) {
 }
 
 function addPrinter() {
-  PRINTERS.push({ name: 'Новый принтер', width_mm: 58, height_mm: 40, format: 'pdf', copies: 1 });
+  PRINTERS.push({ name: 'Новый принтер', width_mm: 58, height_mm: 40, format: 'zpl', copies: 1, host: '', port: 9100 });
   renderPrinterList(PRINTERS);
 }
 

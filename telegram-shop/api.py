@@ -11,6 +11,8 @@ import asyncio
 import base64
 import csv
 import datetime
+import ipaddress
+import socket
 import hashlib
 import hmac
 import io
@@ -2606,6 +2608,39 @@ def create_app(store, providers: dict, bot=None, notify_new_order=None, notify_o
         wh_user_from_headers(x_wh_token, x_admin_token)
         return store.settings.get("warehouse_printers") or []
 
+    def _printer_target(host, port):
+        try: port=int(port)
+        except (TypeError,ValueError): raise HTTPException(422, "Порт должен быть числом")
+        if port not in (9100, 631): raise HTTPException(422, "Разрешены только порты 9100 и 631")
+        try: ip=ipaddress.ip_address(socket.gethostbyname(str(host)))
+        except (ValueError, OSError): raise HTTPException(422, "Некорректный адрес принтера")
+        if not (ip.is_private or ip.is_loopback): raise HTTPException(422, "Разрешены только локальные адреса принтера")
+        return str(ip), port
+
+    async def _network_print(body, x_wh_token, x_admin_token, test=False):
+        user=wh_user_from_headers(x_wh_token,x_admin_token)
+        if test: data=b"^XA^FO40,40^A0N,30,30^FDTEST PRINT^FS^XZ"; fmt="zpl"
+        else:
+            fmt=str(body.get("format","zpl")).lower()
+            if fmt not in ("zpl","epl"): raise HTTPException(422,"Поддерживаются только ZPL и EPL")
+            data=str(body.get("data","")).encode("utf-8")
+            if not data: raise HTTPException(422,"Пустое задание печати")
+        host,port=_printer_target(body.get("host"),body.get("port",9100))
+        try:
+            with socket.create_connection((host,port),timeout=5) as sock: sock.sendall(data)
+        except socket.timeout: raise HTTPException(502,"Принтер не отвечает: таймаут 5 секунд")
+        except OSError as e: raise HTTPException(502,"Принтер недоступен или отказал в соединении")
+        store.wh_log_add(user["name"],"напечатал по сети",f"{host}:{port} ({fmt})")
+        return {"ok":True,"bytes":len(data)}
+
+    @app.post("/api/warehouse/print/network")
+    async def wh_print_network(body: dict, x_wh_token: str=Header(default=""), x_admin_token: str=Header(default="")):
+        return await _network_print(body,x_wh_token,x_admin_token)
+
+    @app.post("/api/warehouse/print/test")
+    async def wh_print_test(body: dict, x_wh_token: str=Header(default=""), x_admin_token: str=Header(default="")):
+        return await _network_print(body,x_wh_token,x_admin_token,True)
+
     @app.get("/api/warehouse/sync")
     async def wh_sync(x_wh_token: str = Header(default=""),
                       x_admin_token: str = Header(default="")):
@@ -2727,7 +2762,7 @@ def create_app(store, providers: dict, bot=None, notify_new_order=None, notify_o
         if "printers" in body and isinstance(body["printers"], list):
             patch["warehouse_printers"] = [
                 {k: p.get(k, d) for k, d in
-                 (("name", "Принтер"), ("width_mm", 58), ("height_mm", 40), ("format", "pdf"), ("copies", 1))}
+                 (("name", "Принтер"), ("width_mm", 58), ("height_mm", 40), ("format", "pdf"), ("copies", 1), ("host", ""), ("port", 9100))}
                 for p in body["printers"][:10]]
         if "warehouse" in body:
             patch["warehouse"] = body["warehouse"]
