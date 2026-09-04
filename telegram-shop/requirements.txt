@@ -3,7 +3,6 @@ fastapi>=0.110
 uvicorn>=0.29
 python-dotenv>=1.0
 requests>=2.31
-imageio-ffmpeg>=0.5
 openpyxl>=3.1
 python-multipart>=0.0.9
 reportlab>=4.0

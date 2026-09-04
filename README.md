@@ -48,7 +48,9 @@ Telegram-ботом и Mini App, админкой, мобильным склад
 
 Production-документация: [архитектура хранения](STORAGE-ARCHITECTURE.md), [ручная валидация](DEVELOPER-MANUAL-VALIDATION.md).
 
-Оставшиеся работы и порядок реализации: [IMPLEMENTATION-QUEUE.md](IMPLEMENTATION-QUEUE.md). После деплоя запускайте:
+Оставшиеся работы и порядок реализации: [IMPLEMENTATION-QUEUE.md](IMPLEMENTATION-QUEUE.md).
+
+Для обычного API достаточно `requirements.txt`; обработку видео устанавливайте отдельно: `pip install -r requirements-video.txt`. Для CI и разработки: `pip install -r requirements-dev.txt`. После деплоя запускайте:
 
 ```bash
 ./deploy/post-deploy-smoke.sh https://YOUR-DOMAIN
