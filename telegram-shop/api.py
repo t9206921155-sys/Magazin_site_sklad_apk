@@ -2772,7 +2772,7 @@ def create_app(store, providers: dict, bot=None, notify_new_order=None, notify_o
         if "cloud" in body:
             current_cloud = dict(store.settings.get("cloud") or {})
             incoming_cloud = dict(body["cloud"] or {})
-            for secret_field in ("key", "public_key", "s3_secret_key", "mysql_password"):
+            for secret_field in ("key", "public_key", "s3_secret_key", "mysql_password", "yandex_disk_token"):
                 incoming_value = str(incoming_cloud.get(secret_field, "") or "")
                 if incoming_value in ("", "•••"):
                     incoming_cloud[secret_field] = current_cloud.get(secret_field, "")

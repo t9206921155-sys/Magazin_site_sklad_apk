@@ -195,6 +195,42 @@ def apply_s3_preset(cloud: dict) -> dict:
     return c
 
 
+class YandexDiskClient:
+    """Yandex Disk REST storage adapter for product photos."""
+    API = "https://cloud-api.yandex.net/v1/disk"
+    def __init__(self, token, root="app:/shop-photos/products"):
+        self.token=str(token or "").strip(); self.root=root.rstrip("/")
+    @property
+    def enabled(self): return bool(self.token)
+    def _request(self, path, method="GET", query=None):
+        import urllib.parse, urllib.request, json
+        url=self.API+path+("?"+urllib.parse.urlencode(query or {}) if query else "")
+        req=urllib.request.Request(url, method=method, headers={"Authorization":"OAuth "+self.token})
+        try:
+            with urllib.request.urlopen(req, timeout=15) as r: return r.status, json.loads(r.read() or b"{}")
+        except urllib.error.HTTPError as e:
+            return e.code, {"error":e.read().decode(errors="replace")[:500]}
+    def ping(self):
+        if not self.enabled: return {"ok":False,"error":"Не задан OAuth-токен Яндекс Диска"}
+        status,data=self._request("/resources", query={"path":self.root})
+        return {"ok":status==200,"status":status,"error":data.get("error") if status!=200 else ""}
+    def upload_photo(self, local_path):
+        if not self.enabled: return {"ok":False,"error":"Не задан OAuth-токен Яндекс Диска"}
+        import mimetypes, os, urllib.parse, urllib.request, json
+        name=os.path.basename(local_path); remote=self.root+"/"+name
+        status,data=self._request("/resources/upload", query={"path":remote,"overwrite":"true"})
+        if status!=200 or not data.get("href"): return {"ok":False,"error":data.get("error","Не удалось получить upload URL")}
+        req=urllib.request.Request(data["href"], data=open(local_path,"rb").read(), method="PUT", headers={"Content-Type":mimetypes.guess_type(name)[0] or "application/octet-stream"})
+        try:
+            with urllib.request.urlopen(req, timeout=30) as r: pass
+            pub_status,pub=self._request("/resources/publish", method="PUT", query={"path":remote})
+            link=(pub.get("href") or "").strip()
+            if pub_status not in (200,201): return {"ok":False,"error":"Файл загружен, но публикация не удалась"}
+            meta_status,meta=self._request("/resources", query={"path":remote})
+            return {"ok":True,"path":remote,"url":meta.get("public_url") or link}
+        except Exception as e: return {"ok":False,"error":str(e)[:300]}
+
+
 class S3Client:
     """S3-совместимое объектное хранилище.
 
@@ -456,7 +492,9 @@ def uses_supabase(cloud: dict) -> bool:
     return database_mode(cloud) in {"supabase_proxy", "supabase_direct"}
 
 
-def _storage_client_from_cloud(cloud: dict) -> S3Client:
+def _storage_client_from_cloud(cloud: dict):
+    if (cloud or {}).get("photo_provider") == "yandex_disk":
+        return YandexDiskClient(cloud.get("yandex_disk_token"), cloud.get("yandex_disk_path") or "app:/shop-photos/products")
     c = apply_s3_preset(cloud or {})
     return S3Client(
         c.get("s3_endpoint", ""),
