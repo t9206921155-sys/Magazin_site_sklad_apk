@@ -42,6 +42,18 @@ Telegram-ботом и Mini App, админкой, мобильным склад
 - Интеграции: СДЭК, 5POST, Яндекс Доставка, ЮKassa, Т-Банк, CryptoBot, 1С
 - ИИ-функции: описания, SEO, рекламные тексты, аналоги, баннеры и видео
 
+## Текущее состояние
+
+Проект включает магазин/Mini App, складской PWA/APK, мультисклад, роли, 1С, офлайн-очередь, печать ZPL/EPL/PDF, отчёты, каталог с фильтрами и CI. Поддерживаются режимы базы VPS/SQLite, VPS → Supabase, Direct Supabase и MySQL/MariaDB; фотографии можно хранить в S3-compatible storage или через Yandex Disk API.
+
+Production-документация: [архитектура хранения](STORAGE-ARCHITECTURE.md), [ручная валидация](DEVELOPER-MANUAL-VALIDATION.md). После деплоя запускайте:
+
+```bash
+./deploy/post-deploy-smoke.sh https://YOUR-DOMAIN
+```
+
+Для авторизованных проверок задайте `WH_LOGIN` и `WH_PASSWORD` через окружение. План работ ведётся в [ROADMAP.md](ROADMAP.md), каждый блок описан в [blocks/](blocks/).
+
 ## Быстрый старт
 
 ```bash
