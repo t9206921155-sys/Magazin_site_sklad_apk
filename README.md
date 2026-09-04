@@ -52,6 +52,8 @@ Production-документация: [архитектура хранения](S
 
 Инструкция production-развёртывания: [PRODUCTION-SETUP.md](PRODUCTION-SETUP.md).
 
+Шаблон переменных для ручной настройки: `telegram-shop/.env.production.example` (скопировать в `.env` на VPS и заменить placeholders).
+
 Для обычного API достаточно `requirements.txt`; обработку видео устанавливайте отдельно: `pip install -r requirements-video.txt`. Для CI и разработки: `pip install -r requirements-dev.txt`. После деплоя запускайте:
 
 ```bash

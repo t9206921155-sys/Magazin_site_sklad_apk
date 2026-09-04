@@ -4,12 +4,12 @@
 
 ## P0 — перед production
 
-- [ ] Runtime storage layer: перевести операции каталога/фото на единые provider-интерфейсы.
-- [ ] Yandex Disk: проверить upload, public URL, overwrite и expired token на staging.
+- [~] Runtime storage layer: контракты, фабрики и диагностика готовы; полный runtime-переход требует staging-проверки.
+- [~] Yandex Disk: REST-интеграция готова; staging-проверка token/upload/public URL ожидает ручных credentials.
 - [ ] MySQL/MariaDB: миграция SQLite, сверка данных и rollback.
 - [ ] Backup/restore: автоматическая проверка восстановления на чистой БД.
-- [ ] Production smoke: staging и production URL.
-- [ ] Security: CORS, metrics token, rate limit, секреты в логах.
+- [~] Production smoke: скрипт готов; запуск на staging/production ожидает URL.
+- [~] Security: CORS, metrics token, rate limit и headers готовы; ручной аудит production ожидает окружение.
 
 ## P1 — marketplace catalog
 
@@ -43,3 +43,8 @@
 3. Для оборудования обязательны ручной результат и screenshot.
 4. Нельзя переводить блок в ✅ только по наличию заглушки или документации.
 5. После каждого завершённого этапа: `git status`, проверка mode change, commit и push.
+
+
+## Handoff
+
+Кодовая часть без credentials подготовлена. Для завершения ручных пунктов используйте `telegram-shop/.env.production.example`, `PRODUCTION-SETUP.md` и `DEVELOPER-MANUAL-VALIDATION.md`. Не переводить пункты `[~]` в `[x]` без реального результата и screenshot.
