@@ -147,3 +147,7 @@ python3 telegram-shop/scripts/restore_sqlite.py backup.db \
 - [ ] Сопоставить request ID из ответа с записью в логах.
 - [ ] Искусственно вызвать медленный endpoint на staging и убедиться, что появляется warning без секретов.
 - [ ] Не публиковать `/metrics` в открытый интернет без дополнительной защиты.
+
+### Защита метрик
+
+В production задать случайный `METRICS_TOKEN` и ограничить `/metrics` reverse-proxy allowlist. Проверить без токена (`403`) и с корректным заголовком `X-Metrics-Token` (`200`). Токен не включать в скриншоты и URL.
