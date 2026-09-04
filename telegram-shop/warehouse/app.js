@@ -1926,6 +1926,8 @@ async function saveSettings() {
 async function cloudTest() {
   $('#cloud-note').textContent = 'Проверяем подключение к БД и Object Storage…';
   try {
+    const cfgCheck = await api('/api/warehouse/cloud/config-check');
+    if (!cfgCheck.ok) { $('#cloud-note').textContent = '⚠️ Не заполнено: ' + cfgCheck.missing.join(', '); return; }
     const r = await api('/api/warehouse/cloud/test', { method: 'POST', body: '{}' });
     const storage = r.storage || {};
     const database = r.database || {};
