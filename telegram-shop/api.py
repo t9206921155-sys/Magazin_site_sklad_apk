@@ -838,6 +838,26 @@ def create_app(store, providers: dict, bot=None, notify_new_order=None, notify_o
     async def health():
         return {"ok": True, "shop": store.settings["shop_name"]}
 
+    @app.get("/health/live")
+    async def health_live():
+        """Liveness probe: process is running; no external checks."""
+        return {"ok": True, "service": "telegram-shop"}
+
+    @app.get("/health/ready")
+    async def health_ready():
+        """Readiness probe with a local database check; never exposes secrets."""
+        checks = {"database": False, "config": False}
+        try:
+            store._q1("SELECT 1")
+            checks["database"] = True
+        except Exception as exc:
+            log.error("readiness database check failed: %s", exc)
+        checks["config"] = bool(store.settings.get("shop_name"))
+        ok = all(checks.values())
+        payload = {"ok": ok, "checks": checks}
+        if not ok: return JSONResponse(status_code=503, content=payload)
+        return payload
+
     @app.get("/app")
     async def mini_app():
         return FileResponse(os.path.join(config.WEBAPP_DIR, "index.html"))
