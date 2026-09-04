@@ -2005,6 +2005,9 @@ async function delUser(id) {
   catch (e) { toast(e.message, true); }
 }
 
+async function openReports() { $('#sheet2-title').textContent='📊 Отчёты'; $('#sheet2-body').innerHTML=`<p>Выберите отчёт:</p><div class="row2">${['turnover','dead-stock','stock-value','abc'].map(k=>`<button class="mini" onclick="downloadReport('${k}')">${k}</button>`).join('')}</div><p style="color:#64748b;font-size:12px">PDF будет загружен с учётом выбранного склада.</p>`; $('#sheet2').classList.remove('hidden'); }
+async function downloadReport(kind) { try { const r=await fetch('/api/warehouse/reports/'+kind+'.pdf',{headers:{'X-Wh-Token':TOKEN,'X-Admin-Token':TOKEN}}); if(!r.ok) throw new Error('Ошибка '+r.status); const a=document.createElement('a'); a.href=URL.createObjectURL(await r.blob()); a.download='warehouse-'+kind+'.pdf'; a.click(); } catch(e){toast(e.message,true);} }
+window.openReports=openReports; window.downloadReport=downloadReport;
 // журнал операций
 async function openLog() {
   try {
