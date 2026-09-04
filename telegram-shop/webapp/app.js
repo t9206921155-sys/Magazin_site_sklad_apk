@@ -781,13 +781,13 @@ document.querySelectorAll('.sheet-overlay').forEach(ov => {
 
 // перезагрузка списка точек выдачи при вводе города и выборе точки
 document.addEventListener('input', e => { if (['catalog-q','price-min','price-max'].includes(e.target.id)) { state.catalogQ=$('#catalog-q').value.trim(); state.catalogMin=+$('#price-min').value||0; state.catalogMax=+$('#price-max').value||0; renderCatalog(); return; }
-  if (e.target.id === 'catalog-sort') { state.catalogSort=e.target.value; renderCatalog(); return; }
   if (e.target.id !== 'co-city') return;
   collectCustomer();
   const d = state.delivery[state.deliveryMethod];
   if (d && (d.provider === 'fivepost' || d.provider === 'yandex')) loadPoints(d.provider);
 });
 document.addEventListener('change', e => {
+  if (e.target.id === 'catalog-sort') { state.catalogSort=e.target.value; renderCatalog(); return; }
   if (e.target.id === 'co-point') {
     const opt = e.target.selectedOptions[0];
     state.customer.point_id = opt.value || '';
