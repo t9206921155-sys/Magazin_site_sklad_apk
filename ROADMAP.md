@@ -126,3 +126,19 @@ SESSION-PLAYBOOK.md     ← как поднять окружение и синх
 blocks/BLOCK-XX-*.md    ← план и отчёт по каждому блоку
 telegram-shop/tests-*   ← автотесты
 ```
+
+---
+
+## 🧭 Следующий трек: production hardening и развитие платформы
+
+После блока 10 дальнейшая работа идёт по отдельному треку. Каждый блок имеет свой план и отчёт; новая сессия начинает с первого блока со статусом ⏳.
+
+| # | Блок | Статус | Зависит от | Файл плана |
+|---|---|---|---|---|
+| 12 | Production health-check и post-deploy smoke | ⏳ | 10 | `blocks/BLOCK-12-production-smoke.md` |
+| 13 | Единый storage layer и конфигурация провайдеров | ⏳ | 12 | `blocks/BLOCK-13-storage-layer.md` |
+| 14 | Backup, restore и миграция MySQL/MariaDB | ⏳ | 13 | `blocks/BLOCK-14-backup-mysql.md` |
+| 15 | Production security и observability | ⏳ | 12 | `blocks/BLOCK-15-security-observability.md` |
+| 16 | Marketplace 2.0: продавцы, сделки и доверие | ⏳ | 13, 15 | `blocks/BLOCK-16-marketplace-2.md` |
+
+**Правило продолжения:** новая сессия читает `ROADMAP.md`, `SESSION-PLAYBOOK.md` и первый незакрытый файл блока из этого трека. Не начинать следующий блок до заполнения отчёта и push текущего.
