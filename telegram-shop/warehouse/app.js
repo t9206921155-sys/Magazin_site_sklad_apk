@@ -1686,7 +1686,10 @@ async function openSettings() {
         <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;padding:10px 12px;margin:0 0 10px;color:#475569;font-size:12px">В режиме <b>VPS → Supabase</b> используется server key на VPS. В режиме <b>Direct Supabase</b> приложение получает только public/anon key после warehouse-login на VPS, а сервисный ключ остаётся на сервере.</div>
       </div>
 
-      <h3 style="margin:14px 0 8px">☁️ Фото, картинки и backup — Yandex Object Storage</h3>
+      <h3 style="margin:14px 0 8px">☁️ Фото, картинки и backup</h3>
+      <select class="fld" id="photo-provider" ${isAdmin ? "" : "disabled"}><option value="s3" ${(s.cloud.photo_provider || "s3") === "s3" ? "selected" : ""}>S3: Yandex / VK / другое</option><option value="yandex_disk" ${s.cloud.photo_provider === "yandex_disk" ? "selected" : ""}>Yandex Disk API (заглушка)</option></select>
+      <input class="fld" id="yd-token" type="password" placeholder="Yandex Disk OAuth token (вставьте самостоятельно)" ${isAdmin ? "" : "disabled"}>
+      <input class="fld" id="yd-path" placeholder="Путь на Диске" value="${esc(s.cloud.yandex_disk_path || "app:/shop-photos/products")}" ${isAdmin ? "" : "disabled"}>
       <p style="color:#64748b;font-size:12px;margin:0 0 8px">Эти поля используются для всех трёх режимов базы. Рекомендуемая схема: <b>shop-photos</b> для фото и <b>shop-backups</b> для резервных копий SQLite.</p>
       <div id="s3-fields">
         <select class="fld" id="s3-preset" ${isAdmin ? '' : 'disabled'}>
@@ -1903,7 +1906,7 @@ async function saveSettings() {
                backup_prefix: $('#s3-backup-prefix').value.trim() || 'sqlite',
                s3_preset: $('#s3-preset').value, s3_endpoint: $('#s3-ep').value.trim(),
                s3_access_key: $('#s3-ak').value.trim(),
-               s3_secret_key: $('#s3-sk').value.trim(), s3_region: $('#s3-region').value.trim(),
+               s3_secret_key: $('#s3-sk').value.trim(), photo_provider: $('#photo-provider').value, yandex_disk_token: $('#yd-token').value.trim() || s.cloud.yandex_disk_token || '', yandex_disk_path: $('#yd-path').value.trim() || 'app:/shop-photos/products', s3_region: $('#s3-region').value.trim(),
                mysql_host: $('#mysql-host')?.value.trim() || s.cloud.mysql_host || '', mysql_port: +($('#mysql-port')?.value || 3306), mysql_user: $('#mysql-user')?.value.trim() || s.cloud.mysql_user || '', mysql_database: $('#mysql-db')?.value.trim() || 'shop', mysql_table: $('#mysql-table')?.value.trim() || 'products', mysql_password: $('#mysql-pass')?.value || '•••' },
       warehouse: { auto_sync_cloud: $('#cl-autosync').checked },
       printers: PRINTERS,

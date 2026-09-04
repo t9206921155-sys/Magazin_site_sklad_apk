@@ -375,7 +375,10 @@ DEFAULT_SETTINGS = {
         "photo_prefix": "products",        # папка/префикс для фото
         "catalog_prefix": "catalog",       # папка/префикс для products.json при режиме VPS
         "backup_bucket": "shop-backups",   # Yandex/S3 bucket для backup SQLite
-        "backup_prefix": "sqlite",         # папка/префикс для backup SQLite
+        "backup_prefix": "sqlite",
+        "photo_provider": "s3",          # s3 | yandex_disk
+        "yandex_disk_token": "",         # OAuth token; fill in admin settings
+        "yandex_disk_path": "app:/shop-photos/products",         # папка/префикс для backup SQLite
         "s3_preset": "yandex",             # selectel | cloudru | vk | yandex | minio | custom
         "s3_endpoint": "",                 # S3: https://storage.yandexcloud.net и т.п. (пусто = из пресета)
         "s3_access_key": "",               # S3: access key
