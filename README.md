@@ -50,6 +50,8 @@ Production-документация: [архитектура хранения](S
 
 Оставшиеся работы и порядок реализации: [IMPLEMENTATION-QUEUE.md](IMPLEMENTATION-QUEUE.md).
 
+Инструкция production-развёртывания: [PRODUCTION-SETUP.md](PRODUCTION-SETUP.md).
+
 Для обычного API достаточно `requirements.txt`; обработку видео устанавливайте отдельно: `pip install -r requirements-video.txt`. Для CI и разработки: `pip install -r requirements-dev.txt`. После деплоя запускайте:
 
 ```bash
