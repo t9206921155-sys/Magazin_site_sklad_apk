@@ -73,3 +73,19 @@
 - [ ] Проверить удаление/замену фото и отсутствие битых ссылок после повторной синхронизации.
 
 Контрактные и интеграционные тесты storage-провайдеров выполнить отдельным этапом после выбора production-провайдера и получения тестовых credentials.
+
+## SQLite restore helper
+
+Безопасная предварительная проверка backup выполняется без замены базы:
+
+```bash
+python3 telegram-shop/scripts/restore_sqlite.py /path/to/shop.db.backup
+```
+
+Фактическая замена выполняется только явно:
+
+```bash
+python3 telegram-shop/scripts/restore_sqlite.py /path/to/shop.db.backup --target telegram-shop/data/shop.db --apply
+```
+
+Перед `--apply` остановить приложение и сохранить текущую базу отдельной копией.
