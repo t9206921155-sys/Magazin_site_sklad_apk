@@ -135,7 +135,7 @@ telegram-shop/tests-*   ← автотесты
 
 | # | Блок | Статус | Зависит от | Файл плана |
 |---|---|---|---|---|
-| 12 | Production health-check и post-deploy smoke | ⏳ | 10 | `blocks/BLOCK-12-production-smoke.md` |
+| 12 | Production health-check и post-deploy smoke | ✅ | 10 | `blocks/BLOCK-12-production-smoke.md` |
 | 13 | Единый storage layer и конфигурация провайдеров | ⏳ | 12 | `blocks/BLOCK-13-storage-layer.md` |
 | 14 | Backup, restore и миграция MySQL/MariaDB | ⏳ | 13 | `blocks/BLOCK-14-backup-mysql.md` |
 | 15 | Production security и observability | ⏳ | 12 | `blocks/BLOCK-15-security-observability.md` |
