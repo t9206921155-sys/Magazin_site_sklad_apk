@@ -119,6 +119,15 @@ def commission_report_pdf(shop: str, date_from: str, date_to: str, rows: list, t
     return buf.getvalue()
 
 
+def _fmt_price(value) -> str:
+    """Цена для этикетки: 1234.5 -> '1234.50', 1234.0 -> '1234'."""
+    try:
+        d = float(value or 0)
+    except (TypeError, ValueError):
+        return "0"
+    return f"{int(d)}" if d == int(d) else f"{d:.2f}"
+
+
 def labels_pdf(products: list, width_mm: float = 58, height_mm: float = 40, copies: int = 1) -> bytes:
     """PDF-наклейки произвольного размера (для термопринтеров через драйвер или печать диалога)."""
     from reportlab.graphics.barcode import code128
@@ -162,7 +171,7 @@ def labels_pdf(products: list, width_mm: float = 58, height_mm: float = 40, copi
                 BarcodeFlow(code),
                 Paragraph(p["name"][:60], name_st),
                 Paragraph(f"{p.get('storage_location') or '—'} · {p.get('owner_name') or '—'} · "
-                          f"{p['price']} ₽", meta_st),
+                          f"{_fmt_price(p.get('price'))} ₽", meta_st),
             ])
     if not items:
         items = [[Paragraph("Нет товаров для печати", meta_st), "", ""]]
@@ -189,6 +198,30 @@ def labels_pdf(products: list, width_mm: float = 58, height_mm: float = 40, copi
     return buf.getvalue()
 
 
+def _zpl_escape(text: str) -> str:
+    """Обезвреживает управляющие символы ZPL.
+
+    В ZPL '^' и '~' начинают команду, а '\\' экранирует. Без очистки товар
+    с названием вида 'Кабель ^XZ ~JA' обрывает этикетку и может отменить
+    задания печати на принтере (^XZ — конец метки, ~JA — cancel all).
+    """
+    return (str(text or "")
+            .replace("\\", " ")
+            .replace("^", " ")
+            .replace("~", " ")
+            .replace("\r", " ")
+            .replace("\n", " "))
+
+
+def _epl_escape(text: str) -> str:
+    """EPL: строки в кавычках, поэтому '"' и '\\' экранируются обратным слешем."""
+    return (str(text or "")
+            .replace("\\", "\\\\")
+            .replace('"', '\\"')
+            .replace("\r", " ")
+            .replace("\n", " "))
+
+
 def labels_zpl(products: list, width_mm: float = 58, height_mm: float = 40, copies: int = 1) -> str:
     """ZPL-этикетки для Zebra (GP/ZD серии) — файл .prn, отправка напрямую на принтер."""
     out = []
@@ -196,9 +229,11 @@ def labels_zpl(products: list, width_mm: float = 58, height_mm: float = 40, copi
     w = int(width_mm / 25.4 * dpi)   # ширина в точках
     h = int(height_mm / 25.4 * dpi)  # высота в точках
     for p in products:
-        code = str(p.get("barcode") or p.get("code") or f"TG-{p['id']}")
-        name = (p["name"] or "")[:40].upper()
-        meta = f"{p.get('storage_location') or '-'} | {p.get('owner_name') or '-'} | {p['price']} RUB"
+        code = _zpl_escape(p.get("barcode") or p.get("code") or f"TG-{p['id']}")
+        name = _zpl_escape((p["name"] or "")[:40].upper())
+        meta = _zpl_escape(
+            f"{p.get('storage_location') or '-'} | {p.get('owner_name') or '-'} | "
+            f"{_fmt_price(p.get('price'))} RUB")
         block = (
             f"^XA^PW{w}^LL{h}^CI28\n"
             f"^FO10,10^A0N,22,22^FD{name}^FS\n"
@@ -219,15 +254,147 @@ def labels_epl(products: list, width_mm: float = 58, height_mm: float = 40, copi
     h = int(height_mm / 25.4 * dpi)
     blocks = []
     for p in products:
-        code = str(p.get("barcode") or p.get("code") or f"TG-{p['id']}")
-        name = (p["name"] or "")[:40]
-        meta = f"{p.get('storage_location') or '-'} | {p.get('owner_name') or '-'} | {p['price']} RUB"
+        code = _epl_escape(p.get("barcode") or p.get("code") or f"TG-{p['id']}")
+        name = _epl_escape((p["name"] or "")[:40])
+        meta = _epl_escape(
+            f"{p.get('storage_location') or '-'} | {p.get('owner_name') or '-'} | "
+            f"{_fmt_price(p.get('price'))} RUB")
         blocks.append(
             f"N\n"
             f"q{w}\nQ{h},0\n"
             f"A10,10,0,2,1,1,N,\"{name}\"\n"
             f"B10,45,0,1,2,2,40,B,\"{code}\"\n"
             f"A10,105,0,1,1,1,N,\"{meta}\"\n"
-            f"P{copies},1\n"
+            f"P{max(1, copies)},1\n"
         )
     return "\n".join(blocks)
+
+
+def price_tags_pdf(products: list, width_mm: float = 58, height_mm: float = 40,
+                   copies: int = 1, show_qr: bool = True, shop_name: str = "") -> bytes:
+    """Ценники для торгового зала: крупная цена, название, старая цена и скидка, QR.
+
+    Отличие от labels_pdf: та печатает складские наклейки (упор на штрих-код),
+    здесь упор на цену для покупателя.
+    """
+    from reportlab.lib.pagesizes import A4
+    from reportlab.lib.units import mm
+    from reportlab.pdfbase import pdfmetrics
+    from reportlab.pdfbase.ttfonts import TTFont
+    from reportlab.pdfgen import canvas as pdfcanvas
+
+    pdfmetrics.registerFont(TTFont("DejaVu", FONT_REG))
+    pdfmetrics.registerFont(TTFont("DejaVu-Bold", FONT_BOLD))
+
+    W = max(30.0, min(120.0, float(width_mm))) * mm
+    H = max(20.0, min(120.0, float(height_mm))) * mm
+    margin = 6 * mm
+
+    buf = io.BytesIO()
+    c = pdfcanvas.Canvas(buf, pagesize=A4)
+    page_w, page_h = A4
+    cols = max(1, int((page_w - 2 * margin) // W))
+    rows = max(1, int((page_h - 2 * margin) // H))
+    per_page = cols * rows
+
+    expanded = []
+    for p in products:
+        for _ in range(max(1, min(9, int(copies or 1)))):
+            expanded.append(p)
+    if not expanded:
+        raise ValueError("Нет товаров для печати ценников")
+
+    qr_mod = None
+    if show_qr:
+        try:
+            import qrcode as _qr
+            qr_mod = _qr
+        except ImportError:
+            qr_mod = None
+
+    def shrink(text, font, start, max_w):
+        """Подбирает размер шрифта, чтобы строка влезла в ширину."""
+        size = start
+        while size > 5 and pdfmetrics.stringWidth(text, font, size) > max_w:
+            size -= 0.5
+        return size
+
+    for idx, p in enumerate(expanded):
+        pos = idx % per_page
+        if idx and pos == 0:
+            c.showPage()
+        col, row = pos % cols, pos // cols
+        x = margin + col * W
+        y = page_h - margin - (row + 1) * H
+
+        c.setLineWidth(0.4)
+        c.setDash(1, 2)
+        c.rect(x, y, W, H)
+        c.setDash()
+
+        pad = 3 * mm
+        inner = W - 2 * pad
+        top = y + H - pad
+
+        if shop_name:
+            c.setFont("DejaVu", 6)
+            c.drawString(x + pad, top - 5, shop_name[:38])
+            top -= 7
+
+        name = (p.get("name") or "")[:60]
+        fs = shrink(name, "DejaVu-Bold", 9, inner)
+        c.setFont("DejaVu-Bold", fs)
+        c.drawString(x + pad, top - fs, name)
+        top -= fs + 3
+
+        price = _fmt_price(p.get("price"))
+        old = p.get("old_price") or p.get("price_old") or 0
+        try:
+            old_f = float(old or 0)
+        except (TypeError, ValueError):
+            old_f = 0.0
+        try:
+            cur_f = float(p.get("price") or 0)
+        except (TypeError, ValueError):
+            cur_f = 0.0
+
+        price_txt = f"{price} \u20bd"
+        pfs = shrink(price_txt, "DejaVu-Bold", 26, inner)
+        c.setFont("DejaVu-Bold", pfs)
+        baseline = y + pad + 9 * mm
+        c.drawString(x + pad, baseline, price_txt)
+
+        if old_f > cur_f > 0:
+            old_txt = f"{_fmt_price(old_f)} \u20bd"
+            c.setFont("DejaVu", 8)
+            ow = pdfmetrics.stringWidth(old_txt, "DejaVu", 8)
+            ox = x + pad
+            oy = baseline - 10
+            c.drawString(ox, oy, old_txt)
+            c.setLineWidth(0.7)
+            c.line(ox, oy + 2.5, ox + ow, oy + 2.5)
+            disc = int(round((old_f - cur_f) / old_f * 100))
+            c.setFont("DejaVu-Bold", 8)
+            c.drawString(ox + ow + 4, oy, f"-{disc}%")
+
+        meta_bits = [b for b in (p.get("sku"), p.get("storage_location")) if b]
+        if meta_bits:
+            c.setFont("DejaVu", 6)
+            c.drawString(x + pad, y + pad, " · ".join(str(b) for b in meta_bits)[:40])
+
+        code = str(p.get("barcode") or p.get("code") or f"TG-{p.get('id', '')}")
+        if qr_mod and code:
+            try:
+                img = qr_mod.make(code)
+                side = min(14 * mm, H - 2 * pad)
+                tmp = io.BytesIO()
+                img.save(tmp, format="PNG")
+                tmp.seek(0)
+                from reportlab.lib.utils import ImageReader
+                c.drawImage(ImageReader(tmp), x + W - pad - side, y + pad,
+                            width=side, height=side, mask="auto")
+            except Exception:
+                pass
+
+    c.save()
+    return buf.getvalue()

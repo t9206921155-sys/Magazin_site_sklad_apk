@@ -689,8 +689,10 @@ async function publishOne(id) {
   } catch (e) { toast(e.message, true); }
 }
 
-function exportOne(id) {
-  window.open(`/api/warehouse/labels.pdf?ids=${id}`, '_blank');
+async function exportOne(id) {
+  try {
+    await downloadAuthed(`/api/warehouse/labels.pdf?ids=${id}`, 'label.pdf', true);
+  } catch (e) { toast(e.message, true); }
 }
 
 async function copyOne(id) {
@@ -1005,7 +1007,8 @@ async function printLabels() {
         <input class="fld" id="pf-cat" placeholder="Фильтр: категория (или пусто)" style="margin:0">
         <input class="fld" id="pf-loc" placeholder="Место (А-3)" style="margin:0">
       </div>
-      <button class="btn primary" onclick="printByFilter()" style="margin-bottom:12px">🖨 Печать по фильтру (все подходящие)</button>
+      <button class="btn primary" onclick="printByFilter()" style="margin-bottom:8px">🖨 Печать по фильтру (все подходящие)</button>
+      <button class="btn ghost" onclick="printPriceTags()" style="margin-bottom:12px">🏷 Ценники для зала (PDF)</button>
     ` + printers.map((pr, i) => `
       <div class="card" style="align-items:center">
         <div class="info">
@@ -1019,23 +1022,22 @@ async function printLabels() {
 }
 
 async function printWithPrinter(i) {
-  const printers = await fetch('/api/warehouse/printers', { headers: { 'X-Wh-Token': TOKEN, 'X-Admin-Token': TOKEN } }).then(r => r.json());
-  const pr = printers[i];
-  const ids = [...selected].join(',');
-  const q = `ids=${ids}&width=${pr.width_mm}&height=${pr.height_mm}&copies=${pr.copies || 1}`;
-  if (pr.format === 'zpl' || pr.format === 'epl') {
-    const res = await fetch(`/api/warehouse/labels.prn?${q}&format=${pr.format}`, { headers: { 'X-Wh-Token': TOKEN, 'X-Admin-Token': TOKEN } });
-    const blob = await res.blob();
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(blob);
-    a.download = 'labels.prn';
-    a.click();
-    toast('Файл .prn скачан — отправьте на принтер (Zebra: через драйвер/сеть; Eltron: через утилиту)');
-  } else {
-    window.open(`/api/warehouse/labels.pdf?${q}`, '_blank');
-    toast('PDF открыт — печатайте через диалог принтера');
-  }
-  closeSheet2();
+  const ids = [...selected];
+  if (!ids.length) return toast('Отметьте товары чекбоксами', true);
+  try {
+    const printers = await fetch('/api/warehouse/printers', { headers: { 'X-Wh-Token': TOKEN, 'X-Admin-Token': TOKEN } }).then(r => r.json());
+    const pr = printers[i];
+    if (!pr) return toast('Профиль принтера не найден', true);
+    const q = `ids=${ids.join(',')}&width=${pr.width_mm}&height=${pr.height_mm}&copies=${pr.copies || 1}`;
+    if (pr.format === 'zpl' || pr.format === 'epl') {
+      await downloadAuthed(`/api/warehouse/labels.prn?${q}&format=${pr.format}`, 'labels.prn', false);
+      toast('Файл .prn скачан — отправьте на принтер (Zebra: через драйвер/сеть; Eltron: через утилиту)');
+    } else {
+      await downloadAuthed(`/api/warehouse/labels.pdf?${q}`, 'labels.pdf', true);
+      toast('PDF готов — печатайте через диалог принтера');
+    }
+    closeSheet2();
+  } catch (e) { toast(e.message, true); }
 }
 
 function printOne(id) {
@@ -1474,13 +1476,56 @@ function renderInventoryResults(result) {
 
 function closeSheet2() { $('#sheet2').classList.add('hidden'); }
 
+// Скачивание защищённого файла: window.open не умеет слать X-Wh-Token,
+// поэтому тянем через fetch с заголовками и отдаём как blob.
+async function downloadAuthed(url, filename, openInNewTab) {
+  const res = await fetch(url, { headers: { 'X-Wh-Token': TOKEN, 'X-Admin-Token': TOKEN } });
+  if (!res.ok) {
+    let msg = 'Ошибка ' + res.status;
+    try { const j = await res.json(); if (j.detail) msg = j.detail; } catch (e) {}
+    throw new Error(msg);
+  }
+  const blob = await res.blob();
+  const href = URL.createObjectURL(blob);
+  if (openInNewTab) {
+    const w = window.open(href, '_blank');
+    if (!w) { const a = document.createElement('a'); a.href = href; a.download = filename; a.click(); }
+  } else {
+    const a = document.createElement('a');
+    a.href = href; a.download = filename; a.click();
+  }
+  setTimeout(() => URL.revokeObjectURL(href), 60000);
+}
+
 async function printByFilter() {
   const cat = $('#pf-cat').value.trim();
   const loc = $('#pf-loc').value.trim();
   if (!cat && !loc) return toast('Укажите категорию или место для фильтра', true);
-  window.open(`/api/warehouse/labels.pdf?cat=${encodeURIComponent(cat)}&loc=${encodeURIComponent(loc)}`, '_blank');
-  toast('Этикетки по фильтру открыты 🖨');
-  closeSheet2();
+  try {
+    await downloadAuthed(
+      `/api/warehouse/labels.pdf?cat=${encodeURIComponent(cat)}&loc=${encodeURIComponent(loc)}`,
+      'labels.pdf', true);
+    toast('Этикетки по фильтру готовы 🖨');
+    closeSheet2();
+  } catch (e) { toast(e.message, true); }
+}
+
+// Ценники для торгового зала (Этап 4): по выделенным товарам или по фильтру.
+async function printPriceTags() {
+  const ids = [...selected];
+  const cat = ($('#pf-cat') && $('#pf-cat').value.trim()) || '';
+  const loc = ($('#pf-loc') && $('#pf-loc').value.trim()) || '';
+  if (!ids.length && !cat && !loc) {
+    return toast('Отметьте товары чекбоксами или задайте фильтр', true);
+  }
+  const q = ids.length
+    ? `ids=${ids.join(',')}`
+    : `cat=${encodeURIComponent(cat)}&loc=${encodeURIComponent(loc)}`;
+  try {
+    await downloadAuthed(`/api/warehouse/price-tags.pdf?${q}`, 'price-tags.pdf', true);
+    toast('Ценники готовы 🏷');
+    closeSheet2();
+  } catch (e) { toast(e.message, true); }
 }
 
 // ------------------------------------------------------------------ настройки

@@ -2315,6 +2315,56 @@ def create_app(store, providers: dict, bot=None, notify_new_order=None, notify_o
         return Response(content=pdf, media_type="application/pdf",
                         headers={"Content-Disposition": 'attachment; filename="labels.pdf"'})
 
+    @app.get("/api/warehouse/price-tags.pdf")
+    async def wh_price_tags(request: Request, ids: str = "", width: float = 58,
+                            height: float = 40, copies: int = 1, qr: int = 1,
+                            x_wh_token: str = Header(default=""),
+                            x_admin_token: str = Header(default="")):
+        """Ценники для торгового зала: крупная цена, скидка, QR (Этап 4 склада).
+
+        В отличие от labels.pdf (складская наклейка с упором на штрих-код),
+        здесь упор на цену для покупателя.
+        """
+        user = wh_user_from_headers(x_wh_token, x_admin_token)
+        products = []
+        if ids.strip():
+            for pid in ids.split(","):
+                try:
+                    p = store.get_product(int(pid))
+                except ValueError:
+                    continue
+                if p:
+                    products.append(p)
+        else:
+            cat = request.query_params.get("cat", "").strip()
+            loc = request.query_params.get("loc", "").strip()
+            owner = request.query_params.get("owner", "").strip()
+            if cat or loc or owner:
+                for p in store.products():
+                    if p.get("is_archived"):
+                        continue
+                    if cat and p.get("category") != cat:
+                        continue
+                    if loc and str(p.get("storage_location") or "") != loc:
+                        continue
+                    if owner and str(p.get("owner_name") or "") != owner:
+                        continue
+                    products.append(p)
+        if not products:
+            raise HTTPException(422, "Нет товаров для печати (задайте ids или фильтр)")
+        shop_name = ""
+        try:
+            shop_name = str((store.settings.get("shop") or {}).get("name") or "")
+        except Exception:
+            pass
+        pdf = pdfreport.price_tags_pdf(products, width_mm=width, height_mm=height,
+                                       copies=max(1, min(9, copies)),
+                                       show_qr=bool(qr), shop_name=shop_name)
+        store.wh_log_add(user["name"], "печать ценников",
+                         f"{len(products)} тов., {int(width)}×{int(height)} мм")
+        return Response(content=pdf, media_type="application/pdf",
+                        headers={"Content-Disposition": 'attachment; filename="price-tags.pdf"'})
+
     @app.get("/api/warehouse/labels.prn")
     async def wh_labels_prn(ids: str = "", format: str = "zpl", width: float = 58,
                             height: float = 40, copies: int = 1,
