@@ -139,3 +139,11 @@ screenshots/{block}/{environment}-{check}-{YYYY-MM-DD}.png
 python3 telegram-shop/scripts/restore_sqlite.py backup.db \
   --target telegram-shop/data/shop.db --backup-current --apply
 ```
+
+## Observability
+
+- [ ] `GET /metrics` доступен только через внутренний мониторинг или reverse-proxy allowlist.
+- [ ] Проверить наличие `X-Request-ID` в ответах.
+- [ ] Сопоставить request ID из ответа с записью в логах.
+- [ ] Искусственно вызвать медленный endpoint на staging и убедиться, что появляется warning без секретов.
+- [ ] Не публиковать `/metrics` в открытый интернет без дополнительной защиты.
