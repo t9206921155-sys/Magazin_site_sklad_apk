@@ -89,3 +89,13 @@ python3 telegram-shop/scripts/restore_sqlite.py /path/to/shop.db.backup --target
 ```
 
 Перед `--apply` остановить приложение и сохранить текущую базу отдельной копией.
+
+## Перенос в MySQL/MariaDB через phpMyAdmin
+
+Сначала сделать SQL-экспорт и проверить его на копии:
+
+```bash
+python3 telegram-shop/scripts/export_sqlite_sql.py telegram-shop/data/shop.db -o /tmp/shop-export.sql
+```
+
+Затем импортировать `/tmp/shop-export.sql` через phpMyAdmin в отдельную тестовую базу с кодировкой `utf8mb4`. Автоматический production-импорт не выполняется.
