@@ -876,7 +876,9 @@ def create_app(store, providers: dict, bot=None, notify_new_order=None, notify_o
         return {"ok": True, "shop": store.settings["shop_name"]}
 
     @app.get("/metrics")
-    async def metrics():
+    async def metrics(x_metrics_token: str = Header(default="")):
+        if config.METRICS_TOKEN and not hmac.compare_digest(x_metrics_token, config.METRICS_TOKEN):
+            raise HTTPException(403, "Metrics access denied")
         return {"requests": _request_metrics["requests"], "errors": _request_metrics["errors"]}
 
     @app.get("/health/live")

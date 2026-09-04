@@ -32,6 +32,7 @@ PAYMENT_PROVIDER = os.getenv("PAYMENT_PROVIDER", "test").strip()
 HOST = os.getenv("HOST", "0.0.0.0")
 PORT = int(os.getenv("PORT", "8000"))
 CORS_ORIGINS = [x.strip() for x in os.getenv("CORS_ORIGINS", "*").split(",") if x.strip()]
+METRICS_TOKEN = os.getenv("METRICS_TOKEN", "").strip()
 
 DATA_DIR = os.path.join(BASE_DIR, "data")
 WEBAPP_DIR = os.path.join(BASE_DIR, "webapp")      # Mini App (Telegram) — /app
