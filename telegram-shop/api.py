@@ -889,13 +889,17 @@ def create_app(store, providers: dict, bot=None, notify_new_order=None, notify_o
     @app.get("/health/ready")
     async def health_ready():
         """Readiness probe with a local database check; never exposes secrets."""
-        checks = {"database": False, "config": False}
+        checks = {"database": False, "config": False, "data_dir": False}
         try:
             store._q1("SELECT 1")
             checks["database"] = True
         except Exception as exc:
             log.error("readiness database check failed: %s", exc)
         checks["config"] = bool(store.settings.get("shop_name"))
+        try:
+            checks["data_dir"] = os.path.isdir(config.DATA_DIR) and os.access(config.DATA_DIR, os.W_OK)
+        except OSError:
+            checks["data_dir"] = False
         ok = all(checks.values())
         payload = {"ok": ok, "checks": checks}
         if not ok: return JSONResponse(status_code=503, content=payload)
