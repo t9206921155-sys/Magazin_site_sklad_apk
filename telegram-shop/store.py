@@ -932,6 +932,61 @@ class Store:
             self._conn.commit()
             return action, dict(target)
 
+    def update_stock_by_code(self, rows: list) -> dict:
+        """Точечное обновление остатков/цен по коду номенклатуры (обмен с 1С).
+
+        Не создаёт товары и не трогает названия/описания — только stock,
+        price, old_price, in_stock у уже существующих позиций. Нужно для
+        регулярной выгрузки остатков из 1С, где полный каталог не шлётся.
+
+        rows: [{"code": "...", "stock": 5, "price": 100, "in_stock": true}, ...]
+        Ключ поиска — code, при его отсутствии name.
+        """
+        updated = 0
+        not_found = []
+        with _lock:
+            for row in rows:
+                if not isinstance(row, dict):
+                    continue
+                code = str(row.get("code", "") or "").strip()
+                name = str(row.get("name", "") or "").strip()
+                target = None
+                if code:
+                    r = self._q1("SELECT * FROM products WHERE code=?", (code,))
+                    target = self._row_to_product(r) if r else None
+                if target is None and name:
+                    r = self._q1("SELECT * FROM products WHERE name=?", (name,))
+                    target = self._row_to_product(r) if r else None
+                if target is None:
+                    not_found.append(code or name)
+                    continue
+
+                patch = {}
+                if "stock" in row and row["stock"] is not None:
+                    try:
+                        patch["stock"] = int(float(row["stock"]))
+                    except (TypeError, ValueError):
+                        pass
+                for field in ("price", "old_price"):
+                    if field in row and row[field] is not None:
+                        try:
+                            patch[field] = int(float(row[field]))
+                        except (TypeError, ValueError):
+                            pass
+                if "in_stock" in row:
+                    patch["in_stock"] = bool(row["in_stock"])
+                elif "stock" in patch:
+                    # если 1С прислала только остаток — наличие выводим из него
+                    patch["in_stock"] = patch["stock"] != 0
+                if not patch:
+                    continue
+
+                self._apply_product_fields(target, patch)
+                self._insert_product(target)
+                updated += 1
+            self._conn.commit()
+        return {"updated": updated, "not_found": not_found}
+
     # ---------------- остатки ----------------
     def _change_stock(self, items: list, delta: int):
         for it in items:

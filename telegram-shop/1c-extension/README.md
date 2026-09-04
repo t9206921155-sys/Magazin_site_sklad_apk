@@ -95,7 +95,9 @@ modules/                               ← те же тексты модулей
 | Метод | Путь | Описание |
 |---|---|---|
 | GET | `/1c/catalog` | товары магазина |
-| POST | `/1c/catalog` | выгрузка каталога из 1С |
+| POST | `/1c/catalog` | выгрузка каталога из 1С (полная карточка, создаёт новые товары) |
+| GET | `/1c/stock` | текущие остатки и цены для сверки |
+| POST | `/1c/stock` | **быстрая выгрузка остатков** `{"items":[{"code":"НМ-001","stock":12,"price":990}]}` |
 | GET | `/1c/orders?synced=0&status=paid,processing,shipped` | новые заказы |
 | POST | `/1c/orders/ack` | подтверждение выгрузки `{"ids":["ORD-1001"]}` |
 | POST | `/1c/orders/status` | статус из 1С `{"id":"ORD-1001","status":"shipped"}` |

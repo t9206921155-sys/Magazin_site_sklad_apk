@@ -31,6 +31,16 @@ async function api(path, opts = {}) {
   let data = null;
   try { data = await res.json(); } catch (e) {}
   if (res.status === 403) { $('#login').classList.remove('hidden'); throw new Error('Нужен вход'); }
+  // 202 от service worker: сети нет, операция поставлена в очередь (Этап 5).
+  if (res.status === 202 && data && data.queued) {
+    OFFLINE_QUEUE = data.left || OFFLINE_QUEUE + 1;
+    updateOfflineBar();
+    return data;
+  }
+  if (res.headers.get('X-From-Cache') === '1') {
+    LAST_FROM_CACHE = true;
+    updateOfflineBar();
+  }
   if (!res.ok) throw new Error((data && data.detail) || ('Ошибка ' + res.status));
   return data;
 }
@@ -985,14 +995,98 @@ function stopScan() {
 /* кнопки */
 $('#saveBtn').addEventListener('click', saveProduct);
 $('#delBtn').addEventListener('click', delProduct);
+/* ---------- офлайн-режим и очередь операций (Этап 5) ---------- */
+let OFFLINE_QUEUE = 0;
+let LAST_FROM_CACHE = false;
+
+function renderSyncBar(text, mode) {
+  const el = $('#syncbar');
+  if (!el) return;
+  const colors = {
+    online:  ['#0b5c56', '#d7f5f0'],
+    offline: ['#7c2d12', '#fed7aa'],
+    queued:  ['#78350f', '#fde68a'],
+  };
+  const [bg, fg] = colors[mode] || colors.online;
+  el.style.background = bg;
+  el.style.color = fg;
+  el.textContent = text;
+}
+
+function updateOfflineBar() {
+  if (!navigator.onLine) {
+    renderSyncBar(
+      `📴 Нет сети — работаем офлайн${OFFLINE_QUEUE ? ` · в очереди: ${OFFLINE_QUEUE}` : ''}`,
+      'offline');
+    return true;
+  }
+  if (OFFLINE_QUEUE) {
+    renderSyncBar(`⏳ Отправляем отложенные операции: ${OFFLINE_QUEUE}`, 'queued');
+    return true;
+  }
+  return false;
+}
+
+function askQueueSize() {
+  if (navigator.serviceWorker && navigator.serviceWorker.controller) {
+    navigator.serviceWorker.controller.postMessage({ type: 'queue-size' });
+  }
+}
+
+function flushOfflineQueue() {
+  if (navigator.serviceWorker && navigator.serviceWorker.controller) {
+    navigator.serviceWorker.controller.postMessage({ type: 'flush' });
+  }
+}
+
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.addEventListener('message', ev => {
+    const d = ev.data || {};
+    if (d.type === 'queued') {
+      OFFLINE_QUEUE = d.left || 0;
+      updateOfflineBar();
+      toast('📴 Нет сети — операция сохранена, отправим автоматически');
+    }
+    if (d.type === 'queue-size') {
+      OFFLINE_QUEUE = d.left || 0;
+      updateOfflineBar();
+    }
+    if (d.type === 'sync-done') {
+      OFFLINE_QUEUE = d.left || 0;
+      if (d.sent) {
+        toast(`✅ Отправлено отложенных операций: ${d.sent}` +
+              (d.failed ? ` · отклонено: ${d.failed}` : ''));
+        if (typeof loadList === 'function') loadList();
+      }
+      if (!OFFLINE_QUEUE) syncTick();
+      else updateOfflineBar();
+    }
+  });
+}
+
+window.addEventListener('online', () => {
+  toast('🌐 Сеть появилась — синхронизируем');
+  flushOfflineQueue();
+  syncTick();
+});
+window.addEventListener('offline', () => updateOfflineBar());
+
 async function syncTick() {
+  if (updateOfflineBar()) return;
   try {
     const r = await fetch('/api/warehouse/sync', { headers: { 'X-Wh-Token': TOKEN, 'X-Admin-Token': TOKEN } });
     if (!r.ok) return;
+    LAST_FROM_CACHE = r.headers.get('X-From-Cache') === '1';
     const d = await r.json();
     const t = new Date(d.server_time).toLocaleTimeString('ru-RU');
-    $('#syncbar').textContent = `☁️ единая база · ${d.products} товаров · синхронизировано ${t}`;
-  } catch (e) {}
+    if (LAST_FROM_CACHE) {
+      renderSyncBar(`⚠️ Данные из кэша · ${d.products} товаров · на ${t}`, 'offline');
+    } else {
+      renderSyncBar(`☁️ единая база · ${d.products} товаров · синхронизировано ${t}`, 'online');
+    }
+  } catch (e) {
+    updateOfflineBar();
+  }
 }
 
 // диалог печати: профили принтеров
@@ -1919,5 +2013,11 @@ function toggleTheme() {
   toast(dark ? 'Тёмная тема 🌙' : 'Светлая тема ☀️');
 }
 
-if ('serviceWorker' in navigator) navigator.serviceWorker.register('/warehouse/sw.js').catch(() => {});
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('/warehouse/sw.js')
+    .then(() => navigator.serviceWorker.ready)
+    .then(() => { askQueueSize(); flushOfflineQueue(); })
+    .catch(() => {});
+}
+updateOfflineBar();
 if (TOKEN) { $('#login').classList.add('hidden'); loadList(); syncTick(); setInterval(syncTick, 30000); }

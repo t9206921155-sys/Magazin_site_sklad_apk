@@ -3493,6 +3493,36 @@ def create_app(store, providers: dict, bot=None, notify_new_order=None, notify_o
         result = importer.apply_import(store, items)
         return {"ok": True, **result}
 
+    @app.post("/1c/stock")
+    async def one_c_stock(body: dict, x_1c_token: str = Header(default="")):
+        """Быстрая выгрузка остатков и цен из 1С (Этап 5).
+
+        POST /1c/stock  {"items": [{"code": "НМ-001", "stock": 12, "price": 990}, ...]}
+
+        Отличие от POST /1c/catalog: тот требует полную карточку товара
+        (в т.ч. name) и создаёт новые позиции. Здесь — только обновление
+        остатков/цен у существующих, что и нужно для регулярной синхронизации.
+        """
+        require_1c(x_1c_token)
+        items = body.get("items") if isinstance(body, dict) else None
+        if not isinstance(items, list) or not items:
+            raise HTTPException(422, "Ожидается {\"items\": [{\"code\": ..., \"stock\": ...}]}")
+        if len(items) > 5000:
+            raise HTTPException(413, "За один раз не более 5000 позиций")
+        res = store.update_stock_by_code(items)
+        return {"ok": True, **res}
+
+    @app.get("/1c/stock")
+    async def one_c_stock_get(x_1c_token: str = Header(default="")):
+        """Текущие остатки для сверки на стороне 1С."""
+        require_1c(x_1c_token)
+        return {"items": [
+            {"code": p.get("code") or f"TG-{p['id']}", "id": p["id"],
+             "name": p["name"], "stock": p.get("stock", -1),
+             "price": p.get("price", 0), "in_stock": p.get("in_stock", True)}
+            for p in store.products()
+        ]}
+
     @app.get("/1c/orders")
     async def one_c_orders(status: str = "", synced: str = "0", x_1c_token: str = Header(default="")):
         require_1c(x_1c_token)
