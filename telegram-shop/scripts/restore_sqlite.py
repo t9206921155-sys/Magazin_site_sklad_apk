@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Safe local SQLite restore helper. Default is dry-run; use --apply explicitly."""
-import argparse, shutil, sqlite3
+import argparse, shutil, sqlite3, hashlib
 from pathlib import Path
 
 def main():
@@ -8,7 +8,9 @@ def main():
     if not a.backup.is_file(): p.error('backup file not found')
     con=sqlite3.connect(a.backup); ok=con.execute('PRAGMA integrity_check').fetchone()[0]=='ok'; con.close()
     if not ok: p.error('SQLite integrity check failed')
+    digest=hashlib.sha256(a.backup.read_bytes()).hexdigest()
     print(f'Backup OK: {a.backup} ({a.backup.stat().st_size} bytes)')
+    print(f'SHA256: {digest}')
     print(f'Target: {a.target}')
     if not a.apply: print('Dry-run only. Add --apply to replace target.'); return 0
     if a.target.resolve()==a.backup.resolve(): p.error('target must differ from backup')
