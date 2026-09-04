@@ -33,6 +33,7 @@ HOST = os.getenv("HOST", "0.0.0.0")
 PORT = int(os.getenv("PORT", "8000"))
 CORS_ORIGINS = [x.strip() for x in os.getenv("CORS_ORIGINS", "*").split(",") if x.strip()]
 METRICS_TOKEN = os.getenv("METRICS_TOKEN", "").strip()
+AUTH_RATE_LIMIT = max(1, int(os.getenv("AUTH_RATE_LIMIT", "20")))
 
 DATA_DIR = os.path.join(BASE_DIR, "data")
 WEBAPP_DIR = os.path.join(BASE_DIR, "webapp")      # Mini App (Telegram) — /app
