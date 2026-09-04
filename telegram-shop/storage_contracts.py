@@ -1,0 +1,23 @@
+"""Stable provider contracts for database and photo storage adapters."""
+from typing import Protocol, runtime_checkable
+
+@runtime_checkable
+class DatabaseProvider(Protocol):
+    def ping(self) -> dict: ...
+    def push_products(self, products: list) -> dict: ...
+    def pull_products(self) -> dict: ...
+
+@runtime_checkable
+class PhotoStorage(Protocol):
+    @property
+    def enabled(self) -> bool: ...
+    def ping(self) -> dict: ...
+    def upload_photo(self, local_path: str) -> dict: ...
+
+def provider_status(provider) -> dict:
+    """Common safe status response; never serializes credentials."""
+    try:
+        result = provider.ping()
+        return {"ok": bool(result.get("ok")), "status": result.get("status", 200 if result.get("ok") else 503), "error": result.get("error", "")}
+    except Exception as exc:
+        return {"ok": False, "status": 503, "error": str(exc)[:200]}

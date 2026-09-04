@@ -60,3 +60,12 @@ prefix: sqlite
 ## Yandex Disk API (заглушка)
 
 В настройках добавлен провайдер `Yandex Disk API (заглушка)` и поля OAuth token/path. Токен намеренно не задан в репозитории: его нужно вставить администратору самостоятельно. До подключения REST-адаптера загрузка остаётся в режиме S3; это безопасный feature flag, не подменяющий рабочее хранилище.
+
+## Единые контракты провайдеров
+
+`telegram-shop/storage_contracts.py` содержит стабильные Protocol-контракты:
+
+- `DatabaseProvider`: `ping`, `push_products`, `pull_products`;
+- `PhotoStorage`: `enabled`, `ping`, `upload_photo`.
+
+Новые провайдеры должны реализовывать эти методы и возвращать безопасный статус через `provider_status`, без credentials в ответе.
