@@ -230,6 +230,14 @@ class YandexDiskClient:
             return {"ok":True,"path":remote,"url":meta.get("public_url") or link}
         except Exception as e: return {"ok":False,"error":str(e)[:300]}
 
+    def delete_photo(self, photo_ref):
+        status, data = self._request("/resources", method="DELETE", query={"path": photo_ref, "permanently": "true"})
+        return {"ok": status in (202, 204), "status": status, "error": data.get("error", "") if isinstance(data, dict) else ""}
+
+    def public_url(self, photo_ref):
+        status, data = self._request("/resources", query={"path": photo_ref})
+        return data.get("public_url", "") if status == 200 else ""
+
 
 class S3Client:
     """S3-совместимое объектное хранилище.
@@ -254,6 +262,15 @@ class S3Client:
     @property
     def enabled(self) -> bool:
         return bool(self.endpoint and self.access_key and self.secret_key and self.bucket)
+
+    def delete_photo(self, photo_ref):
+        try:
+            self._client().delete_object(Bucket=self.bucket, Key=photo_ref)
+            return {"ok": True}
+        except Exception as exc: return {"ok": False, "error": str(exc)[:200]}
+
+    def public_url(self, photo_ref):
+        return self.public_url_for_key(photo_ref)
 
     def _client(self):
         try:
