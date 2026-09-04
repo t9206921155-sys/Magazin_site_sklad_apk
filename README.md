@@ -1,5 +1,8 @@
 # Magazin_site_sklad_apk
 
+[![Tests](https://github.com/t9206921155-sys/Magazin_site_sklad_apk/actions/workflows/tests.yml/badge.svg)](https://github.com/t9206921155-sys/Magazin_site_sklad_apk/actions/workflows/tests.yml)
+
+
 Монорепозиторий проекта **Telegram Shop**: маркетплейс/интернет-магазин с SEO-сайтом,
 Telegram-ботом и Mini App, админкой, мобильным складом (PWA/APK), интеграциями доставок,
 оплатой, 1С и ИИ-инструментами.
