@@ -1662,17 +1662,19 @@ async function openSettings() {
     ` : '';
     $('#sheet2-title').textContent = '⚙️ Настройки';
     $('#sheet2-body').innerHTML = (isAdmin ? `<h3>🏬 Склады</h3><button class=\"mini\" onclick=\"manageWarehouses()\">Управление складами</button>` : '') + apkBlock + `
-      <h3 style="margin:14px 0 8px">🗄 База товаров: 3 режима подключения</h3>
+      <h3 style="margin:14px 0 8px">🗄 База товаров: 4 режима подключения</h3>
       <p style="color:#64748b;font-size:12px;margin:0 0 8px">Можно выбрать: <b>VPS</b>, <b>VPS → Supabase</b> или <b>Direct Supabase</b>. Во всех режимах фото, картинки и backup ниже остаются в Yandex Object Storage.</p>
       <label class="lb" style="display:flex;gap:8px;align-items:center"><input type="checkbox" id="cl-en" ${s.cloud.enabled ? 'checked' : ''} ${isAdmin ? '' : 'disabled'} style="accent-color:#0f766e"> Включить внешнюю синхронизацию / гибридную БД</label>
       <select class="fld" id="cl-db-mode" ${isAdmin ? '' : 'disabled'}>
         <option value="vps" ${dbMode === 'vps' ? 'selected' : ''}>VPS / SQLite — живая база на сервере</option>
         <option value="supabase_proxy" ${dbMode === 'supabase_proxy' ? 'selected' : ''}>VPS → Supabase — backend работает с Supabase</option>
         <option value="supabase_direct" ${dbMode === 'supabase_direct' ? 'selected' : ''}>Direct Supabase — приложение работает с Supabase напрямую</option>
+        <option value="mysql" ${dbMode === 'mysql' ? 'selected' : ''}>MySQL / MariaDB VPS — управление через phpMyAdmin</option>
       </select>
       <div id="db-vps-note" style="${dbMode === 'vps' ? '' : 'display:none'};background:#eff6ff;border:1px solid #bfdbfe;border-radius:12px;padding:10px 12px;margin:0 0 10px;color:#1d4ed8;font-size:12px">Живая база склада остаётся в <code>data/shop.db</code> на VPS. APK подключается только к вашему серверу, а каталог/фото/backup можно синхронизировать отдельно.</div>
       <div id="db-proxy-note" style="${dbMode === 'supabase_proxy' ? '' : 'display:none'};background:#ecfeff;border:1px solid #a5f3fc;border-radius:12px;padding:10px 12px;margin:0 0 10px;color:#0f766e;font-size:12px">Гибридный режим: APK входит через VPS, а backend читает и пишет каталог в Supabase. Это самый безопасный вариант для совместной работы.</div>
       <div id="db-direct-note" style="${dbMode === 'supabase_direct' ? '' : 'display:none'};background:#fff7ed;border:1px solid #fdba74;border-radius:12px;padding:10px 12px;margin:0 0 10px;color:#c2410c;font-size:12px">Direct-режим: после обычного входа через VPS приложение читает и пишет каталог напрямую в Supabase по public key. VPS при этом зеркалирует изменения в локальную SQLite для витрины, заказов и служебных API.</div>
+      <div id="mysql-fields" style="${dbMode === 'mysql' ? '' : 'display:none'}"><input class="fld" id="mysql-host" placeholder="MySQL host" value="${esc(s.cloud.mysql_host || '')}" ${isAdmin ? '' : 'disabled'}><div class="row2"><input class="fld" id="mysql-port" type="number" value="${s.cloud.mysql_port || 3306}" placeholder="Порт"><input class="fld" id="mysql-user" placeholder="Пользователь" value="${esc(s.cloud.mysql_user || '')}"></div><div class="row2"><input class="fld" id="mysql-db" placeholder="База данных" value="${esc(s.cloud.mysql_database || 'shop')}"><input class="fld" id="mysql-table" placeholder="Таблица каталога" value="${esc(s.cloud.mysql_table || 'products')}"></div><input class="fld" id="mysql-pass" type="password" placeholder="Пароль (пусто = не менять)"></div>
       <div id="sb-fields" style="${dbMode === 'supabase_proxy' || dbMode === 'supabase_direct' ? '' : 'display:none'}">
         <input class="fld" id="cl-url" placeholder="Supabase URL, например https://xxxx.supabase.co" value="${esc(s.cloud.url)}" ${isAdmin ? '' : 'disabled'}>
         <input class="fld" id="cl-key" type="password" placeholder="Server key для VPS → Supabase (service role или ключ с правами на products)" value="${esc(keyVal)}" ${isAdmin ? '' : 'disabled'}>
@@ -1786,6 +1788,7 @@ async function openSettings() {
     $('#cl-db-mode').addEventListener('change', e => {
       const v = e.target.value;
       $('#sb-fields').style.display = (v === 'supabase_proxy' || v === 'supabase_direct') ? '' : 'none';
+      $('#mysql-fields').style.display = v === 'mysql' ? '' : 'none';
       $('#db-vps-note').style.display = v === 'vps' ? '' : 'none';
       $('#db-proxy-note').style.display = v === 'supabase_proxy' ? '' : 'none';
       $('#db-direct-note').style.display = v === 'supabase_direct' ? '' : 'none';
@@ -1900,7 +1903,8 @@ async function saveSettings() {
                backup_prefix: $('#s3-backup-prefix').value.trim() || 'sqlite',
                s3_preset: $('#s3-preset').value, s3_endpoint: $('#s3-ep').value.trim(),
                s3_access_key: $('#s3-ak').value.trim(),
-               s3_secret_key: $('#s3-sk').value.trim(), s3_region: $('#s3-region').value.trim() },
+               s3_secret_key: $('#s3-sk').value.trim(), s3_region: $('#s3-region').value.trim(),
+               mysql_host: $('#mysql-host')?.value.trim() || s.cloud.mysql_host || '', mysql_port: +($('#mysql-port')?.value || 3306), mysql_user: $('#mysql-user')?.value.trim() || s.cloud.mysql_user || '', mysql_database: $('#mysql-db')?.value.trim() || 'shop', mysql_table: $('#mysql-table')?.value.trim() || 'products', mysql_password: $('#mysql-pass')?.value || '•••' },
       warehouse: { auto_sync_cloud: $('#cl-autosync').checked },
       printers: PRINTERS,
       social: { auto_post_new: $('#pub-auto').checked, telegram_channel: $('#pub-tg').value.trim(),
