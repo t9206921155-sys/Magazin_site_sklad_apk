@@ -151,3 +151,10 @@ python3 telegram-shop/scripts/restore_sqlite.py backup.db \
 ### Защита метрик
 
 В production задать случайный `METRICS_TOKEN` и ограничить `/metrics` reverse-proxy allowlist. Проверить без токена (`403`) и с корректным заголовком `X-Metrics-Token` (`200`). Токен не включать в скриншоты и URL.
+
+### Rate limit авторизации
+
+- [ ] В production задать `AUTH_RATE_LIMIT` по ожидаемой нагрузке.
+- [ ] Проверить, что превышение лимита возвращает `429`.
+- [ ] Убедиться, что после окна в 60 секунд вход снова доступен.
+- [ ] При нескольких экземплярах приложения вынести bucket rate limiter в Redis.
