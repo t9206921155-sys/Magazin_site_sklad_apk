@@ -552,6 +552,10 @@ def create_app(store, providers: dict, bot=None, notify_new_order=None, notify_o
         condition = condition.strip()
         if seller:
             products = [p for p in products if p.get("seller_slug") == seller]
+        if price_min: products = [p for p in products if int(p.get("price", 0) or 0) >= price_min]
+        if price_max: products = [p for p in products if int(p.get("price", 0) or 0) <= price_max]
+        if has_photo: products = [p for p in products if p.get("photo") or p.get("photos")]
+        if negotiable: products = [p for p in products if p.get("negotiable") or p.get("allow bargaining")]
         if cat:
             products = [p for p in products if p.get("category") == cat]
         if subcat:
@@ -563,6 +567,10 @@ def create_app(store, providers: dict, bot=None, notify_new_order=None, notify_o
             scored = {pid: sc for pid, sc in store.search_products(q, limit=500)}
             products = [p for p in products if p["id"] in scored]
             products.sort(key=lambda p: -scored[p["id"]])
+        if sort == "price_asc": products.sort(key=lambda p: int(p.get("price", 0) or 0))
+        elif sort == "price_desc": products.sort(key=lambda p: int(p.get("price", 0) or 0), reverse=True)
+        elif sort == "new": products.sort(key=lambda p: p.get("created_at", ""), reverse=True)
+        elif sort == "rating": products.sort(key=lambda p: float(p.get("seller_rating", 0) or 0), reverse=True)
         subs = store.subcategories(cat) if cat else []
         per_page = 24
         total = len(products)
@@ -894,7 +902,9 @@ def create_app(store, providers: dict, bot=None, notify_new_order=None, notify_o
 
     @app.get("/api/catalog")
     async def catalog(q: str = "", cat: str = "", sub: str = "", condition: str = "",
-                      seller: str = ""):
+                      seller: str = "", price_min: int = 0, price_max: int = 0,
+                      has_photo: bool = False, negotiable: bool = False,
+                      sort: str = ""):
         products = _visible_products()
         if cat:
             products = [p for p in products if p.get("category") == cat]
@@ -904,10 +914,18 @@ def create_app(store, providers: dict, bot=None, notify_new_order=None, notify_o
             products = [p for p in products if p.get("condition") == condition]
         if seller:
             products = [p for p in products if p.get("seller_slug") == seller]
+        if price_min: products = [p for p in products if int(p.get("price", 0) or 0) >= price_min]
+        if price_max: products = [p for p in products if int(p.get("price", 0) or 0) <= price_max]
+        if has_photo: products = [p for p in products if p.get("photo") or p.get("photos")]
+        if negotiable: products = [p for p in products if p.get("negotiable") or p.get("allow bargaining")]
         if q.strip():
             scored = {pid: sc for pid, sc in store.search_products(q, limit=500)}
             products = [p for p in products if p["id"] in scored]
             products.sort(key=lambda p: -scored[p["id"]])
+        if sort == "price_asc": products.sort(key=lambda p: int(p.get("price", 0) or 0))
+        elif sort == "price_desc": products.sort(key=lambda p: int(p.get("price", 0) or 0), reverse=True)
+        elif sort == "new": products.sort(key=lambda p: p.get("created_at", ""), reverse=True)
+        elif sort == "rating": products.sort(key=lambda p: float(p.get("seller_rating", 0) or 0), reverse=True)
         subs = store.subcategories(cat) if cat else []
         return {"products": products, "categories": store.categories(),
                 "subcategories": subs,
