@@ -548,6 +548,12 @@ def _mysql_client_from_cloud(cloud: dict) -> MySQLClient:
     )
 
 
+def database_provider_from_cloud(cloud: dict):
+    """Return the configured database adapter through the common provider boundary."""
+    mode, provider = _catalog_client_from_cloud(cloud or {})
+    return mode, provider
+
+
 def _catalog_client_from_cloud(cloud: dict):
     mode = database_mode(cloud)
     if mode in {"supabase_proxy", "supabase_direct"}:
