@@ -132,3 +132,10 @@ python3 telegram-shop/scripts/export_sqlite_sql.py telegram-shop/data/shop.db -o
 ```text
 screenshots/{block}/{environment}-{check}-{YYYY-MM-DD}.png
 ```
+
+Для восстановления с автоматическим сохранением текущей базы:
+
+```bash
+python3 telegram-shop/scripts/restore_sqlite.py backup.db \
+  --target telegram-shop/data/shop.db --backup-current --apply
+```
