@@ -10,6 +10,7 @@ export MAGAZIN_DB="$TMP_DB" BOT_TOKEN= PORT
 python3 bot.py >"$LOG" 2>&1 & PID=$!
 for i in {1..30}; do curl -sf "$BASE/" >/dev/null && break; sleep 1; done
 status=0
+python3 tests-health.py "$BASE" || status=1
 python3 tests-labels.py || status=1
 node tests-hid-scanner.js || status=1
 python3 tests-stage5.py "$BASE" || status=1
