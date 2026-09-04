@@ -156,6 +156,16 @@ def create_app(store, providers: dict, bot=None, notify_new_order=None, notify_o
     app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
     _rate_buckets = {}
     @app.middleware("http")
+    async def request_observability(request: Request, call_next):
+        started = time.monotonic(); request_id = secrets.token_hex(8)
+        response = await call_next(request)
+        response.headers["X-Request-ID"] = request_id
+        elapsed = time.monotonic() - started
+        if elapsed > 2:
+            log.warning("slow request id=%s method=%s path=%s elapsed=%.3fs", request_id, request.method, request.url.path, elapsed)
+        return response
+
+    @app.middleware("http")
     async def auth_rate_limit(request: Request, call_next):
         if request.method == "POST" and request.url.path in ("/api/warehouse/login", "/api/warehouse/quick/login"):
             now = time.time(); ip = request.client.host if request.client else "unknown"; key = (ip, request.url.path)
