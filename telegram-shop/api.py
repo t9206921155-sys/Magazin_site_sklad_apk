@@ -154,6 +154,17 @@ def create_app(store, providers: dict, bot=None, notify_new_order=None, notify_o
                notify_status=None, notify_admin=None, broadcast_sender=None):
     app = FastAPI(title="Telegram Shop", docs_url=None, redoc_url=None)
     app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
+    _rate_buckets = {}
+    @app.middleware("http")
+    async def auth_rate_limit(request: Request, call_next):
+        if request.method == "POST" and request.url.path in ("/api/warehouse/login", "/api/warehouse/quick/login"):
+            now = time.time(); ip = request.client.host if request.client else "unknown"; key = (ip, request.url.path)
+            recent = [t for t in _rate_buckets.get(key, []) if now - t < 60]
+            if len(recent) >= 20:
+                return JSONResponse(status_code=429, content={"detail": "Слишком много попыток. Повторите через минуту."})
+            recent.append(now); _rate_buckets[key] = recent
+        return await call_next(request)
+
     @app.middleware("http")
     async def security_headers(request: Request, call_next):
         response = await call_next(request)
