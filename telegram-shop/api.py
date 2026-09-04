@@ -154,6 +154,14 @@ def create_app(store, providers: dict, bot=None, notify_new_order=None, notify_o
                notify_status=None, notify_admin=None, broadcast_sender=None):
     app = FastAPI(title="Telegram Shop", docs_url=None, redoc_url=None)
     app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
+    @app.middleware("http")
+    async def security_headers(request: Request, call_next):
+        response = await call_next(request)
+        response.headers.setdefault("X-Content-Type-Options", "nosniff")
+        response.headers.setdefault("X-Frame-Options", "SAMEORIGIN")
+        response.headers.setdefault("Referrer-Policy", "strict-origin-when-cross-origin")
+        response.headers.setdefault("Permissions-Policy", "camera=(self), geolocation=()")
+        return response
 
     @app.middleware("http")
     async def cache_static(request: Request, call_next):
