@@ -42,7 +42,7 @@ git sparse-checkout set --no-cone '/*' \
 | 07 | Отчёты по оборачиваемости | ✅ | 04.09.2026 | `blocks/BLOCK-07-reports.md` |
 | 08 | Прямая печать на IP-принтер (ZPL по сети) | ✅ | 04.09.2026 | `blocks/BLOCK-08-network-printing.md` |
 | 09 | Маркетплейс: каталог, поиск, фильтры | ⏳ | — | `blocks/BLOCK-09-marketplace-catalog.md` |
-| 10 | Тесты и CI | ⏳ | — | `blocks/BLOCK-10-tests-ci.md` |
+| 10 | Тесты и CI | ✅ | 04.09.2026 | `blocks/BLOCK-10-tests-ci.md` |
 | 11 | Проверка на реальном железе | ⛔ | — | `blocks/BLOCK-11-hardware.md` |
 
 **Готово: 7 из 13.** Следующий блок — **06a (мультисклад: интерфейс)**.
