@@ -99,3 +99,36 @@ python3 telegram-shop/scripts/export_sqlite_sql.py telegram-shop/data/shop.db -o
 ```
 
 Затем импортировать `/tmp/shop-export.sql` через phpMyAdmin в отдельную тестовую базу с кодировкой `utf8mb4`. Автоматический production-импорт не выполняется.
+
+## Скриншоты для ручной приёмки
+
+Для каждого пункта при ручной проверке сохранять скриншот с датой и окружением (`staging`/`production`). Не включать в кадр пароли, OAuth-токены, service keys, персональные данные покупателей и полные URL с секретными query-параметрами.
+
+### База данных
+
+- [ ] VPS / SQLite: экран настроек и сохранение после перезапуска.
+- [ ] VPS → Supabase: настройки режима и результат cloud test.
+- [ ] Direct Supabase: Supabase RLS policy и успешный/запрещённый запрос.
+- [ ] MySQL/MariaDB: phpMyAdmin — структура таблиц, `utf8mb4`, пользователь приложения без лишних прав.
+- [ ] Restore: dry-run, integrity check и восстановленная контрольная запись.
+
+### Фото
+
+- [ ] S3 Yandex: bucket/prefix без секретных ключей и открытая тестовая фотография.
+- [ ] VK Cloud: bucket и открытая тестовая фотография.
+- [ ] Другой S3: endpoint без credentials и результат загрузки.
+- [ ] Yandex Disk: выбранный provider, путь, успешная загрузка и публичная ссылка; OAuth token замазать.
+
+### Production
+
+- [ ] `/health/live` и `/health/ready` с HTTP-кодами.
+- [ ] полный `post-deploy-smoke.sh`.
+- [ ] backup в bucket.
+- [ ] восстановление на отдельной базе.
+- [ ] Android/PWA: каталог, склад, сканирование и печать на реальном устройстве.
+
+Рекомендуемый шаблон имени:
+
+```text
+screenshots/{block}/{environment}-{check}-{YYYY-MM-DD}.png
+```
