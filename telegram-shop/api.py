@@ -2827,6 +2827,15 @@ def create_app(store, providers: dict, bot=None, notify_new_order=None, notify_o
         wh_user_from_headers(x_wh_token, x_admin_token)
         return cloudstore.test_cloud(store)
 
+    @app.get("/api/warehouse/cloud/config-check")
+    async def wh_cloud_config_check(x_wh_token: str = Header(default=""), x_admin_token: str = Header(default="")):
+        wh_user_from_headers(x_wh_token, x_admin_token)
+        c = store.settings.get("cloud") or {}; mode = cloudstore.database_mode(c); photo = c.get("photo_provider") or "s3"
+        db_required = {"vps": [], "supabase_proxy": ["url", "key"], "supabase_direct": ["url", "public_key"], "mysql": ["mysql_host", "mysql_user", "mysql_database"]}[mode]
+        photo_required = ["yandex_disk_token"] if photo == "yandex_disk" else ["s3_access_key", "s3_secret_key", "bucket"]
+        missing = [k for k in db_required + photo_required if not str(c.get(k, "") or "").strip()]
+        return {"ok": not missing, "database_mode": mode, "photo_provider": photo, "missing": missing}
+
     @app.get("/api/warehouse/cloud/providers")
     async def wh_cloud_providers(x_wh_token: str = Header(default=""), x_admin_token: str = Header(default="")):
         wh_user_from_headers(x_wh_token, x_admin_token)
