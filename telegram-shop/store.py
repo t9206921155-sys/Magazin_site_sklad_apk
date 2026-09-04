@@ -140,7 +140,7 @@ def search_score(p: dict, query: str) -> int:
         score += best
     return score
 
-DB_FILE = os.path.join(config.DATA_DIR, "shop.db")
+DB_FILE = os.getenv("MAGAZIN_DB", os.path.join(config.DATA_DIR, "shop.db"))
 LEGACY_PRODUCTS = os.path.join(config.DATA_DIR, "products.json")
 LEGACY_ORDERS = os.path.join(config.DATA_DIR, "orders.json")
 LEGACY_SETTINGS = os.path.join(config.DATA_DIR, "settings.json")
