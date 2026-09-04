@@ -2827,6 +2827,14 @@ def create_app(store, providers: dict, bot=None, notify_new_order=None, notify_o
         wh_user_from_headers(x_wh_token, x_admin_token)
         return cloudstore.test_cloud(store)
 
+    @app.get("/api/warehouse/cloud/providers")
+    async def wh_cloud_providers(x_wh_token: str = Header(default=""), x_admin_token: str = Header(default="")):
+        wh_user_from_headers(x_wh_token, x_admin_token)
+        c = store.settings.get("cloud") or {}
+        return {"database": ["vps", "supabase_proxy", "supabase_direct", "mysql"],
+                "photos": ["s3", "yandex_disk"],
+                "selected": {"database": cloudstore.database_mode(c), "photos": c.get("photo_provider") or "s3"}}
+
     @app.get("/api/warehouse/cloud/presets")
     async def wh_cloud_presets(x_wh_token: str = Header(default=""),
                                x_admin_token: str = Header(default="")):
