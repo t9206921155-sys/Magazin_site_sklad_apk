@@ -40,7 +40,7 @@ git sparse-checkout set --no-cone '/*' \
 | 06 | Мультисклад и роли (API) | ✅ | 04.09.2026 | `blocks/BLOCK-06-multiwarehouse.md` |
 | 06a | Мультисклад: интерфейс | ✅ | 04.09.2026 | `blocks/BLOCK-06a-multiwarehouse-ui.md` |
 | 07 | Отчёты по оборачиваемости | ✅ | 04.09.2026 | `blocks/BLOCK-07-reports.md` |
-| 08 | Прямая печать на IP-принтер (ZPL по сети) | ⏳ | — | `blocks/BLOCK-08-network-printing.md` |
+| 08 | Прямая печать на IP-принтер (ZPL по сети) | ✅ | 04.09.2026 | `blocks/BLOCK-08-network-printing.md` |
 | 09 | Маркетплейс: каталог, поиск, фильтры | ⏳ | — | `blocks/BLOCK-09-marketplace-catalog.md` |
 | 10 | Тесты и CI | ⏳ | — | `blocks/BLOCK-10-tests-ci.md` |
 | 11 | Проверка на реальном железе | ⛔ | — | `blocks/BLOCK-11-hardware.md` |
