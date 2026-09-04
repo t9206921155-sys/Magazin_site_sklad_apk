@@ -1606,6 +1606,58 @@ def create_app(store, providers: dict, bot=None, notify_new_order=None, notify_o
         asyncio.create_task(worker())
         return {"started": True}
 
+    # --- складские отчёты (блок 07) ---
+    def _report_period(date_from: str = "", date_to: str = ""):
+        from datetime import date as _date
+        try:
+            lo = _date.fromisoformat(date_from) if date_from else _date.min
+            hi = _date.fromisoformat(date_to) if date_to else _date.max
+        except ValueError:
+            raise HTTPException(422, "Дата должна быть в формате YYYY-MM-DD")
+        if lo > hi: raise HTTPException(422, "date_from позже date_to")
+        return lo, hi
+
+    def _report_sales(date_from="", date_to=""):
+        lo, hi = _report_period(date_from, date_to); out = {}
+        for o in store.orders(limit=5000):
+            if o.get("status") in ("cancelled", "pending_payment"): continue
+            try: d = datetime.datetime.fromisoformat(str(o.get("created_at", ""))[:19]).date()
+            except (ValueError, TypeError): continue
+            if not (lo <= d <= hi): continue
+            for i in o.get("items", []):
+                pid=int(i.get("id", 0)); q=int(i.get("qty", 0)); price=int(i.get("price", 0) or 0)
+                r=out.setdefault(pid, {"qty":0,"revenue":0}); r["qty"] += q; r["revenue"] += q*price
+        return out
+
+    @app.get("/api/warehouse/reports/turnover")
+    async def wh_report_turnover(date_from: str = "", date_to: str = "", x_wh_token: str = Header(default=""), x_admin_token: str = Header(default="")):
+        wh_user_from_headers(x_wh_token, x_admin_token); sales=_report_sales(date_from,date_to); rows=[]
+        for p in store.products():
+            r=sales.get(p["id"], {"qty":0,"revenue":0}); stock=max(0,int(p.get("stock",0)))
+            rows.append({"product_id":p["id"],"name":p["name"],"sold":r["qty"],"revenue":r["revenue"],"average_stock":stock,"turnover":round(r["qty"]/stock,2) if stock else (r["qty"] and None)})
+        return {"date_from":date_from,"date_to":date_to,"rows":rows,"total_sold":sum(x["sold"] for x in rows),"revenue":sum(x["revenue"] for x in rows)}
+
+    @app.get("/api/warehouse/reports/dead-stock")
+    async def wh_report_dead(days: int = 60, x_wh_token: str = Header(default=""), x_admin_token: str = Header(default="")):
+        wh_user_from_headers(x_wh_token,x_admin_token)
+        if days < 0: raise HTTPException(422,"days должен быть неотрицательным")
+        cutoff=datetime.datetime.now()-datetime.timedelta(days=days); sold=_report_sales(cutoff.date().isoformat(),datetime.datetime.now().date().isoformat())
+        return {"days":days,"products":[{"id":p["id"],"name":p["name"],"stock":p.get("stock",0)} for p in store.products() if p.get("stock",0)>0 and not sold.get(p["id"],{}).get("qty",0)]}
+
+    @app.get("/api/warehouse/reports/stock-value")
+    async def wh_report_stock_value(x_wh_token: str = Header(default=""), x_admin_token: str = Header(default="")):
+        wh_user_from_headers(x_wh_token,x_admin_token); cats={}; rows=[]
+        for p in store.products():
+            q=max(0,int(p.get("stock",0))); cost=q*int(p.get("purchase_price",0) or 0); retail=q*int(p.get("price",0) or 0); c=p.get("category") or "Прочее"; x=cats.setdefault(c,{"category":c,"cost":0,"retail":0,"qty":0}); x["cost"]+=cost; x["retail"]+=retail; x["qty"]+=q
+        return {"categories":list(cats.values()),"cost":sum(x["cost"] for x in cats.values()),"retail":sum(x["retail"] for x in cats.values())}
+
+    @app.get("/api/warehouse/reports/abc")
+    async def wh_report_abc(date_from: str = "", date_to: str = "", x_wh_token: str = Header(default=""), x_admin_token: str = Header(default="")):
+        wh_user_from_headers(x_wh_token,x_admin_token); sales=_report_sales(date_from,date_to); rows=[]; total=sum(x["revenue"] for x in sales.values()); acc=0
+        for pid,r in sorted(sales.items(),key=lambda kv:-kv[1]["revenue"]):
+            acc+=r["revenue"]; share=acc/total if total else 0; rows.append({"product_id":pid,"sold":r["qty"],"revenue":r["revenue"],"group":"A" if share<=.8 else ("B" if share<=.95 else "C")})
+        return {"total_revenue":total,"rows":rows}
+
     # --- отчёты и экспорт ---
     @app.get("/admin/api/reports")
     async def admin_reports(x_admin_token: str = Header(default="")):
