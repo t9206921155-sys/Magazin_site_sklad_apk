@@ -1972,26 +1972,27 @@ def create_app(store, providers: dict, bot=None, notify_new_order=None, notify_o
             store.wh_scan_add(user["name"], mode, code, 0, qty, "not_found")
             return {"mode": mode, "found": False, "message": "Товар с таким кодом не найден"}
         message, warning = "", False
+        # склад операции: явный warehouse_id или склад по умолчанию (блок 06)
+        wid = _wh_access_or_403(user, body.get("warehouse_id") or store.default_warehouse_id())
+        wname = (store.get_warehouse(wid) or {}).get("name", "")
+        at_wh = store.stock_of(product["id"], wid)
+
         if mode == "search":
-            message = f"Найден: {product['name']}"
+            message = f"Найден: {product['name']} · на складе «{wname}»: {at_wh}"
         elif mode == "receive":
-            new_stock = (product.get("stock") if product.get("stock", -1) >= 0 else 0) + qty
-            store.update_product(product["id"], {"stock": new_stock, "in_stock": True})
-            message = f"Приёмка +{qty} → остаток {new_stock}"
+            res = store.change_stock_at(product["id"], wid, qty)
+            message = f"Приёмка +{qty} на «{wname}» → {res['qty']} (всего {res['total']})"
         elif mode == "sell":
-            cur = product.get("stock", -1)
-            if cur <= 0:
-                message = f"⚠️ {product['name']}: остаток 0 — продажа невозможна"
+            if at_wh <= 0:
+                message = f"⚠️ {product['name']}: на складе «{wname}» остаток 0 — продажа невозможна"
                 warning = True
             else:
-                new_stock = max(0, cur - qty)
-                store.update_product(product["id"], {"stock": new_stock,
-                                                     "in_stock": new_stock > 0})
-                message = f"Продажа −{qty} → остаток {new_stock}"
-                warning = new_stock == 0
+                res = store.change_stock_at(product["id"], wid, -qty)
+                message = f"Продажа −{qty} с «{wname}» → {res['qty']} (всего {res['total']})"
+                warning = res["qty"] == 0
         elif mode == "inventory":
-            store.update_product(product["id"], {"stock": max(0, qty), "in_stock": qty > 0})
-            message = f"Инвентаризация: остаток установлен {max(0, qty)}"
+            res = store.set_stock_at(product["id"], wid, max(0, qty))
+            message = f"Инвентаризация «{wname}»: остаток {res['qty']} (всего {res['total']})"
         product = store.get_product(product["id"])
         store.wh_scan_add(user["name"], mode, code, product["id"], qty, message)
         return {"mode": mode, "found": True, "product": _wh_product(product),
@@ -2388,6 +2389,153 @@ def create_app(store, providers: dict, bot=None, notify_new_order=None, notify_o
                          f"{len(products)} тов., {format.upper()}, {int(width)}×{int(height)} мм")
         return Response(content=body, media_type="text/plain; charset=utf-8",
                         headers={"Content-Disposition": 'attachment; filename="labels.prn"'})
+
+    # ------------------------------------------------ мультисклад (блок 06)
+    def _wh_access_or_403(user: dict, warehouse_id: int) -> int:
+        """Проверяет доступ пользователя к складу, возвращает id."""
+        wid = int(warehouse_id)
+        if not store.get_warehouse(wid):
+            raise HTTPException(404, "Склад не найден")
+        if wid not in store.user_warehouse_ids(user):
+            raise HTTPException(403, "Нет доступа к этому складу")
+        return wid
+
+    @app.get("/api/warehouse/warehouses")
+    async def wh_list_warehouses(x_wh_token: str = Header(default=""),
+                                 x_admin_token: str = Header(default="")):
+        """Склады, доступные текущему пользователю."""
+        user = wh_user_from_headers(x_wh_token, x_admin_token)
+        allowed = set(store.user_warehouse_ids(user))
+        return {"warehouses": [w for w in store.warehouses() if w["id"] in allowed],
+                "default": store.default_warehouse_id()}
+
+    @app.post("/api/warehouse/warehouses", status_code=201)
+    async def wh_add_warehouse(body: dict, x_wh_token: str = Header(default=""),
+                               x_admin_token: str = Header(default="")):
+        user = wh_user_from_headers(x_wh_token, x_admin_token)
+        if user["role"] != "admin":
+            raise HTTPException(403, "Только администратор склада")
+        try:
+            w = store.add_warehouse(body.get("name", ""), body.get("address", ""))
+        except ValueError as e:
+            raise HTTPException(422, str(e))
+        store.wh_log_add(user["name"], "создал склад", w["name"])
+        return w
+
+    @app.put("/api/warehouse/warehouses/{wid}")
+    async def wh_update_warehouse(wid: int, body: dict, x_wh_token: str = Header(default=""),
+                                  x_admin_token: str = Header(default="")):
+        user = wh_user_from_headers(x_wh_token, x_admin_token)
+        if user["role"] != "admin":
+            raise HTTPException(403, "Только администратор склада")
+        try:
+            w = store.update_warehouse(wid, body)
+        except ValueError as e:
+            raise HTTPException(422, str(e))
+        if not w:
+            raise HTTPException(404, "Склад не найден")
+        store.wh_log_add(user["name"], "изменил склад", w["name"])
+        return w
+
+    @app.delete("/api/warehouse/warehouses/{wid}")
+    async def wh_delete_warehouse(wid: int, x_wh_token: str = Header(default=""),
+                                  x_admin_token: str = Header(default="")):
+        user = wh_user_from_headers(x_wh_token, x_admin_token)
+        if user["role"] != "admin":
+            raise HTTPException(403, "Только администратор склада")
+        w = store.get_warehouse(wid)
+        if not w:
+            raise HTTPException(404, "Склад не найден")
+        try:
+            store.delete_warehouse(wid)
+        except ValueError as e:
+            raise HTTPException(409, str(e))
+        store.wh_log_add(user["name"], "удалил склад", w["name"])
+        return {"ok": True, "id": wid}
+
+    @app.get("/api/warehouse/products/{pid}/stock")
+    async def wh_product_stock(pid: int, x_wh_token: str = Header(default=""),
+                               x_admin_token: str = Header(default="")):
+        """Разбивка остатков товара по складам."""
+        user = wh_user_from_headers(x_wh_token, x_admin_token)
+        if not store.get_product(pid):
+            raise HTTPException(404, "Товар не найден")
+        allowed = set(store.user_warehouse_ids(user))
+        rows = [r for r in store.stock_breakdown(pid) if r["warehouse_id"] in allowed]
+        return {"product_id": pid, "total": sum(r["qty"] for r in rows), "rows": rows}
+
+    @app.post("/api/warehouse/products/{pid}/stock")
+    async def wh_set_product_stock(pid: int, body: dict, x_wh_token: str = Header(default=""),
+                                   x_admin_token: str = Header(default="")):
+        """Установка остатка на конкретном складе."""
+        user = wh_user_from_headers(x_wh_token, x_admin_token)
+        if not store.get_product(pid):
+            raise HTTPException(404, "Товар не найден")
+        wid = _wh_access_or_403(user, body.get("warehouse_id") or store.default_warehouse_id())
+        try:
+            qty = int(body.get("qty"))
+        except (TypeError, ValueError):
+            raise HTTPException(422, "qty должно быть числом")
+        res = store.set_stock_at(pid, wid, qty)
+        store.wh_log_add(user["name"], "изменил остаток",
+                         f"товар {pid}, склад {wid} → {res['qty']}")
+        return res
+
+    @app.post("/api/warehouse/transfer")
+    async def wh_transfer(body: dict, x_wh_token: str = Header(default=""),
+                          x_admin_token: str = Header(default="")):
+        """Перемещение товара между складами."""
+        user = wh_user_from_headers(x_wh_token, x_admin_token)
+        try:
+            pid = int(body.get("product_id"))
+            src = int(body.get("from"))
+            dst = int(body.get("to"))
+            qty = int(body.get("qty"))
+        except (TypeError, ValueError):
+            raise HTTPException(422, "Нужны product_id, from, to, qty (числа)")
+        if not store.get_product(pid):
+            raise HTTPException(404, "Товар не найден")
+        _wh_access_or_403(user, src)
+        _wh_access_or_403(user, dst)
+        try:
+            res = store.transfer_stock(pid, src, dst, qty)
+        except ValueError as e:
+            raise HTTPException(400, str(e))
+        store.wh_log_add(user["name"], "переместил товар",
+                         f"товар {pid}: склад {src} → {dst}, {qty} ед.")
+        return res
+
+    @app.get("/api/warehouse/users/{uid}/warehouses")
+    async def wh_user_warehouses(uid: int, x_wh_token: str = Header(default=""),
+                                 x_admin_token: str = Header(default="")):
+        user = wh_user_from_headers(x_wh_token, x_admin_token)
+        if user["role"] != "admin":
+            raise HTTPException(403, "Только администратор склада")
+        target = next((u for u in store.wh_users() if u["id"] == uid), None)
+        if not target:
+            raise HTTPException(404, "Пользователь не найден")
+        return {"user_id": uid, "warehouse_ids": store.user_warehouse_ids(target)}
+
+    @app.put("/api/warehouse/users/{uid}/warehouses")
+    async def wh_set_user_warehouses(uid: int, body: dict, x_wh_token: str = Header(default=""),
+                                     x_admin_token: str = Header(default="")):
+        user = wh_user_from_headers(x_wh_token, x_admin_token)
+        if user["role"] != "admin":
+            raise HTTPException(403, "Только администратор склада")
+        target = next((u for u in store.wh_users() if u["id"] == uid), None)
+        if not target:
+            raise HTTPException(404, "Пользователь не найден")
+        ids = body.get("warehouse_ids")
+        if not isinstance(ids, list):
+            raise HTTPException(422, "Ожидается warehouse_ids: [id, ...]")
+        known = {w["id"] for w in store.warehouses()}
+        bad = [i for i in ids if int(i) not in known]
+        if bad:
+            raise HTTPException(422, f"Неизвестные склады: {bad}")
+        store.set_user_warehouses(uid, [int(i) for i in ids])
+        store.wh_log_add(user["name"], "изменил доступ к складам",
+                         f"{target['name']}: {ids}")
+        return {"user_id": uid, "warehouse_ids": store.user_warehouse_ids(target)}
 
     @app.get("/api/warehouse/printers")
     async def wh_printers(x_wh_token: str = Header(default=""),

@@ -228,6 +228,22 @@ CREATE TABLE IF NOT EXISTS wh_scans(
   mode TEXT DEFAULT '', code TEXT DEFAULT '', product_id INTEGER DEFAULT 0,
   qty INTEGER DEFAULT 0, result TEXT DEFAULT ''
 );
+-- Мультисклад (блок 06). products.stock остаётся суммарным остатком
+-- для витрины, бота и 1С; разбивка по складам живёт в wh_stock.
+CREATE TABLE IF NOT EXISTS warehouses(
+  id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, address TEXT DEFAULT '',
+  is_active INTEGER DEFAULT 1, created_at TEXT
+);
+CREATE TABLE IF NOT EXISTS wh_stock(
+  product_id INTEGER NOT NULL, warehouse_id INTEGER NOT NULL,
+  qty INTEGER DEFAULT 0,
+  PRIMARY KEY (product_id, warehouse_id)
+);
+CREATE TABLE IF NOT EXISTS wh_user_access(
+  user_id INTEGER NOT NULL, warehouse_id INTEGER NOT NULL,
+  PRIMARY KEY (user_id, warehouse_id)
+);
+CREATE INDEX IF NOT EXISTS idx_wh_stock_wh ON wh_stock(warehouse_id);
 CREATE TABLE IF NOT EXISTS social_posts(
   id INTEGER PRIMARY KEY AUTOINCREMENT, product_id INTEGER DEFAULT 0,
   platform TEXT DEFAULT 'telegram', content TEXT DEFAULT '',
@@ -550,6 +566,32 @@ class Store:
             if not self._settings.get("avito", {}).get("feed_key"):
                 self._settings.setdefault("avito", {})["feed_key"] = secrets.token_hex(8)
                 self._save_settings_to_db()
+        self._migrate_warehouses()
+
+    def _migrate_warehouses(self):
+        """Мультисклад (блок 06): создаёт склад по умолчанию и переносит остатки.
+
+        Идемпотентна. Существующий products.stock не меняется — он остаётся
+        суммарным остатком для витрины, бота и 1С, а wh_stock хранит разбивку.
+        """
+        with _lock:
+            if self._count("SELECT COUNT(*) c FROM warehouses") == 0:
+                self._conn.execute(
+                    "INSERT INTO warehouses(id, name, address, is_active, created_at) "
+                    "VALUES(1, 'Основной', '', 1, ?)", (_now_iso(),))
+            row = self._q1("SELECT id FROM warehouses WHERE is_active=1 ORDER BY id LIMIT 1")
+            default_id = row["id"] if row else 1
+            # переносим текущие остатки товаров, которых ещё нет в разбивке
+            if self._count("SELECT COUNT(*) c FROM wh_stock") == 0:
+                self._conn.execute(
+                    "INSERT OR IGNORE INTO wh_stock(product_id, warehouse_id, qty) "
+                    "SELECT id, ?, CASE WHEN stock > 0 THEN stock ELSE 0 END FROM products",
+                    (default_id,))
+            # админам — доступ ко всем складам
+            self._conn.execute(
+                "INSERT OR IGNORE INTO wh_user_access(user_id, warehouse_id) "
+                "SELECT u.id, w.id FROM wh_users u, warehouses w WHERE u.role='admin'")
+            self._conn.commit()
 
     def _migrate_columns(self):
         """Добавляет новые колонки в существующую БД."""
@@ -871,6 +913,20 @@ class Store:
                  "code": "", "in_stock": True, "badges": [], "created_at": _now_iso()}
             self._apply_product_fields(p, data)
             self._insert_product(p)
+            # мультисклад (блок 06): стартовый остаток кладём на склад по умолчанию,
+            # иначе новый товар не попадёт в разбивку wh_stock
+            try:
+                wid = int(data.get("warehouse_id") or 0)
+            except (TypeError, ValueError):
+                wid = 0
+            if not wid:
+                row = self._q1("SELECT id FROM warehouses WHERE is_active=1 ORDER BY id LIMIT 1")
+                wid = row["id"] if row else 0
+            if wid:
+                self._conn.execute(
+                    "INSERT INTO wh_stock(product_id, warehouse_id, qty) VALUES(?,?,?) "
+                    "ON CONFLICT(product_id, warehouse_id) DO UPDATE SET qty=excluded.qty",
+                    (p["id"], wid, max(0, int(p.get("stock") or 0))))
             self._conn.commit()
             return {k: v for k, v in p.items() if k != "created_at"}
 
@@ -931,6 +987,194 @@ class Store:
             self._insert_product(target)
             self._conn.commit()
             return action, dict(target)
+
+    # ---------------- мультисклад (блок 06) ----------------
+    def warehouses(self, only_active: bool = False) -> list:
+        sql = "SELECT * FROM warehouses"
+        if only_active:
+            sql += " WHERE is_active=1"
+        sql += " ORDER BY id"
+        return [dict(r) for r in self._q(sql)]
+
+    def get_warehouse(self, wid: int):
+        r = self._q1("SELECT * FROM warehouses WHERE id=?", (int(wid),))
+        return dict(r) if r else None
+
+    def default_warehouse_id(self) -> int:
+        r = self._q1("SELECT id FROM warehouses WHERE is_active=1 ORDER BY id LIMIT 1")
+        return r["id"] if r else 1
+
+    def add_warehouse(self, name: str, address: str = "") -> dict:
+        name = str(name or "").strip()
+        if not name:
+            raise ValueError("Название склада обязательно")
+        with _lock:
+            if self._q1("SELECT id FROM warehouses WHERE name=?", (name,)):
+                raise ValueError(f"Склад «{name}» уже существует")
+            cur = self._conn.execute(
+                "INSERT INTO warehouses(name, address, is_active, created_at) VALUES(?,?,1,?)",
+                (name, str(address or ""), _now_iso()))
+            wid = cur.lastrowid
+            # админы получают доступ автоматически
+            self._conn.execute(
+                "INSERT OR IGNORE INTO wh_user_access(user_id, warehouse_id) "
+                "SELECT id, ? FROM wh_users WHERE role='admin'", (wid,))
+            self._conn.commit()
+        return self.get_warehouse(wid)
+
+    def update_warehouse(self, wid: int, data: dict):
+        wid = int(wid)
+        if not self.get_warehouse(wid):
+            return None
+        sets, args = [], []
+        if "name" in data:
+            name = str(data["name"] or "").strip()
+            if not name:
+                raise ValueError("Название склада обязательно")
+            dup = self._q1("SELECT id FROM warehouses WHERE name=? AND id<>?", (name, wid))
+            if dup:
+                raise ValueError(f"Склад «{name}» уже существует")
+            sets.append("name=?"); args.append(name)
+        if "address" in data:
+            sets.append("address=?"); args.append(str(data["address"] or ""))
+        if "is_active" in data:
+            sets.append("is_active=?"); args.append(1 if data["is_active"] else 0)
+        if sets:
+            args.append(wid)
+            with _lock:
+                self._conn.execute(f"UPDATE warehouses SET {', '.join(sets)} WHERE id=?", args)
+                self._conn.commit()
+        return self.get_warehouse(wid)
+
+    def delete_warehouse(self, wid: int) -> bool:
+        """Удаляет склад. Нельзя удалить последний активный и склад с остатками."""
+        wid = int(wid)
+        if not self.get_warehouse(wid):
+            return False
+        if self._count("SELECT COUNT(*) c FROM warehouses WHERE is_active=1") <= 1:
+            raise ValueError("Нельзя удалить единственный склад")
+        left = self._count(
+            "SELECT COALESCE(SUM(qty),0) c FROM wh_stock WHERE warehouse_id=?", (wid,))
+        if left:
+            raise ValueError(f"На складе ещё {left} ед. товара — переместите остатки")
+        with _lock:
+            self._conn.execute("DELETE FROM warehouses WHERE id=?", (wid,))
+            self._conn.execute("DELETE FROM wh_stock WHERE warehouse_id=?", (wid,))
+            self._conn.execute("DELETE FROM wh_user_access WHERE warehouse_id=?", (wid,))
+            self._conn.commit()
+        return True
+
+    def user_warehouse_ids(self, user: dict) -> list:
+        """Склады, доступные пользователю. Админ видит все."""
+        if not user or user.get("role") == "admin":
+            return [w["id"] for w in self.warehouses(only_active=True)]
+        rows = self._q(
+            "SELECT a.warehouse_id id FROM wh_user_access a "
+            "JOIN warehouses w ON w.id=a.warehouse_id AND w.is_active=1 "
+            "WHERE a.user_id=? ORDER BY a.warehouse_id", (int(user.get("id") or 0),))
+        return [r["id"] for r in rows]
+
+    def set_user_warehouses(self, user_id: int, ids: list):
+        with _lock:
+            self._conn.execute("DELETE FROM wh_user_access WHERE user_id=?", (int(user_id),))
+            for wid in ids or []:
+                self._conn.execute(
+                    "INSERT OR IGNORE INTO wh_user_access(user_id, warehouse_id) VALUES(?,?)",
+                    (int(user_id), int(wid)))
+            self._conn.commit()
+
+    def stock_of(self, product_id: int, warehouse_id: int) -> int:
+        r = self._q1("SELECT qty FROM wh_stock WHERE product_id=? AND warehouse_id=?",
+                     (int(product_id), int(warehouse_id)))
+        return int(r["qty"]) if r else 0
+
+    def stock_breakdown(self, product_id: int) -> list:
+        rows = [dict(r) for r in self._q(
+            "SELECT s.warehouse_id, w.name, s.qty FROM wh_stock s "
+            "JOIN warehouses w ON w.id=s.warehouse_id "
+            "WHERE s.product_id=? ORDER BY s.warehouse_id", (int(product_id),))]
+        if rows:
+            return rows
+        # товар создан в обход мультисклада (импорт, 1С, старые данные) —
+        # показываем его остаток на складе по умолчанию, чтобы он не «пропал»
+        p = self.get_product(product_id)
+        if not p:
+            return []
+        wid = self.default_warehouse_id()
+        w = self.get_warehouse(wid)
+        if not w:
+            return []
+        return [{"warehouse_id": wid, "name": w["name"], "qty": max(0, int(p.get("stock") or 0))}]
+
+    def _sync_total_stock(self, product_id: int):
+        """Пересчитывает products.stock как сумму по складам (внутри _lock)."""
+        total = self._conn.execute(
+            "SELECT COALESCE(SUM(qty),0) FROM wh_stock WHERE product_id=?",
+            (int(product_id),)).fetchone()[0]
+        self._conn.execute(
+            "UPDATE products SET stock=?, in_stock=?, updated_at=? WHERE id=?",
+            (int(total), 1 if total > 0 else 0, _now_iso(), int(product_id)))
+        return int(total)
+
+    def set_stock_at(self, product_id: int, warehouse_id: int, qty: int) -> dict:
+        """Устанавливает остаток на складе и пересчитывает суммарный."""
+        qty = max(0, int(qty))
+        with _lock:
+            self._conn.execute(
+                "INSERT INTO wh_stock(product_id, warehouse_id, qty) VALUES(?,?,?) "
+                "ON CONFLICT(product_id, warehouse_id) DO UPDATE SET qty=excluded.qty",
+                (int(product_id), int(warehouse_id), qty))
+            total = self._sync_total_stock(product_id)
+            self._conn.commit()
+        return {"product_id": int(product_id), "warehouse_id": int(warehouse_id),
+                "qty": qty, "total": total}
+
+    def change_stock_at(self, product_id: int, warehouse_id: int, delta: int) -> dict:
+        """Изменяет остаток на складе на delta. Не уводит в минус."""
+        with _lock:
+            cur = self._conn.execute(
+                "SELECT qty FROM wh_stock WHERE product_id=? AND warehouse_id=?",
+                (int(product_id), int(warehouse_id))).fetchone()
+            have = int(cur[0]) if cur else 0
+            new = max(0, have + int(delta))
+            self._conn.execute(
+                "INSERT INTO wh_stock(product_id, warehouse_id, qty) VALUES(?,?,?) "
+                "ON CONFLICT(product_id, warehouse_id) DO UPDATE SET qty=excluded.qty",
+                (int(product_id), int(warehouse_id), new))
+            total = self._sync_total_stock(product_id)
+            self._conn.commit()
+        return {"product_id": int(product_id), "warehouse_id": int(warehouse_id),
+                "qty": new, "total": total}
+
+    def transfer_stock(self, product_id: int, src_id: int, dst_id: int, qty: int) -> dict:
+        """Атомарное перемещение между складами."""
+        qty = int(qty)
+        if qty <= 0:
+            raise ValueError("Количество должно быть больше нуля")
+        if int(src_id) == int(dst_id):
+            raise ValueError("Склад отправления и назначения совпадают")
+        if not self.get_warehouse(src_id) or not self.get_warehouse(dst_id):
+            raise ValueError("Склад не найден")
+        with _lock:
+            cur = self._conn.execute(
+                "SELECT qty FROM wh_stock WHERE product_id=? AND warehouse_id=?",
+                (int(product_id), int(src_id))).fetchone()
+            have = int(cur[0]) if cur else 0
+            if have < qty:
+                raise ValueError(f"Недостаточно товара: на складе {have}, нужно {qty}")
+            self._conn.execute(
+                "UPDATE wh_stock SET qty=qty-? WHERE product_id=? AND warehouse_id=?",
+                (qty, int(product_id), int(src_id)))
+            self._conn.execute(
+                "INSERT INTO wh_stock(product_id, warehouse_id, qty) VALUES(?,?,?) "
+                "ON CONFLICT(product_id, warehouse_id) DO UPDATE SET qty=wh_stock.qty+?",
+                (int(product_id), int(dst_id), qty, qty))
+            total = self._sync_total_stock(product_id)
+            self._conn.commit()
+        return {"product_id": int(product_id), "from": int(src_id), "to": int(dst_id),
+                "qty": qty, "total": total,
+                "src_left": self.stock_of(product_id, src_id),
+                "dst_now": self.stock_of(product_id, dst_id)}
 
     def update_stock_by_code(self, rows: list) -> dict:
         """Точечное обновление остатков/цен по коду номенклатуры (обмен с 1С).

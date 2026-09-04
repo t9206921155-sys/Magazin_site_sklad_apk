@@ -37,14 +37,15 @@ git sparse-checkout set --no-cone '/*' \
 | 03 | Печать: наклейки, ZPL/EPL, ценники | ✅ | 04.09.2026 | `blocks/BLOCK-03-printing.md` |
 | 04 | Офлайн-режим и обмен с 1С | ✅ | 04.09.2026 | `blocks/BLOCK-04-offline-1c.md` |
 | 05 | Гигиена репозитория (−22 МБ скринов) | ✅ | 04.09.2026 | `blocks/BLOCK-05-repo-hygiene.md` |
-| 06 | Мультисклад и роли | ⏳ | — | `blocks/BLOCK-06-multiwarehouse.md` |
+| 06 | Мультисклад и роли (API) | ✅ | 04.09.2026 | `blocks/BLOCK-06-multiwarehouse.md` |
+| 06a | Мультисклад: интерфейс | ⏳ | — | `blocks/BLOCK-06a-multiwarehouse-ui.md` |
 | 07 | Отчёты по оборачиваемости | ⏳ | — | `blocks/BLOCK-07-reports.md` |
 | 08 | Прямая печать на IP-принтер (ZPL по сети) | ⏳ | — | `blocks/BLOCK-08-network-printing.md` |
 | 09 | Маркетплейс: каталог, поиск, фильтры | ⏳ | — | `blocks/BLOCK-09-marketplace-catalog.md` |
 | 10 | Тесты и CI | ⏳ | — | `blocks/BLOCK-10-tests-ci.md` |
 | 11 | Проверка на реальном железе | ⛔ | — | `blocks/BLOCK-11-hardware.md` |
 
-**Готово: 6 из 12.** Следующий блок — **06 (мультисклад)**.
+**Готово: 7 из 13.** Следующий блок — **06a (мультисклад: интерфейс)**.
 
 ---
 
@@ -63,17 +64,20 @@ git sparse-checkout set --no-cone '/*' \
 - Печать: PDF-наклейки (Code128 + QR), ZPL (Zebra), EPL (Eltron), **ценники для зала**.
 - Облако: 3 режима — `vps`, `supabase_proxy`, `supabase_direct`; S3/Supabase/MySQL.
 - **Офлайн-режим**: network-first для API, очередь операций в IndexedDB, Background Sync.
+- **Мультисклад**: несколько складов, остатки по каждому, перемещение, доступы сотрудников
+  (API готов; селектор в UI — блок 06a).
 
 ### Обмен с 1С
 `GET/POST /1c/catalog`, **`GET/POST /1c/stock`**, `GET /1c/orders`,
 `POST /1c/orders/ack`, `POST /1c/orders/status`.
 
-### Тесты — 51 автотест, все проходят
+### Тесты — 84 автотеста, все проходят
 ```bash
 cd telegram-shop
 python3 tests-labels.py       # 20 — этикетки и ценники
 node tests-hid-scanner.js     #  8 — HID-парсер
 python3 tests-stage5.py       # 23 — 1С и офлайн (нужен запущенный сервер)
+python3 tests-block06.py      # 33 — мультисклад (нужен запущенный сервер)
 ```
 
 ---
@@ -88,6 +92,7 @@ python3 tests-stage5.py       # 23 — 1С и офлайн (нужен запу�
 | Печать из UI | `window.open` не слал токен — всегда 403 | 03 |
 | Service worker | cache-first на API: склад показывал устаревшие остатки, кэшировал ключи | 04 |
 | Обмен с 1С | Нельзя обновить только остатки — требовался полный каталог | 04 |
+| Новый товар вне мультисклада | `add_product` не писал в `wh_stock` — разбивка пустая, перемещение падало | 06 |
 
 ---
 

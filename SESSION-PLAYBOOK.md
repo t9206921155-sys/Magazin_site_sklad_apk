@@ -103,6 +103,7 @@ cd telegram-shop
 python3 tests-labels.py       # ожидается 20 passed
 node tests-hid-scanner.js     # ожидается  8 passed
 python3 tests-stage5.py       # ожидается 23 passed (нужен запущенный сервер)
+python3 tests-block06.py      # ожидается 33 passed (нужен запущенный сервер)
 ```
 
 Плюс страницы:
@@ -196,4 +197,5 @@ git fetch /путь/к/sync.bundle && git merge --ff-only FETCH_HEAD && git push
 | `git add -A` снимает `chmod +x` | проверка из Шага 6 |
 | `window.open` не шлёт заголовки | скачивать через `fetch` + blob |
 | Патч с бинарниками раздувается до 28 МБ | использовать bundle |
+| `UID` в bash — readonly, ломает скрипты | использовать другое имя переменной |
 | `.zip` не грузится в чат | только текстовые форматы, либо публичный репозиторий |
