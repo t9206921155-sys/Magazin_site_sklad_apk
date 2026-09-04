@@ -155,10 +155,13 @@ def create_app(store, providers: dict, bot=None, notify_new_order=None, notify_o
     app = FastAPI(title="Telegram Shop", docs_url=None, redoc_url=None)
     app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
     _rate_buckets = {}
+    _request_metrics = {"requests": 0, "errors": 0}
     @app.middleware("http")
     async def request_observability(request: Request, call_next):
         started = time.monotonic(); request_id = secrets.token_hex(8)
         response = await call_next(request)
+        _request_metrics["requests"] += 1
+        if response.status_code >= 500: _request_metrics["errors"] += 1
         response.headers["X-Request-ID"] = request_id
         elapsed = time.monotonic() - started
         if elapsed > 2:
@@ -866,6 +869,10 @@ def create_app(store, providers: dict, bot=None, notify_new_order=None, notify_o
     @app.get("/api/health")
     async def health():
         return {"ok": True, "shop": store.settings["shop_name"]}
+
+    @app.get("/metrics")
+    async def metrics():
+        return {"requests": _request_metrics["requests"], "errors": _request_metrics["errors"]}
 
     @app.get("/health/live")
     async def health_live():
