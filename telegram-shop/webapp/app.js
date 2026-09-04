@@ -55,6 +55,7 @@ const state = {
   delivery: {},
   cart: {},
   category: 'all',
+  catalogQ: '', catalogMin: 0, catalogMax: 0, catalogSort: '',
   deliveryMethod: 'courier',
   screen: 'catalog',
   order: null,
@@ -202,7 +203,7 @@ function renderCatalog() {
     `<button class="chip ${state.category === c ? 'active' : ''}" data-action="chip" data-cat="${esc(c)}">${c === 'all' ? 'Все' : esc(c)}</button>`
   ).join('');
 
-  const list = state.catalog.filter(p => state.category === 'all' || p.category === state.category);
+  const q = state.catalogQ.toLowerCase(); let list = state.catalog.filter(p => (state.category === 'all' || p.category === state.category) && (!q || (p.name+' '+(p.description||'')).toLowerCase().includes(q)) && (!state.catalogMin || p.price >= state.catalogMin) && (!state.catalogMax || p.price <= state.catalogMax)); if(state.catalogSort==='price_asc') list.sort((a,b)=>a.price-b.price); if(state.catalogSort==='price_desc') list.sort((a,b)=>b.price-a.price); if(state.catalogSort==='new') list.sort((a,b)=>String(b.created_at||'').localeCompare(String(a.created_at||'')));
   $('#grid').innerHTML = list.map(p => `
     <div class="card" data-action="open" data-id="${p.id}">
       <div class="card-img">
@@ -779,7 +780,8 @@ document.querySelectorAll('.sheet-overlay').forEach(ov => {
 });
 
 // перезагрузка списка точек выдачи при вводе города и выборе точки
-document.addEventListener('input', e => {
+document.addEventListener('input', e => { if (['catalog-q','price-min','price-max'].includes(e.target.id)) { state.catalogQ=$('#catalog-q').value.trim(); state.catalogMin=+$('#price-min').value||0; state.catalogMax=+$('#price-max').value||0; renderCatalog(); return; }
+  if (e.target.id === 'catalog-sort') { state.catalogSort=e.target.value; renderCatalog(); return; }
   if (e.target.id !== 'co-city') return;
   collectCustomer();
   const d = state.delivery[state.deliveryMethod];
