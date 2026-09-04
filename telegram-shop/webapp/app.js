@@ -55,7 +55,7 @@ const state = {
   delivery: {},
   cart: {},
   category: 'all',
-  catalogQ: '', catalogMin: 0, catalogMax: 0, catalogSort: '',
+  catalogQ: '', catalogMin: 0, catalogMax: 0, catalogSort: '', catalogCondition: '', catalogPhoto: false,
   deliveryMethod: 'courier',
   screen: 'catalog',
   order: null,
@@ -203,7 +203,7 @@ function renderCatalog() {
     `<button class="chip ${state.category === c ? 'active' : ''}" data-action="chip" data-cat="${esc(c)}">${c === 'all' ? 'Все' : esc(c)}</button>`
   ).join('');
 
-  const q = state.catalogQ.toLowerCase(); let list = state.catalog.filter(p => (state.category === 'all' || p.category === state.category) && (!q || (p.name+' '+(p.description||'')).toLowerCase().includes(q)) && (!state.catalogMin || p.price >= state.catalogMin) && (!state.catalogMax || p.price <= state.catalogMax)); if(state.catalogSort==='price_asc') list.sort((a,b)=>a.price-b.price); if(state.catalogSort==='price_desc') list.sort((a,b)=>b.price-a.price); if(state.catalogSort==='new') list.sort((a,b)=>String(b.created_at||'').localeCompare(String(a.created_at||'')));
+  const q = state.catalogQ.toLowerCase(); let list = state.catalog.filter(p => (state.category === 'all' || p.category === state.category) && (!q || (p.name+' '+(p.description||'')).toLowerCase().includes(q)) && (!state.catalogMin || p.price >= state.catalogMin) && (!state.catalogMax || p.price <= state.catalogMax) && (!state.catalogCondition || p.condition === state.catalogCondition) && (!state.catalogPhoto || p.photo || (p.photos && p.photos.length))); if(state.catalogSort==='price_asc') list.sort((a,b)=>a.price-b.price); if(state.catalogSort==='price_desc') list.sort((a,b)=>b.price-a.price); if(state.catalogSort==='new') list.sort((a,b)=>String(b.created_at||'').localeCompare(String(a.created_at||'')));
   $('#grid').innerHTML = list.map(p => `
     <div class="card" data-action="open" data-id="${p.id}">
       <div class="card-img">
@@ -787,6 +787,8 @@ document.addEventListener('input', e => { if (['catalog-q','price-min','price-ma
   if (d && (d.provider === 'fivepost' || d.provider === 'yandex')) loadPoints(d.provider);
 });
 document.addEventListener('change', e => {
+  if (e.target.id === 'catalog-condition') { state.catalogCondition=e.target.value; renderCatalog(); return; }
+  if (e.target.id === 'catalog-photo') { state.catalogPhoto=e.target.checked; renderCatalog(); return; }
   if (e.target.id === 'catalog-sort') { state.catalogSort=e.target.value; renderCatalog(); return; }
   if (e.target.id === 'co-point') {
     const opt = e.target.selectedOptions[0];
