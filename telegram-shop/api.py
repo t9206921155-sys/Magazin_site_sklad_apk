@@ -176,6 +176,10 @@ def create_app(store, providers: dict, bot=None, notify_new_order=None, notify_o
             if len(recent) >= 20:
                 return JSONResponse(status_code=429, content={"detail": "Слишком много попыток. Повторите через минуту."})
             recent.append(now); _rate_buckets[key] = recent
+            # Bound memory when many clients probe the login endpoint.
+            if len(_rate_buckets) > 10000:
+                for stale_key, stale in list(_rate_buckets.items())[:1000]:
+                    if not stale or now - stale[-1] >= 60: _rate_buckets.pop(stale_key, None)
         return await call_next(request)
 
     @app.middleware("http")
@@ -185,6 +189,7 @@ def create_app(store, providers: dict, bot=None, notify_new_order=None, notify_o
         response.headers.setdefault("X-Frame-Options", "SAMEORIGIN")
         response.headers.setdefault("Referrer-Policy", "strict-origin-when-cross-origin")
         response.headers.setdefault("Permissions-Policy", "camera=(self), geolocation=()")
+        if request.url.scheme == "https": response.headers.setdefault("Strict-Transport-Security", "max-age=31536000; includeSubDomains")
         return response
 
     @app.middleware("http")
