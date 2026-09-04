@@ -46,7 +46,9 @@ Telegram-ботом и Mini App, админкой, мобильным склад
 
 Проект включает магазин/Mini App, складской PWA/APK, мультисклад, роли, 1С, офлайн-очередь, печать ZPL/EPL/PDF, отчёты, каталог с фильтрами и CI. Поддерживаются режимы базы VPS/SQLite, VPS → Supabase, Direct Supabase и MySQL/MariaDB; фотографии можно хранить в S3-compatible storage или через Yandex Disk API.
 
-Production-документация: [архитектура хранения](STORAGE-ARCHITECTURE.md), [ручная валидация](DEVELOPER-MANUAL-VALIDATION.md). После деплоя запускайте:
+Production-документация: [архитектура хранения](STORAGE-ARCHITECTURE.md), [ручная валидация](DEVELOPER-MANUAL-VALIDATION.md).
+
+Оставшиеся работы и порядок реализации: [IMPLEMENTATION-QUEUE.md](IMPLEMENTATION-QUEUE.md). После деплоя запускайте:
 
 ```bash
 ./deploy/post-deploy-smoke.sh https://YOUR-DOMAIN
