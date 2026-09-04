@@ -153,7 +153,7 @@ class EventIn(BaseModel):
 def create_app(store, providers: dict, bot=None, notify_new_order=None, notify_order_paid=None,
                notify_status=None, notify_admin=None, broadcast_sender=None):
     app = FastAPI(title="Telegram Shop", docs_url=None, redoc_url=None)
-    app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
+    app.add_middleware(CORSMiddleware, allow_origins=config.CORS_ORIGINS, allow_methods=["*"], allow_headers=["*"])
     _rate_buckets = {}
     _request_metrics = {"requests": 0, "errors": 0}
     @app.middleware("http")
