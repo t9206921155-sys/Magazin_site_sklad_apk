@@ -14,6 +14,18 @@ let scannerStream = null;
 let nativeScanInFlight = false;
 let WAREHOUSE_SETTINGS = null;
 let DIRECT_CFG = null;
+let CURRENT_WAREHOUSE = Number(localStorage.getItem('current_warehouse') || 0);
+let WAREHOUSES = [];
+async function loadWarehouses() {
+  const r = await api('/api/warehouse/warehouses'); WAREHOUSES = r.warehouses || [];
+  if (!WAREHOUSES.some(w => w.id === CURRENT_WAREHOUSE)) CURRENT_WAREHOUSE = r.default || (WAREHOUSES[0] && WAREHOUSES[0].id) || 0;
+  localStorage.setItem('current_warehouse', CURRENT_WAREHOUSE); renderWarehouseSelector();
+}
+function renderWarehouseSelector() { const el = $('#warehouse-select'); if (!el) return; el.innerHTML = WAREHOUSES.map(w => `<option value=\"${w.id}\" ${w.id===CURRENT_WAREHOUSE?'selected':''}>${esc(w.name)}</option>`).join(''); el.style.display = WAREHOUSES.length > 1 ? '' : 'none'; }
+async function changeWarehouse(id) { CURRENT_WAREHOUSE = Number(id); localStorage.setItem('current_warehouse', CURRENT_WAREHOUSE); renderWarehouseSelector(); await loadList(); }
+async function stockBreakdown(pid) { return api(`/api/warehouse/products/${pid}/stock`); }
+async function transferStock(pid) { const r=await stockBreakdown(pid); const choices=r.rows.map(x=>`<option value=\"${x.warehouse_id}\">${esc(x.warehouse_name)} (${x.qty})</option>`).join(''); const dst=WAREHOUSES.map(w=>`<option value=\"${w.id}\">${esc(w.name)}</option>`).join(''); const qty=prompt('Количество для перемещения:','1'); if(!qty) return; const from=prompt('ID склада-источника (доступные: '+r.rows.map(x=>x.warehouse_id).join(', ')+')',String(CURRENT_WAREHOUSE)); const to=prompt('ID склада-приёмника',String(WAREHOUSES.find(w=>w.id!==Number(from))?.id||'')); if(!from||!to||from===to)return; await api('/api/warehouse/transfer',{method:'POST',body:JSON.stringify({product_id:pid,from:Number(from),to:Number(to),qty:Number(qty)})}); toast('Перемещение выполнено ✅'); loadList(); }
+window.changeWarehouse=changeWarehouse; window.transferStock=transferStock;
 
 function toast(msg, err) {
   const el = document.createElement('div');
@@ -498,6 +510,7 @@ async function directBulkSave(products, patchKeys = []) {
 async function loadList() {
   try {
     await ensureWarehouseSettings();
+    await loadWarehouses();
     const q = $('#q').value.trim();
     const r = isDirectMode()
       ? await directLoadProducts(q)
@@ -536,6 +549,7 @@ function renderList() {
           <button class="mini" onclick="printOne(${p.id})">🖨</button>
           <button class="mini" onclick="publishOne(${p.id})">📣</button>
           <button class="mini" onclick="archiveOne(${p.id})">🗄</button>
+          <button class="mini" onclick="showStock(${p.id})">📊</button>
         </div>
       </div>
     </div>`).join('');
@@ -543,6 +557,7 @@ function renderList() {
   $('#bulkBtn').classList.toggle('active', selected.size > 0);
 }
 
+async function showStock(id) { try { const r=await stockBreakdown(id); alert(r.rows.map(x=>`${x.warehouse_name}: ${x.qty}`).join('\n')+'\nИтого: '+r.total); } catch(e){toast(e.message,true);} }
 function toggleSel(id, on) {
   if (on) selected.add(String(id)); else selected.delete(String(id));
   $('#printBtn').classList.toggle('active', selected.size > 0);
@@ -977,7 +992,7 @@ async function handleScanCode(code) {
       if (SCAN_MODE === 'search') openForm(product.id);
     } else {
       const r = await api('/api/warehouse/scan', { method: 'POST',
-        body: JSON.stringify({ code, mode: SCAN_MODE, qty }) });
+        body: JSON.stringify({ code, mode: SCAN_MODE, qty, warehouse_id: CURRENT_WAREHOUSE }) });
       toast((r.warning ? '⚠️ ' : '') + r.message, !r.found || r.warning);
       if (SCAN_MODE === 'search' && r.found) openForm(r.product.id);
     }
@@ -1623,6 +1638,10 @@ async function printPriceTags() {
 }
 
 // ------------------------------------------------------------------ настройки
+async function manageWarehouses() { if (!(WHOAMI && WHOAMI.role === 'admin')) return toast('Только администратор', true); const name=prompt('Название нового склада'); if(name){await api('/api/warehouse/warehouses',{method:'POST',body:JSON.stringify({name})}); await loadWarehouses(); toast('Склад создан');} else alert('Склады:\n'+WAREHOUSES.map(w=>w.id+': '+w.name).join('\n')); }
+async function renameWarehouse(id){const v=prompt('Новое название', WAREHOUSES.find(w=>w.id===id)?.name||''); if(!v)return; await api('/api/warehouse/warehouses/'+id,{method:'PUT',body:JSON.stringify({name:v})}); await loadWarehouses(); toast('Склад переименован');}
+async function removeWarehouse(id){if(!confirm('Удалить склад?'))return; await api('/api/warehouse/warehouses/'+id,{method:'DELETE'}); await loadWarehouses(); toast('Склад удалён');}
+window.manageWarehouses=manageWarehouses; window.renameWarehouse=renameWarehouse; window.removeWarehouse=removeWarehouse;
 async function openSettings() {
   try {
     const s = await ensureWarehouseSettings(true);
@@ -1642,7 +1661,7 @@ async function openSettings() {
       </div>
     ` : '';
     $('#sheet2-title').textContent = '⚙️ Настройки';
-    $('#sheet2-body').innerHTML = apkBlock + `
+    $('#sheet2-body').innerHTML = (isAdmin ? `<h3>🏬 Склады</h3><button class=\"mini\" onclick=\"manageWarehouses()\">Управление складами</button>` : '') + apkBlock + `
       <h3 style="margin:14px 0 8px">🗄 База товаров: 3 режима подключения</h3>
       <p style="color:#64748b;font-size:12px;margin:0 0 8px">Можно выбрать: <b>VPS</b>, <b>VPS → Supabase</b> или <b>Direct Supabase</b>. Во всех режимах фото, картинки и backup ниже остаются в Yandex Object Storage.</p>
       <label class="lb" style="display:flex;gap:8px;align-items:center"><input type="checkbox" id="cl-en" ${s.cloud.enabled ? 'checked' : ''} ${isAdmin ? '' : 'disabled'} style="accent-color:#0f766e"> Включить внешнюю синхронизацию / гибридную БД</label>
