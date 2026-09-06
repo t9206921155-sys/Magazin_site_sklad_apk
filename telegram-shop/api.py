@@ -2780,6 +2780,15 @@ def create_app(store, providers: dict, bot=None, notify_new_order=None, notify_o
         with store._conn: cur=store._conn.execute("INSERT INTO campaigns(name,channels,utm,created_by,created_at,updated_at) VALUES(?,?,?,?,?,?)",(name,json.dumps(channels),json.dumps(body.get("utm") or {}),user.get("id"),now,now))
         return {"id":cur.lastrowid,"name":name,"status":"draft","channels":channels}
 
+    @app.post("/api/marketing/campaigns/{cid}/publications")
+    async def campaign_publication(cid:int, body:dict, x_wh_token:str=Header(default=""), x_admin_token:str=Header(default="")):
+        user=wh_user_from_headers(x_wh_token,x_admin_token); channel=str(body.get("channel","")).strip()
+        if channel not in {"telegram","vk","avito","instagram","tiktok","wildberries"}: raise HTTPException(422,"Неизвестный канал")
+        if not store._q1("SELECT id FROM campaigns WHERE id=?",(cid,)): raise HTTPException(404,"Кампания не найдена")
+        now=datetime.datetime.now().isoformat(timespec="seconds")
+        with store._conn: cur=store._conn.execute("INSERT INTO campaign_publications(campaign_id,channel,status,created_at,updated_at) VALUES(?,?,?,?,?)",(cid,channel,"draft",now,now))
+        return {"id":cur.lastrowid,"campaign_id":cid,"channel":channel,"status":"draft"}
+
     @app.get("/api/marketing/campaigns")
     async def campaigns_list(x_wh_token:str=Header(default=""), x_admin_token:str=Header(default="")):
         wh_user_from_headers(x_wh_token,x_admin_token); rows=[]
