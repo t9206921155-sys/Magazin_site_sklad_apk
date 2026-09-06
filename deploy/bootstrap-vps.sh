@@ -6,7 +6,7 @@ REPO="${DEPLOY_REPO:-https://github.com/t9206921155-sys/Magazin_site_sklad_apk.g
 [[ $EUID -eq 0 ]] || { echo 'Run as root: sudo -E ...' >&2; exit 1; }
 [[ -n "$DOMAIN" ]] || { echo 'DEPLOY_DOMAIN is required' >&2; exit 1; }
 apt-get update
-DEBIAN_FRONTEND=noninteractive apt-get install -y git python3 python3-venv python3-pip nginx curl
+DEBIAN_FRONTEND=noninteractive apt-get install -y git python3 python3-venv python3-pip nginx curl certbot python3-certbot-nginx
 if [[ ! -d "$ROOT/.git" ]]; then git clone --depth 1 "$REPO" "$ROOT"; else git -C "$ROOT" fetch origin main && git -C "$ROOT" reset --hard origin/main; fi
 chown -R root:root "$ROOT"; cd "$ROOT/telegram-shop"
 python3 -m venv "$ROOT/.venv"; "$ROOT/.venv/bin/pip" install -r requirements.txt
