@@ -27,6 +27,12 @@ ExecStart=$ROOT/.venv/bin/python bot.py
 Restart=always
 RestartSec=5
 NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=true
+ProtectSystem=full
+ProtectKernelTunables=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
 [Install]
 WantedBy=multi-user.target
 EOF
