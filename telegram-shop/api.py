@@ -2733,6 +2733,15 @@ def create_app(store, providers: dict, bot=None, notify_new_order=None, notify_o
     async def wh_print_test(body: dict, x_wh_token: str=Header(default=""), x_admin_token: str=Header(default="")):
         return await _network_print(body,x_wh_token,x_admin_token,True)
 
+    @app.get("/api/content/prompt/{pid}")
+    async def content_prompt(pid:int, style:str="video", format:str="json", x_wh_token:str=Header(default=""), x_admin_token:str=Header(default="")):
+        wh_user_from_headers(x_wh_token,x_admin_token); product=store.get_product(pid)
+        if not product: raise HTTPException(404,"Товар не найден")
+        photos=product.get("photos") or ([product.get("photo")] if product.get("photo") else [])
+        prompt=(f"Создай короткий рекламный ролик товара для {style}. Товар: {product.get('name','')}. Категория: {product.get('category','')}. Цена: {product.get('price',0)} ₽. Состояние: {product.get('condition','new')}. Описание: {product.get('description','')}. Покажи преимущества честно, без выдуманных характеристик, добавь CTA и субтитры на русском языке.")
+        if format == "txt": return Response(content=prompt, media_type="text/plain; charset=utf-8")
+        return {"product_id":pid,"style":style,"prompt":prompt,"photos":photos,"export":{"name":product.get("name",""),"price":product.get("price",0),"description":product.get("description","")}}
+
     @app.get("/api/crm/tasks")
     async def crm_tasks(x_wh_token: str=Header(default=""), x_admin_token: str=Header(default="")):
         wh_user_from_headers(x_wh_token,x_admin_token); return [dict(r) for r in store._q("SELECT * FROM crm_tasks ORDER BY id DESC LIMIT 500")]
