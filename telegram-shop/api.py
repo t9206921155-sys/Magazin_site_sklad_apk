@@ -2733,6 +2733,28 @@ def create_app(store, providers: dict, bot=None, notify_new_order=None, notify_o
     async def wh_print_test(body: dict, x_wh_token: str=Header(default=""), x_admin_token: str=Header(default="")):
         return await _network_print(body,x_wh_token,x_admin_token,True)
 
+    @app.post("/api/content/jobs")
+    async def content_job_create(body:dict, x_wh_token:str=Header(default=""), x_admin_token:str=Header(default="")):
+        user=wh_user_from_headers(x_wh_token,x_admin_token); pid=int(body.get("product_id",0)); product=store.get_product(pid)
+        if not product: raise HTTPException(404,"Товар не найден")
+        prompt=(await content_prompt(pid, str(body.get("style","video")), "json", x_wh_token, x_admin_token))["prompt"]
+        now=datetime.datetime.now().isoformat(timespec="seconds")
+        with store._conn: cur=store._conn.execute("INSERT INTO content_jobs(product_id,provider,status,prompt,created_by,created_at,updated_at) VALUES(?,?,?,?,?,?,?)",(pid,str(body.get("provider","external")),"queued",prompt,user.get("id"),now,now))
+        return {"id":cur.lastrowid,"status":"queued","prompt":prompt}
+
+    @app.get("/api/content/jobs")
+    async def content_jobs(x_wh_token:str=Header(default=""), x_admin_token:str=Header(default="")):
+        wh_user_from_headers(x_wh_token,x_admin_token); return [dict(r) for r in store._q("SELECT * FROM content_jobs ORDER BY id DESC LIMIT 100")]
+
+    @app.post("/api/content/jobs/{jid}/result")
+    async def content_job_result(jid:int, body:dict, x_wh_token:str=Header(default=""), x_admin_token:str=Header(default="")):
+        wh_user_from_headers(x_wh_token,x_admin_token); url=str(body.get("result_url","")).strip()
+        if not url.startswith(("https://","http://")): raise HTTPException(422,"result_url должен быть URL")
+        now=datetime.datetime.now().isoformat(timespec="seconds")
+        with store._conn: cur=store._conn.execute("UPDATE content_jobs SET status=?,result_url=?,error=?,updated_at=? WHERE id=?",("review",url,str(body.get("error","")),now,jid))
+        if not cur.rowcount: raise HTTPException(404,"Задача не найдена")
+        return {"ok":True,"status":"review","id":jid}
+
     @app.get("/api/content/prompt/{pid}")
     async def content_prompt(pid:int, style:str="video", format:str="json", x_wh_token:str=Header(default=""), x_admin_token:str=Header(default="")):
         wh_user_from_headers(x_wh_token,x_admin_token); product=store.get_product(pid)

@@ -223,6 +223,9 @@ CREATE TABLE IF NOT EXISTS wh_log(
   id INTEGER PRIMARY KEY AUTOINCREMENT, ts TEXT, user_name TEXT DEFAULT '',
   action TEXT DEFAULT '', details TEXT DEFAULT ''
 );
+CREATE TABLE IF NOT EXISTS content_jobs(
+  id INTEGER PRIMARY KEY AUTOINCREMENT, product_id INTEGER NOT NULL, provider TEXT DEFAULT '', status TEXT DEFAULT 'draft', prompt TEXT DEFAULT '', result_url TEXT DEFAULT '', error TEXT DEFAULT '', created_by INTEGER, created_at TEXT, updated_at TEXT
+);
 CREATE TABLE IF NOT EXISTS crm_tasks(
   id INTEGER PRIMARY KEY AUTOINCREMENT, title TEXT NOT NULL, description TEXT DEFAULT '', status TEXT DEFAULT 'open', priority TEXT DEFAULT 'normal', assignee_id INTEGER, created_by INTEGER, due_at TEXT DEFAULT '', created_at TEXT, updated_at TEXT
 );
