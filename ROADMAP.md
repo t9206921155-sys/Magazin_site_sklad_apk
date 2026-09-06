@@ -149,3 +149,5 @@ telegram-shop/tests-*   ← автотесты
 
 | 18 | Backup/restore production на тестовом VPS | ⏳ | 14, 17 | `blocks/BLOCK-18-backup-production.md` |
 | 19 | Внутренняя CRM и общение сотрудников | ⏳ | 12, 15 | `blocks/BLOCK-19-internal-crm.md` |
+
+| 20 | SEO и продвижение: Yandex, Google, Instagram, VK, TikTok, Telegram | ⏳ | 12, 15, 16 | `blocks/BLOCK-20-seo-promotion.md` |
