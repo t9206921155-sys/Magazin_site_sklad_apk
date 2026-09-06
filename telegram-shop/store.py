@@ -223,6 +223,12 @@ CREATE TABLE IF NOT EXISTS wh_log(
   id INTEGER PRIMARY KEY AUTOINCREMENT, ts TEXT, user_name TEXT DEFAULT '',
   action TEXT DEFAULT '', details TEXT DEFAULT ''
 );
+CREATE TABLE IF NOT EXISTS campaigns(
+  id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, status TEXT DEFAULT 'draft', channels TEXT DEFAULT '[]', utm TEXT DEFAULT '{}', created_by INTEGER, created_at TEXT, updated_at TEXT
+);
+CREATE TABLE IF NOT EXISTS campaign_publications(
+  id INTEGER PRIMARY KEY AUTOINCREMENT, campaign_id INTEGER NOT NULL, channel TEXT NOT NULL, status TEXT DEFAULT 'draft', external_id TEXT DEFAULT '', error TEXT DEFAULT '', created_at TEXT, updated_at TEXT
+);
 CREATE TABLE IF NOT EXISTS content_jobs(
   id INTEGER PRIMARY KEY AUTOINCREMENT, product_id INTEGER NOT NULL, provider TEXT DEFAULT '', status TEXT DEFAULT 'draft', prompt TEXT DEFAULT '', result_url TEXT DEFAULT '', error TEXT DEFAULT '', created_by INTEGER, created_at TEXT, updated_at TEXT
 );

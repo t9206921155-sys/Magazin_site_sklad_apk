@@ -2772,6 +2772,21 @@ def create_app(store, providers: dict, bot=None, notify_new_order=None, notify_o
         if not cur.rowcount: raise HTTPException(404,"Задача не найдена")
         return {"ok":True,"status":"review","id":jid}
 
+    @app.post("/api/marketing/campaigns")
+    async def campaign_create(body:dict, x_wh_token:str=Header(default=""), x_admin_token:str=Header(default="")):
+        user=wh_user_from_headers(x_wh_token,x_admin_token); name=str(body.get("name","")).strip(); channels=body.get("channels") or []
+        if not name or not isinstance(channels,list) or not channels: raise HTTPException(422,"name и channels обязательны")
+        now=datetime.datetime.now().isoformat(timespec="seconds")
+        with store._conn: cur=store._conn.execute("INSERT INTO campaigns(name,channels,utm,created_by,created_at,updated_at) VALUES(?,?,?,?,?,?)",(name,json.dumps(channels),json.dumps(body.get("utm") or {}),user.get("id"),now,now))
+        return {"id":cur.lastrowid,"name":name,"status":"draft","channels":channels}
+
+    @app.get("/api/marketing/campaigns")
+    async def campaigns_list(x_wh_token:str=Header(default=""), x_admin_token:str=Header(default="")):
+        wh_user_from_headers(x_wh_token,x_admin_token); rows=[]
+        for r in store._q("SELECT * FROM campaigns ORDER BY id DESC LIMIT 100"):
+            x=dict(r); x["channels"]=json.loads(x.get("channels") or "[]"); x["utm"]=json.loads(x.get("utm") or "{}"); rows.append(x)
+        return rows
+
     @app.get("/api/content/prompt/{pid}")
     async def content_prompt(pid:int, style:str="video", format:str="json", x_wh_token:str=Header(default=""), x_admin_token:str=Header(default="")):
         wh_user_from_headers(x_wh_token,x_admin_token); product=store.get_product(pid)
