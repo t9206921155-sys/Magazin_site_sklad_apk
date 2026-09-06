@@ -550,6 +550,7 @@ function renderList() {
           <button class="mini" onclick="publishOne(${p.id})">📣</button>
           <button class="mini" onclick="archiveOne(${p.id})">🗄</button>
           <button class="mini" onclick="showStock(${p.id})">📊</button>
+          <button class="mini" onclick="exportPrompt(${p.id})">🎬</button>
         </div>
       </div>
     </div>`).join('');
@@ -557,6 +558,7 @@ function renderList() {
   $('#bulkBtn').classList.toggle('active', selected.size > 0);
 }
 
+async function exportPrompt(id) { try { const r=await api('/api/content/prompt/'+id); const blob=new Blob([JSON.stringify(r,null,2)],{type:'application/json'}); const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='content-prompt-'+id+'.json'; a.click(); toast('Prompt экспортирован ✅'); } catch(e){toast(e.message,true);} }
 async function showStock(id) { try { const r=await stockBreakdown(id); alert(r.rows.map(x=>`${x.warehouse_name}: ${x.qty}`).join('\n')+'\nИтого: '+r.total); } catch(e){toast(e.message,true);} }
 function toggleSel(id, on) {
   if (on) selected.add(String(id)); else selected.delete(String(id));
