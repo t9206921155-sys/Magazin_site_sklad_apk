@@ -263,6 +263,21 @@ class S3Client:
     def enabled(self) -> bool:
         return bool(self.endpoint and self.access_key and self.secret_key and self.bucket)
 
+    def upload_backup(self, local_path, key):
+        try: self.upload_file(local_path, key, content_type="application/octet-stream"); return {"ok": True, "key": key}
+        except Exception as exc: return {"ok": False, "error": str(exc)[:200]}
+    def download_backup(self, key, local_path):
+        try: self._client().download_file(self.bucket, key, local_path); return {"ok": True, "path": local_path}
+        except Exception as exc: return {"ok": False, "error": str(exc)[:200]}
+    def verify_checksum(self, key, sha256):
+        import hashlib, tempfile, os
+        with tempfile.NamedTemporaryFile(delete=False) as f: path=f.name
+        try:
+            r=self.download_backup(key,path)
+            if not r.get("ok"): return False
+            h=hashlib.sha256(open(path,"rb").read()).hexdigest(); return hmac.compare_digest(h,sha256)
+        finally: os.unlink(path)
+
     def delete_photo(self, photo_ref):
         try:
             self._client().delete_object(Bucket=self.bucket, Key=photo_ref)

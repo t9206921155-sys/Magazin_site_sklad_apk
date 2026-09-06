@@ -23,3 +23,10 @@ def provider_status(provider) -> dict:
         return {"ok": bool(result.get("ok")), "status": result.get("status", 200 if result.get("ok") else 503), "error": result.get("error", "")}
     except Exception as exc:
         return {"ok": False, "status": 503, "error": str(exc)[:200]}
+
+
+@runtime_checkable
+class BackupStorage(Protocol):
+    def upload_backup(self, local_path: str, key: str) -> dict: ...
+    def download_backup(self, key: str, local_path: str) -> dict: ...
+    def verify_checksum(self, key: str, sha256: str) -> bool: ...
