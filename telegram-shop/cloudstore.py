@@ -710,7 +710,7 @@ def sync_to_cloud(store) -> dict:
     storage_client = _storage_client_from_cloud(cloud)
 
     if not storage_client.enabled:
-        return {"ok": False, "error": "Не настроен Yandex/S3 Object Storage для фото и backup"}
+        return {"ok": False, "error": "Не настроено выбранное фото-хранилище для фото и backup"}
     if db_mode != "vps" and not getattr(catalog_client, "enabled", False):
         return {"ok": False, "error": f"Не настроено подключение к {db_mode}"}
 
@@ -809,7 +809,7 @@ def sync_one_product(store, product: dict) -> dict:
     db_mode, catalog_client = _catalog_client_from_cloud(cloud)
     storage_client = _storage_client_from_cloud(cloud)
     if not storage_client.enabled:
-        return {"ok": False, "error": "Не настроен Yandex/S3 Object Storage"}
+        return {"ok": False, "error": "Не настроено выбранное фото-хранилище"}
     if db_mode != "vps" and not getattr(catalog_client, "enabled", False):
         return {"ok": False, "error": f"Не настроено подключение к {db_mode}"}
 
@@ -844,7 +844,7 @@ def restore_from_cloud(store) -> dict:
     db_mode, client = _catalog_client_from_cloud(cloud)
     if db_mode == "vps":
         if not _storage_client_from_cloud(cloud).enabled:
-            return {"ok": False, "error": "Не настроен Yandex/S3 Object Storage"}
+            return {"ok": False, "error": "Не настроено выбранное фото-хранилище"}
     elif not getattr(client, "enabled", False):
         return {"ok": False, "error": f"Не настроено подключение к {db_mode}"}
     res = client.pull_products()
