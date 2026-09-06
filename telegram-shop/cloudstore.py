@@ -264,6 +264,15 @@ class S3Client:
     def enabled(self) -> bool:
         return bool(self.endpoint and self.access_key and self.secret_key and self.bucket)
 
+    def list_backups(self, prefix="sqlite/"):
+        try:
+            data=self._client().list_objects_v2(Bucket=self.bucket, Prefix=prefix)
+            return {"ok":True,"keys":[x["Key"] for x in data.get("Contents",[])]}
+        except Exception as exc: return {"ok":False,"error":str(exc)[:200],"keys":[]}
+    def delete_backup(self, key):
+        try: self._client().delete_object(Bucket=self.bucket, Key=key); return {"ok":True,"key":key}
+        except Exception as exc: return {"ok":False,"error":str(exc)[:200]}
+
     def upload_backup(self, local_path, key):
         try: self.upload_file(local_path, key, content_type="application/octet-stream"); return {"ok": True, "key": key}
         except Exception as exc: return {"ok": False, "error": str(exc)[:200]}
