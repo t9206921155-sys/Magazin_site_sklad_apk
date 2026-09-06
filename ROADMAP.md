@@ -154,3 +154,6 @@ telegram-shop/tests-*   ← автотесты
 
 | 21 | AI-генерация видео и контент-агенты для соцсетей | ⏳ | 15, 20 | `blocks/BLOCK-21-ai-video-content.md` |
 | 22 | Wildberries: ресейл и интеграция marketplace | ⏳ | 13, 20 | `blocks/BLOCK-22-wildberries-resale.md` |
+
+| 23 | Content Hub и AI Video Queue | ⏳ | 19, 20, 21 | `blocks/BLOCK-23-content-hub-ai-queue.md` |
+| 24 | Campaign Manager и публикация по каналам | ⏳ | 20, 23 | `blocks/BLOCK-24-campaign-manager.md` |
