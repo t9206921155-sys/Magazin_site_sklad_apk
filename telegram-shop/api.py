@@ -2789,6 +2789,11 @@ def create_app(store, providers: dict, bot=None, notify_new_order=None, notify_o
         with store._conn: cur=store._conn.execute("INSERT INTO campaign_publications(campaign_id,channel,status,created_at,updated_at) VALUES(?,?,?,?,?)",(cid,channel,"draft",now,now))
         return {"id":cur.lastrowid,"campaign_id":cid,"channel":channel,"status":"draft"}
 
+    @app.get("/api/marketing/campaigns/{cid}/publications")
+    async def campaign_publications(cid:int, x_wh_token:str=Header(default=""), x_admin_token:str=Header(default="")):
+        wh_user_from_headers(x_wh_token,x_admin_token)
+        return [dict(r) for r in store._q("SELECT * FROM campaign_publications WHERE campaign_id=? ORDER BY id DESC",(cid,))]
+
     @app.get("/api/marketing/campaigns")
     async def campaigns_list(x_wh_token:str=Header(default=""), x_admin_token:str=Header(default="")):
         wh_user_from_headers(x_wh_token,x_admin_token); rows=[]
