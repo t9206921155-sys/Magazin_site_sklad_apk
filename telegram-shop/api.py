@@ -4005,4 +4005,5 @@ def create_app(store, providers: dict, bot=None, notify_new_order=None, notify_o
 
     # статическая админка — в конце, чтобы не перекрывала /admin/api
     app.mount("/admin", StaticFiles(directory=config.ADMIN_DIR, html=True), name="admin")
+    app.mount("/crm", StaticFiles(directory=os.path.join(config.BASE_DIR, "crm"), html=True), name="crm")
     return app
