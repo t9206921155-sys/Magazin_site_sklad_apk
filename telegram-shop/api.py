@@ -999,6 +999,13 @@ def create_app(store, providers: dict, bot=None, notify_new_order=None, notify_o
                 "condition_labels": CONDITION_LABELS,
                 "marketplace": bool((store.settings.get("marketplace") or {}).get("enabled"))}
 
+    @app.get("/api/marketing/utm")
+    async def marketing_utm(url: str, source: str, medium: str="social", campaign: str="", content: str=""):
+        """Build a safe UTM URL for campaign links."""
+        if not url.startswith(("https://", "http://")): raise HTTPException(422,"URL должен начинаться с http:// или https://")
+        parts=urllib.parse.urlsplit(url); query=dict(urllib.parse.parse_qsl(parts.query, keep_blank_values=True)); query.update({k:v for k,v in (("utm_source",source),("utm_medium",medium),("utm_campaign",campaign),("utm_content",content)) if v})
+        return {"url":urllib.parse.urlunsplit((parts.scheme,parts.netloc,parts.path,urllib.parse.urlencode(query),parts.fragment))}
+
     @app.get("/api/search/suggest")
     async def search_suggest(q: str = ""):
         """Автодополнение поиска: до 8 названий по релевантности."""
