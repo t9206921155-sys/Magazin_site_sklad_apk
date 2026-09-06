@@ -2736,6 +2736,7 @@ def create_app(store, providers: dict, bot=None, notify_new_order=None, notify_o
         if not title: raise HTTPException(422,"title обязателен")
         now=datetime.datetime.now().isoformat(timespec="seconds")
         with store._conn: cur=store._conn.execute("INSERT INTO crm_tasks(title,description,priority,assignee_id,created_by,created_at,updated_at) VALUES(?,?,?,?,?,?,?)",(title,str(body.get("description","")),str(body.get("priority","normal")),body.get("assignee_id"),user.get("id"),now,now))
+        store.wh_log_add(user["name"], "создал CRM-задачу", title)
         return {"id":cur.lastrowid,"title":title}
 
     @app.put("/api/crm/tasks/{tid}")
@@ -2757,6 +2758,7 @@ def create_app(store, providers: dict, bot=None, notify_new_order=None, notify_o
         if not text or len(text)>5000: raise HTTPException(422,"Сообщение пустое или слишком длинное")
         now=datetime.datetime.now().isoformat(timespec="seconds"); channel=str(body.get("channel","general"))[:80]
         with store._conn: cur=store._conn.execute("INSERT INTO crm_messages(sender_id,channel,body,created_at) VALUES(?,?,?,?)",(user.get("id"),channel,text,now))
+        store.wh_log_add(user["name"], "написал в CRM", channel)
         return {"id":cur.lastrowid,"channel":channel,"body":text,"created_at":now}
 
     @app.get("/api/warehouse/sync")
