@@ -868,6 +868,14 @@ def restore_from_cloud(store) -> dict:
     return {"ok": True, "db_mode": db_mode, "created": created, "updated": updated}
 
 
+def backup_storage_from_cloud(cloud: dict):
+    """Return a backup-capable provider or raise a clear configuration error."""
+    c = dict(cloud or {})
+    if database_mode(c) == "vps":
+        return _storage_client_from_cloud(c)
+    return _storage_client_from_cloud(c)
+
+
 def backup_db_to_cloud(store, *, bucket: str | None = None, prefix: str | None = None) -> dict:
     """Создаёт снимок SQLite и загружает его в S3-совместимое хранилище.
 
