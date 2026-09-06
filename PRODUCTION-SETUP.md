@@ -50,3 +50,22 @@ sudo -E DEPLOY_DOMAIN=shop.example.ru \\
 ```
 
 Скрипт устанавливает Python, Nginx, создаёт venv и systemd-сервис, настраивает reverse proxy и при наличии Certbot выпускает HTTPS-сертификат. Сначала он создаёт `.env` из production-шаблона и останавливается, если placeholders не заменены.
+
+## Ежедневный backup через systemd timer
+
+После настройки storage скопировать unit-файлы:
+
+```bash
+sudo cp deploy/magazin-backup.service /etc/systemd/system/
+sudo cp deploy/magazin-backup.timer /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl enable --now magazin-backup.timer
+```
+
+Проверка:
+
+```bash
+systemctl list-timers magazin-backup.timer
+sudo systemctl start magazin-backup.service
+journalctl -u magazin-backup.service -n 100 --no-pager
+```

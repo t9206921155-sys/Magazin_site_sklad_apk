@@ -1,0 +1,10 @@
+[Unit]
+Description=Telegram Shop SQLite backup
+After=network-online.target magazin-shop.service
+
+[Service]
+Type=oneshot
+User=magazin
+WorkingDirectory=/opt/magazin-shop/telegram-shop
+EnvironmentFile=/opt/magazin-shop/telegram-shop/.env
+ExecStart=/opt/magazin-shop/.venv/bin/python scripts/backup_sqlite_to_s3.py
