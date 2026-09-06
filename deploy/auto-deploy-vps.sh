@@ -12,6 +12,10 @@ if [[ -d "$ROOT/.git" ]]; then git -C "$ROOT" fetch origin "$BRANCH"; git -C "$R
 cd "$ROOT/telegram-shop"
 "$PYTHON" -m venv "$ROOT/.venv"; "$ROOT/.venv/bin/python" -m pip install --upgrade pip; "$ROOT/.venv/bin/pip" install -r requirements.txt
 [[ -f .env ]] || { cp .env.production.example .env; echo "Created $ROOT/telegram-shop/.env; fill secrets before restart."; }
+if grep -Eq 'PASTE_|CHANGE_ME|YOUR-DOMAIN|GENERATE_RANDOM' .env; then
+  echo "ERROR: replace placeholders in $ROOT/telegram-shop/.env before deploy" >&2
+  exit 1
+fi
 sudo tee "/etc/systemd/system/$SERVICE.service" >/dev/null <<EOF
 [Unit]
 Description=Telegram Shop API
