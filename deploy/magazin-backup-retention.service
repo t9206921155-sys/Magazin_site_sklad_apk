@@ -1,0 +1,10 @@
+[Unit]
+Description=Telegram Shop backup retention cleanup
+After=network-online.target
+
+[Service]
+Type=oneshot
+User=magazin
+WorkingDirectory=/opt/magazin-shop/telegram-shop
+EnvironmentFile=/opt/magazin-shop/telegram-shop/.env
+ExecStart=/opt/magazin-shop/.venv/bin/python scripts/backup_retention.py --keep 30 --apply

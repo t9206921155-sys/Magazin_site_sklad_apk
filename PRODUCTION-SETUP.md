@@ -69,3 +69,11 @@ systemctl list-timers magazin-backup.timer
 sudo systemctl start magazin-backup.service
 journalctl -u magazin-backup.service -n 100 --no-pager
 ```
+
+Для автоматического удаления backup старше retention установить дополнительно:
+
+```bash
+sudo cp deploy/magazin-backup-retention.{service,timer} /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl enable --now magazin-backup-retention.timer
+```

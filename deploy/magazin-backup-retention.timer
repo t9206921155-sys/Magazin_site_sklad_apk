@@ -1,0 +1,10 @@
+[Unit]
+Description=Daily Telegram Shop backup retention cleanup
+
+[Timer]
+OnCalendar=*-*-* 04:00:00
+Persistent=true
+RandomizedDelaySec=900
+
+[Install]
+WantedBy=timers.target
