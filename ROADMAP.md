@@ -151,3 +151,6 @@ telegram-shop/tests-*   ← автотесты
 | 19 | Внутренняя CRM и общение сотрудников | ⏳ | 12, 15 | `blocks/BLOCK-19-internal-crm.md` |
 
 | 20 | SEO и продвижение: Yandex, Google, Instagram, VK, TikTok, Telegram | ⏳ | 12, 15, 16 | `blocks/BLOCK-20-seo-promotion.md` |
+
+| 21 | AI-генерация видео и контент-агенты для соцсетей | ⏳ | 15, 20 | `blocks/BLOCK-21-ai-video-content.md` |
+| 22 | Wildberries: ресейл и интеграция marketplace | ⏳ | 13, 20 | `blocks/BLOCK-22-wildberries-resale.md` |
