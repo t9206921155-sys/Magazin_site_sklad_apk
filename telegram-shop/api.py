@@ -2726,6 +2726,39 @@ def create_app(store, providers: dict, bot=None, notify_new_order=None, notify_o
     async def wh_print_test(body: dict, x_wh_token: str=Header(default=""), x_admin_token: str=Header(default="")):
         return await _network_print(body,x_wh_token,x_admin_token,True)
 
+    @app.get("/api/crm/tasks")
+    async def crm_tasks(x_wh_token: str=Header(default=""), x_admin_token: str=Header(default="")):
+        wh_user_from_headers(x_wh_token,x_admin_token); return [dict(r) for r in store._q("SELECT * FROM crm_tasks ORDER BY id DESC LIMIT 500")]
+
+    @app.post("/api/crm/tasks")
+    async def crm_task_create(body:dict, x_wh_token:str=Header(default=""), x_admin_token:str=Header(default="")):
+        user=wh_user_from_headers(x_wh_token,x_admin_token); title=str(body.get("title","")).strip()
+        if not title: raise HTTPException(422,"title обязателен")
+        now=datetime.datetime.now().isoformat(timespec="seconds")
+        with store._conn: cur=store._conn.execute("INSERT INTO crm_tasks(title,description,priority,assignee_id,created_by,created_at,updated_at) VALUES(?,?,?,?,?,?,?)",(title,str(body.get("description","")),str(body.get("priority","normal")),body.get("assignee_id"),user.get("id"),now,now))
+        return {"id":cur.lastrowid,"title":title}
+
+    @app.put("/api/crm/tasks/{tid}")
+    async def crm_task_update(tid:int, body:dict, x_wh_token:str=Header(default=""), x_admin_token:str=Header(default="")):
+        wh_user_from_headers(x_wh_token,x_admin_token); allowed={"status","priority","assignee_id","description","due_at"}; patch={k:body[k] for k in allowed if k in body}
+        if not patch: raise HTTPException(422,"Нет полей для изменения")
+        patch["updated_at"]=datetime.datetime.now().isoformat(timespec="seconds"); sets=", ".join(k+"=?" for k in patch); args=list(patch.values())+[tid]
+        with store._conn: cur=store._conn.execute("UPDATE crm_tasks SET "+sets+" WHERE id=?",args)
+        if not cur.rowcount: raise HTTPException(404,"Задача не найдена")
+        return {"ok":True,"id":tid}
+
+    @app.get("/api/crm/messages")
+    async def crm_messages(channel:str="general", x_wh_token:str=Header(default=""), x_admin_token:str=Header(default="")):
+        wh_user_from_headers(x_wh_token,x_admin_token); return [dict(r) for r in store._q("SELECT * FROM crm_messages WHERE channel=? ORDER BY id DESC LIMIT 200",(channel,))][::-1]
+
+    @app.post("/api/crm/messages")
+    async def crm_message(body:dict, x_wh_token:str=Header(default=""), x_admin_token:str=Header(default="")):
+        user=wh_user_from_headers(x_wh_token,x_admin_token); text=str(body.get("body","")).strip()
+        if not text or len(text)>5000: raise HTTPException(422,"Сообщение пустое или слишком длинное")
+        now=datetime.datetime.now().isoformat(timespec="seconds"); channel=str(body.get("channel","general"))[:80]
+        with store._conn: cur=store._conn.execute("INSERT INTO crm_messages(sender_id,channel,body,created_at) VALUES(?,?,?,?)",(user.get("id"),channel,text,now))
+        return {"id":cur.lastrowid,"channel":channel,"body":text,"created_at":now}
+
     @app.get("/api/warehouse/sync")
     async def wh_sync(x_wh_token: str = Header(default=""),
                       x_admin_token: str = Header(default="")):

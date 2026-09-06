@@ -223,6 +223,12 @@ CREATE TABLE IF NOT EXISTS wh_log(
   id INTEGER PRIMARY KEY AUTOINCREMENT, ts TEXT, user_name TEXT DEFAULT '',
   action TEXT DEFAULT '', details TEXT DEFAULT ''
 );
+CREATE TABLE IF NOT EXISTS crm_tasks(
+  id INTEGER PRIMARY KEY AUTOINCREMENT, title TEXT NOT NULL, description TEXT DEFAULT '', status TEXT DEFAULT 'open', priority TEXT DEFAULT 'normal', assignee_id INTEGER, created_by INTEGER, due_at TEXT DEFAULT '', created_at TEXT, updated_at TEXT
+);
+CREATE TABLE IF NOT EXISTS crm_messages(
+  id INTEGER PRIMARY KEY AUTOINCREMENT, sender_id INTEGER NOT NULL, channel TEXT DEFAULT 'general', body TEXT NOT NULL, created_at TEXT
+);
 CREATE TABLE IF NOT EXISTS wh_scans(
   id INTEGER PRIMARY KEY AUTOINCREMENT, ts TEXT, user_name TEXT DEFAULT '',
   mode TEXT DEFAULT '', code TEXT DEFAULT '', product_id INTEGER DEFAULT 0,
