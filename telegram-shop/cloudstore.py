@@ -744,8 +744,8 @@ def test_cloud(store) -> dict:
     db_mode = database_mode(cloud)
     storage_client = _storage_client_from_cloud(cloud)
     storage = {**storage_client.ping(),
-               "provider": "s3",
-               "preset": (cloud.get("s3_preset") or "yandex"),
+               "provider": cloud.get("photo_provider") or "s3",
+               "preset": (cloud.get("s3_preset") or "yandex") if (cloud.get("photo_provider") or "s3") == "s3" else "yandex_disk",
                "bucket": (cloud.get("bucket") or "shop-photos")}
     if db_mode in {"supabase_proxy", "supabase_direct"}:
         database = {**_supabase_client_from_cloud(cloud).ping(),
@@ -769,7 +769,7 @@ def test_cloud(store) -> dict:
     return {
         "ok": ok,
         "status": 200 if ok else (database.get("status") or storage.get("status") or 500),
-        "provider": "s3",
+        "provider": cloud.get("photo_provider") or "s3",
         "db_mode": db_mode,
         "storage": storage,
         "database": database,
