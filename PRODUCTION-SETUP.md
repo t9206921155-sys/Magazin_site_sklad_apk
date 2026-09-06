@@ -38,3 +38,15 @@ sudo journalctl -u magazin-shop -n 100 --no-pager
 ```
 
 Для повторного deploy скрипт делает fast-forward/reset до `origin/main`, устанавливает зависимости и перезапускает сервис. Не запускайте его поверх незакоммиченных production-изменений.
+
+## Полный bootstrap нового VPS
+
+Для Ubuntu/Debian можно использовать `deploy/bootstrap-vps.sh`. Перед запуском DNS домена должен указывать на VPS:
+
+```bash
+sudo -E DEPLOY_DOMAIN=shop.example.ru \\
+  LETSENCRYPT_EMAIL=admin@example.ru \\
+  ./deploy/bootstrap-vps.sh
+```
+
+Скрипт устанавливает Python, Nginx, создаёт venv и systemd-сервис, настраивает reverse proxy и при наличии Certbot выпускает HTTPS-сертификат. Сначала он создаёт `.env` из production-шаблона и останавливается, если placeholders не заменены.
