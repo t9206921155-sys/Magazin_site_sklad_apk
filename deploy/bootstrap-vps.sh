@@ -1,14 +1,15 @@
 #!/usr/bin/env bash
 set -euo pipefail
 # First-time Ubuntu/Debian VPS bootstrap. Review before running on production.
-ROOT="${DEPLOY_ROOT:-/opt/magazin-shop}"; DOMAIN="${DEPLOY_DOMAIN:-}"; EMAIL="${LETSENCRYPT_EMAIL:-}"
+ROOT="${DEPLOY_ROOT:-/opt/magazin-shop}"; APP_USER="${DEPLOY_USER:-magazin}"; DOMAIN="${DEPLOY_DOMAIN:-}"; EMAIL="${LETSENCRYPT_EMAIL:-}"
 REPO="${DEPLOY_REPO:-https://github.com/t9206921155-sys/Magazin_site_sklad_apk.git}"
 [[ $EUID -eq 0 ]] || { echo 'Run as root: sudo -E ...' >&2; exit 1; }
 [[ -n "$DOMAIN" ]] || { echo 'DEPLOY_DOMAIN is required' >&2; exit 1; }
 apt-get update
 DEBIAN_FRONTEND=noninteractive apt-get install -y git python3 python3-venv python3-pip nginx curl certbot python3-certbot-nginx
 if [[ ! -d "$ROOT/.git" ]]; then git clone --depth 1 "$REPO" "$ROOT"; else git -C "$ROOT" fetch origin main && git -C "$ROOT" reset --hard origin/main; fi
-chown -R root:root "$ROOT"; cd "$ROOT/telegram-shop"
+if ! id "$APP_USER" >/dev/null 2>&1; then useradd --system --home "$ROOT" --shell /usr/sbin/nologin "$APP_USER"; fi
+chown -R "$APP_USER:$APP_USER" "$ROOT"; cd "$ROOT/telegram-shop"
 python3 -m venv "$ROOT/.venv"; "$ROOT/.venv/bin/pip" install -r requirements.txt
 if [[ ! -f .env ]]; then cp .env.production.example .env; fi
 if grep -Eq 'PASTE_|CHANGE_ME|YOUR-DOMAIN|GENERATE_RANDOM' .env; then echo "Fill $ROOT/telegram-shop/.env and rerun." >&2; exit 2; fi
@@ -18,9 +19,10 @@ Description=Telegram Shop
 After=network-online.target
 Wants=network-online.target
 [Service]
-User=root
+User=$APP_USER
 WorkingDirectory=$ROOT/telegram-shop
 EnvironmentFile=$ROOT/telegram-shop/.env
+UMask=027
 ExecStart=$ROOT/.venv/bin/python bot.py
 Restart=always
 RestartSec=5
