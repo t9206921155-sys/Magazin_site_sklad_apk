@@ -2746,6 +2746,16 @@ def create_app(store, providers: dict, bot=None, notify_new_order=None, notify_o
     async def content_jobs(x_wh_token:str=Header(default=""), x_admin_token:str=Header(default="")):
         wh_user_from_headers(x_wh_token,x_admin_token); return [dict(r) for r in store._q("SELECT * FROM content_jobs ORDER BY id DESC LIMIT 100")]
 
+    @app.post("/api/content/jobs/{jid}/approve")
+    async def content_job_approve(jid:int, body:dict, x_wh_token:str=Header(default=""), x_admin_token:str=Header(default="")):
+        user=wh_user_from_headers(x_wh_token,x_admin_token); status=str(body.get("status","approved"))
+        if status not in ("approved","rejected"): raise HTTPException(422,"status должен быть approved или rejected")
+        now=datetime.datetime.now().isoformat(timespec="seconds")
+        with store._conn: cur=store._conn.execute("UPDATE content_jobs SET status=?,error=?,updated_at=? WHERE id=? AND status='review'",(status,str(body.get("comment","")),now,jid))
+        if not cur.rowcount: raise HTTPException(409,"Задача не находится на проверке")
+        store.wh_log_add(user["name"], "одобрил контент" if status=="approved" else "отклонил контент", f"job {jid}")
+        return {"ok":True,"id":jid,"status":status}
+
     @app.post("/api/content/jobs/{jid}/result")
     async def content_job_result(jid:int, body:dict, x_wh_token:str=Header(default=""), x_admin_token:str=Header(default="")):
         wh_user_from_headers(x_wh_token,x_admin_token); url=str(body.get("result_url","")).strip()
