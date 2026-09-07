@@ -10,6 +10,9 @@ class WildberriesProvider:
     def ping(self):
         if not self.enabled: return {"ok":False,"error":"Wildberries API token is not configured"}
         return {"ok":False,"error":"Official account/API capability must be verified before activation"}
+    def audit_status(self):
+        return {"channel":"wildberries","enabled":False,"scraping":False,"publishing":"disabled","reason":"official API/account audit required"}
+
     def map_product(self, product):
         return {"vendorCode": str(product.get("code") or product.get("id")), "title": product.get("name",""), "price": int(product.get("price",0) or 0), "description": product.get("description","")}
     def publish(self, product):
