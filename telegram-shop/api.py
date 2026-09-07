@@ -2865,9 +2865,12 @@ def create_app(store, providers: dict, bot=None, notify_new_order=None, notify_o
         return [dict(r) for r in store._q("SELECT * FROM campaign_publications WHERE campaign_id=? ORDER BY id DESC",(cid,))]
 
     @app.get("/api/marketing/campaigns")
-    async def campaigns_list(x_wh_token:str=Header(default=""), x_admin_token:str=Header(default="")):
-        wh_user_from_headers(x_wh_token,x_admin_token); rows=[]
-        for r in store._q("SELECT * FROM campaigns ORDER BY id DESC LIMIT 100"):
+    async def campaigns_list(status:str="", x_wh_token:str=Header(default=""), x_admin_token:str=Header(default="")):
+        wh_user_from_headers(x_wh_token,x_admin_token)
+        if status and status not in {"draft","active","paused","archived"}: raise HTTPException(422,"Недопустимый статус кампании")
+        query="SELECT * FROM campaigns" + (" WHERE status=?" if status else "") + " ORDER BY id DESC LIMIT 100"
+        records=store._q(query,(status,)) if status else store._q(query); rows=[]
+        for r in records:
             x=dict(r); x["channels"]=json.loads(x.get("channels") or "[]"); x["utm"]=json.loads(x.get("utm") or "{}"); rows.append(x)
         return rows
 
