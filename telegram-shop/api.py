@@ -2794,6 +2794,10 @@ def create_app(store, providers: dict, bot=None, notify_new_order=None, notify_o
     async def campaign_update(cid:int, body:dict, x_wh_token:str=Header(default=""), x_admin_token:str=Header(default="")):
         user=wh_user_from_headers(x_wh_token,x_admin_token); status=str(body.get("status",""))
         if status not in {"draft","active","paused","archived"}: raise HTTPException(422,"Недопустимый статус кампании")
+        current=store._q1("SELECT status FROM campaigns WHERE id=?",(cid,))
+        if not current: raise HTTPException(404,"Кампания не найдена")
+        allowed={"draft":{"active","archived"},"active":{"paused","archived"},"paused":{"active","archived"},"archived":set()}
+        if status != current["status"] and status not in allowed.get(current["status"],set()): raise HTTPException(409,f"Переход {current['status']} → {status} запрещён")
         now=datetime.datetime.now().isoformat(timespec="seconds")
         with store._conn: cur=store._conn.execute("UPDATE campaigns SET status=?,updated_at=? WHERE id=?",(status,now,cid))
         if not cur.rowcount: raise HTTPException(404,"Кампания не найдена")
