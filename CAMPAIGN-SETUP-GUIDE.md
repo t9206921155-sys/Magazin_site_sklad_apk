@@ -73,3 +73,15 @@ GET /api/marketing/wildberries/audit
 ## Ошибка внешней генерации
 
 Внешний сервис может вернуть callback только с полем `error` без `result_url`. Тогда job получает статус `failed`, а после исправления причины может быть переведён retry endpoint обратно в `queued`.
+
+## Подпись callback
+
+Если задан `CONTENT_CALLBACK_SECRET`, подписывайте канонический JSON:
+
+```python
+import hashlib, hmac, json
+payload = json.dumps(body, ensure_ascii=False, sort_keys=True, separators=(',', ':'))
+signature = hmac.new(secret.encode(), payload.encode(), hashlib.sha256).hexdigest()
+```
+
+Передавайте результат в заголовке `X-Content-Signature`. Secret не помещать в Git, README, URL или логи.
