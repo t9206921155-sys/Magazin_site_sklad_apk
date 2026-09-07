@@ -2801,7 +2801,10 @@ def create_app(store, providers: dict, bot=None, notify_new_order=None, notify_o
     @app.post("/api/marketing/campaigns")
     async def campaign_create(body:dict, x_wh_token:str=Header(default=""), x_admin_token:str=Header(default="")):
         user=wh_user_from_headers(x_wh_token,x_admin_token); name=str(body.get("name","")).strip(); channels=body.get("channels") or []
+        supported={"telegram","vk","avito","instagram","tiktok","wildberries"}
         if not name or not isinstance(channels,list) or not channels: raise HTTPException(422,"name и channels обязательны")
+        if any(str(c) not in supported for c in channels): raise HTTPException(422,"Есть неподдерживаемый канал")
+        channels=list(dict.fromkeys(str(c) for c in channels))
         now=datetime.datetime.now().isoformat(timespec="seconds")
         with store._conn: cur=store._conn.execute("INSERT INTO campaigns(name,channels,utm,created_by,created_at,updated_at) VALUES(?,?,?,?,?,?)",(name,json.dumps(channels),json.dumps(body.get("utm") or {}),user.get("id"),now,now))
         return {"id":cur.lastrowid,"name":name,"status":"draft","channels":channels}
