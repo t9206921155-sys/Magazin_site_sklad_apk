@@ -2935,6 +2935,14 @@ def create_app(store, providers: dict, bot=None, notify_new_order=None, notify_o
         query="SELECT * FROM campaign_publications" + (" WHERE " + " AND ".join(clauses) if clauses else "") + " ORDER BY id DESC LIMIT 200"
         return [dict(r) for r in store._q(query,tuple(args))]
 
+    @app.get("/api/marketing/campaigns/{cid}/attribution")
+    async def campaign_attribution(cid:int, x_wh_token:str=Header(default=""), x_admin_token:str=Header(default="")):
+        wh_user_from_headers(x_wh_token,x_admin_token)
+        campaign=store._q1("SELECT id,name,utm,status FROM campaigns WHERE id=?",(cid,))
+        if not campaign: raise HTTPException(404,"Кампания не найдена")
+        pubs=store._q("SELECT channel,status,external_id,updated_at FROM campaign_publications WHERE campaign_id=? ORDER BY id",(cid,))
+        return {"campaign_id":cid,"name":campaign["name"],"status":campaign["status"],"utm":json.loads(campaign["utm"] or "{}"),"channels":[dict(r) for r in pubs],"analytics":"not_connected"}
+
     @app.get("/api/marketing/campaigns/{cid}/publications")
     async def campaign_publications(cid:int, status:str="", x_wh_token:str=Header(default=""), x_admin_token:str=Header(default="")):
         wh_user_from_headers(x_wh_token,x_admin_token)

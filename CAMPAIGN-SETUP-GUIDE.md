@@ -159,3 +159,13 @@ Queued или processing job можно отменить из CRM или чер�
 ```
 
 Dry-run не меняет статус публикации и не отправляет данные во внешние сети.
+
+## Campaign attribution
+
+Для просмотра сохранённых UTM и состояния каналов кампании:
+
+```text
+GET /api/marketing/campaigns/{id}/attribution
+```
+
+Endpoint возвращает только сохранённые данные Campaign Manager. Реальная статистика кликов, CTR и заказов помечается `analytics: not_connected` до подключения аналитической системы.
