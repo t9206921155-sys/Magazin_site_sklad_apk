@@ -157,3 +157,10 @@ telegram-shop/tests-*   ← автотесты
 
 | 23 | Content Hub и AI Video Queue | ⏳ | 19, 20, 21 | `blocks/BLOCK-23-content-hub-ai-queue.md` |
 | 24 | Campaign Manager и публикация по каналам | ⏳ | 20, 23 | `blocks/BLOCK-24-campaign-manager.md` |
+
+### Текущий прогресс после CRM MVP
+
+- Block 21: prompt/export, external content jobs, callback, review, approve/reject и retry реализованы в безопасном MVP режиме.
+- Block 22: Wildberries provider boundary и audit diagnostics реализованы; публикация отключена до официального API/account audit.
+- Block 24: campaigns, publication records, manual approve, package export, dry-run и provider boundaries реализованы; реальные adapters требуют staging credentials.
+- Подготовлены `CAMPAIGN-SETUP-GUIDE.md` и расширенный manual validation checklist.
