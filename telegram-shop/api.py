@@ -2764,8 +2764,14 @@ def create_app(store, providers: dict, bot=None, notify_new_order=None, notify_o
         return {"ok":True,"id":jid,"status":status}
 
     @app.post("/api/content/jobs/{jid}/result")
-    async def content_job_result(jid:int, body:dict, x_wh_token:str=Header(default=""), x_admin_token:str=Header(default="")):
-        wh_user_from_headers(x_wh_token,x_admin_token); url=str(body.get("result_url","")).strip(); error=str(body.get("error","")).strip()
+    async def content_job_result(jid:int, body:dict, x_wh_token:str=Header(default=""), x_admin_token:str=Header(default=""), x_content_signature:str=Header(default="")):
+        wh_user_from_headers(x_wh_token,x_admin_token)
+        callback_secret=os.getenv("CONTENT_CALLBACK_SECRET", "").strip()
+        if callback_secret:
+            payload=json.dumps(body,ensure_ascii=False,sort_keys=True,separators=(",",":"))
+            expected=hmac.new(callback_secret.encode(),payload.encode(),hashlib.sha256).hexdigest()
+            if not hmac.compare_digest(expected,x_content_signature.strip()): raise HTTPException(401,"Неверная подпись callback")
+        url=str(body.get("result_url","")).strip(); error=str(body.get("error","")).strip()
         if error and not url: target_status="failed"
         elif url.startswith(("https://","http://")): target_status="review"
         else: raise HTTPException(422,"result_url должен быть URL или передайте error")
