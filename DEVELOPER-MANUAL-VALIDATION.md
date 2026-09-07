@@ -196,3 +196,5 @@ python3 telegram-shop/scripts/restore_sqlite.py backup.db \
 - [ ] Run `POST /api/marketing/publications/{id}/dry-run` for an approved publication.
 - [ ] Confirm dry-run returns `mode: stub` and does not create a real external publication.
 - [ ] Confirm draft/rejected publications are rejected by dry-run.
+- [ ] Content Hub displays result link and failure text for each job.
+- [ ] Result link opens in a separate browser tab; no automatic publication occurs.
