@@ -50,3 +50,9 @@
 - [ ] Confirm rate limits, sandbox availability and error formats.
 - [ ] Validate one staging operation manually before enabling any provider method.
 - [ ] Keep scraping, browser automation and unofficial endpoints disabled.
+
+## Реализованная boundary
+
+- `WildberriesProvider.audit_status()` возвращает безопасный статус без сетевого вызова.
+- `GET /api/marketing/wildberries/audit` доступен только авторизованному пользователю.
+- `publish()` намеренно выбрасывает ошибку до завершения официального API/account audit.
