@@ -2842,6 +2842,20 @@ def create_app(store, providers: dict, bot=None, notify_new_order=None, notify_o
         store.wh_log_add(user["name"],"изменил статус кампании",f"campaign {cid}: {status}")
         return {"ok":True,"id":cid,"status":status}
 
+    @app.post("/api/marketing/campaigns/{cid}/prepare")
+    async def campaign_prepare(cid:int, x_wh_token:str=Header(default=""), x_admin_token:str=Header(default="")):
+        user=wh_user_from_headers(x_wh_token,x_admin_token); campaign=store._q1("SELECT id,status,channels FROM campaigns WHERE id=?",(cid,))
+        if not campaign: raise HTTPException(404,"Кампания не найдена")
+        if campaign["status"]=="archived": raise HTTPException(409,"Архивная кампания недоступна")
+        now=datetime.datetime.now().isoformat(timespec="seconds"); result=[]
+        for channel in json.loads(campaign["channels"] or "[]"):
+            row=store._q1("SELECT id,status FROM campaign_publications WHERE campaign_id=? AND channel=? AND status IN ('draft','approved') ORDER BY id DESC LIMIT 1",(cid,channel))
+            if row: result.append({"id":row["id"],"channel":channel,"status":row["status"],"deduplicated":True}); continue
+            with store._conn: cur=store._conn.execute("INSERT INTO campaign_publications(campaign_id,channel,status,created_at,updated_at) VALUES(?,?,?,?,?)",(cid,channel,"draft",now,now))
+            result.append({"id":cur.lastrowid,"channel":channel,"status":"draft","deduplicated":False})
+        store.wh_log_add(user["name"],"подготовил публикации кампании",f"campaign {cid}")
+        return {"campaign_id":cid,"publications":result}
+
     @app.post("/api/marketing/campaigns/{cid}/publications")
     async def campaign_publication(cid:int, body:dict, x_wh_token:str=Header(default=""), x_admin_token:str=Header(default="")):
         user=wh_user_from_headers(x_wh_token,x_admin_token); channel=str(body.get("channel","")).strip()
