@@ -112,3 +112,13 @@ GET /api/marketing/campaigns/{id}/publications?status=approved
 ```text
 GET /api/marketing/publications?status=approved&channel=telegram
 ```
+
+## Проверка CRM JavaScript
+
+После изменений CRM можно извлечь содержимое `<script>` и проверить командой:
+
+```bash
+node --check /tmp/crm.js
+```
+
+Проверка не требует credentials и не запускает сервер.
