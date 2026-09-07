@@ -1,5 +1,8 @@
+import importlib.util
 from social_providers import TelegramProvider
-from telegram_shop.wildberries_provider import WildberriesProvider
+spec=importlib.util.spec_from_file_location("wb", "telegram-shop/wildberries_provider.py")
+wb=importlib.util.module_from_spec(spec); spec.loader.exec_module(wb)
+WildberriesProvider=wb.WildberriesProvider
 
 
 def test_social_provider_disabled_without_credentials():
