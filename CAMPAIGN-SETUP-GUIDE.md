@@ -122,3 +122,11 @@ node --check /tmp/crm.js
 ```
 
 Проверка не требует credentials и не запускает сервер.
+
+## Диагностика provider-ов
+
+```text
+GET /api/marketing/providers
+```
+
+`enabled: false` означает, что реальная публикация отключена. `dry_run: true` означает, что локальная проверка через stub допустима.
