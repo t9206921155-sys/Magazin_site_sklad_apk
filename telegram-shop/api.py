@@ -2743,8 +2743,12 @@ def create_app(store, providers: dict, bot=None, notify_new_order=None, notify_o
         return {"id":cur.lastrowid,"status":"queued","prompt":prompt}
 
     @app.get("/api/content/jobs")
-    async def content_jobs(x_wh_token:str=Header(default=""), x_admin_token:str=Header(default="")):
-        wh_user_from_headers(x_wh_token,x_admin_token); return [dict(r) for r in store._q("SELECT * FROM content_jobs ORDER BY id DESC LIMIT 100")]
+    async def content_jobs(status:str="", x_wh_token:str=Header(default=""), x_admin_token:str=Header(default="")):
+        wh_user_from_headers(x_wh_token,x_admin_token)
+        allowed={"draft","queued","processing","review","approved","failed","rejected"}
+        if status and status not in allowed: raise HTTPException(422,"Недопустимый статус content job")
+        query="SELECT * FROM content_jobs" + (" WHERE status=?" if status else "") + " ORDER BY id DESC LIMIT 100"
+        return [dict(r) for r in (store._q(query,(status,)) if status else store._q(query))]
 
     @app.post("/api/content/jobs/{jid}/retry")
     async def content_job_retry(jid:int, x_wh_token:str=Header(default=""), x_admin_token:str=Header(default="")):
