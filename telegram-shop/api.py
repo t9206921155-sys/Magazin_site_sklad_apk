@@ -2790,6 +2790,16 @@ def create_app(store, providers: dict, bot=None, notify_new_order=None, notify_o
         with store._conn: cur=store._conn.execute("INSERT INTO campaigns(name,channels,utm,created_by,created_at,updated_at) VALUES(?,?,?,?,?,?)",(name,json.dumps(channels),json.dumps(body.get("utm") or {}),user.get("id"),now,now))
         return {"id":cur.lastrowid,"name":name,"status":"draft","channels":channels}
 
+    @app.put("/api/marketing/campaigns/{cid}")
+    async def campaign_update(cid:int, body:dict, x_wh_token:str=Header(default=""), x_admin_token:str=Header(default="")):
+        user=wh_user_from_headers(x_wh_token,x_admin_token); status=str(body.get("status",""))
+        if status not in {"draft","active","paused","archived"}: raise HTTPException(422,"Недопустимый статус кампании")
+        now=datetime.datetime.now().isoformat(timespec="seconds")
+        with store._conn: cur=store._conn.execute("UPDATE campaigns SET status=?,updated_at=? WHERE id=?",(status,now,cid))
+        if not cur.rowcount: raise HTTPException(404,"Кампания не найдена")
+        store.wh_log_add(user["name"],"изменил статус кампании",f"campaign {cid}: {status}")
+        return {"ok":True,"id":cid,"status":status}
+
     @app.post("/api/marketing/campaigns/{cid}/publications")
     async def campaign_publication(cid:int, body:dict, x_wh_token:str=Header(default=""), x_admin_token:str=Header(default="")):
         user=wh_user_from_headers(x_wh_token,x_admin_token); channel=str(body.get("channel","")).strip()
