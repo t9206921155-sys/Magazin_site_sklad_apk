@@ -2772,6 +2772,11 @@ def create_app(store, providers: dict, bot=None, notify_new_order=None, notify_o
         if not cur.rowcount: raise HTTPException(404,"Задача не найдена")
         return {"ok":True,"status":"review","id":jid}
 
+    @app.get("/api/marketing/wildberries/audit")
+    async def wildberries_audit(x_wh_token:str=Header(default=""), x_admin_token:str=Header(default="")):
+        wh_user_from_headers(x_wh_token,x_admin_token)
+        return {"channel":"wildberries","enabled":False,"scraping":False,"publishing":"disabled","reason":"official API/account audit required"}
+
     @app.get("/api/marketing/providers")
     async def marketing_providers(x_wh_token:str=Header(default=""), x_admin_token:str=Header(default="")):
         wh_user_from_headers(x_wh_token,x_admin_token)
