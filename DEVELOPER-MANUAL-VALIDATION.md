@@ -198,3 +198,5 @@ python3 telegram-shop/scripts/restore_sqlite.py backup.db \
 - [ ] Confirm draft/rejected publications are rejected by dry-run.
 - [ ] Content Hub displays result link and failure text for each job.
 - [ ] Result link opens in a separate browser tab; no automatic publication occurs.
+- [ ] CRM publication queue displays channel, status and campaign ID.
+- [ ] Refreshing publication queue does not publish or change status.
