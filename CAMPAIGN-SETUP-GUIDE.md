@@ -169,3 +169,9 @@ GET /api/marketing/campaigns/{id}/attribution
 ```
 
 Endpoint возвращает только сохранённые данные Campaign Manager. Реальная статистика кликов, CTR и заказов помечается `analytics: not_connected` до подключения аналитической системы.
+
+В CRM UTM можно задать при создании кампании в формате:
+
+```text
+utm_source=telegram&utm_campaign=summer-sale&utm_content=video-1
+```
