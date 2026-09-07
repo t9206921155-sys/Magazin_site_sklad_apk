@@ -2750,6 +2750,15 @@ def create_app(store, providers: dict, bot=None, notify_new_order=None, notify_o
         query="SELECT * FROM content_jobs" + (" WHERE status=?" if status else "") + " ORDER BY id DESC LIMIT 100"
         return [dict(r) for r in (store._q(query,(status,)) if status else store._q(query))]
 
+    @app.post("/api/content/jobs/{jid}/claim")
+    async def content_job_claim(jid:int, body:dict=None, x_wh_token:str=Header(default=""), x_admin_token:str=Header(default="")):
+        wh_user_from_headers(x_wh_token,x_admin_token); body=body or {}; provider=str(body.get("provider","external")).strip()
+        if not provider: raise HTTPException(422,"provider обязателен")
+        now=datetime.datetime.now().isoformat(timespec="seconds")
+        with store._conn: cur=store._conn.execute("UPDATE content_jobs SET status=?,provider=?,updated_at=? WHERE id=? AND status='queued'",("processing",provider,now,jid))
+        if not cur.rowcount: raise HTTPException(409,"Задача уже запущена или недоступна")
+        return {"ok":True,"id":jid,"status":"processing","provider":provider}
+
     @app.post("/api/content/jobs/{jid}/retry")
     async def content_job_retry(jid:int, x_wh_token:str=Header(default=""), x_admin_token:str=Header(default="")):
         user=wh_user_from_headers(x_wh_token,x_admin_token); now=datetime.datetime.now().isoformat(timespec="seconds")

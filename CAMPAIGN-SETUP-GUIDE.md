@@ -130,3 +130,14 @@ GET /api/marketing/providers
 ```
 
 `enabled: false` означает, что реальная публикация отключена. `dry_run: true` означает, что локальная проверка через stub допустима.
+
+## Claim внешней content job
+
+Перед передачей задачи внешнему сервису worker должен atomically claim её:
+
+```text
+POST /api/content/jobs/{id}/claim
+{"provider":"external-video"}
+```
+
+Только `queued` задача переходит в `processing`; повторный claim блокируется.
