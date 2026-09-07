@@ -200,3 +200,8 @@ python3 telegram-shop/scripts/restore_sqlite.py backup.db \
 - [ ] Result link opens in a separate browser tab; no automatic publication occurs.
 - [ ] CRM publication queue displays channel, status and campaign ID.
 - [ ] Refreshing publication queue does not publish or change status.
+- [ ] Create campaign with two or more channels.
+- [ ] Use «Подготовить все» and confirm one draft publication per channel.
+- [ ] Use «Одобрить все» and confirm only draft records become approved.
+- [ ] Use «Dry-run» and confirm one stub result per approved channel.
+- [ ] Confirm dry-run does not change publication status or call an external network.

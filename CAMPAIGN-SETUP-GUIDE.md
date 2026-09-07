@@ -146,3 +146,16 @@ POST /api/content/jobs/{id}/claim
 ## Cancel content job
 
 Queued или processing job можно отменить из CRM или через `POST /api/content/jobs/{id}/cancel`. После отмены job получает статус `rejected` и audit-запись. Завершённые jobs не отменяются.
+
+## Полный demo/staging workflow кампании
+
+```text
+создать кампанию
+→ подготовить все каналы
+→ проверить очередь
+→ одобрить все draft-публикации
+→ выполнить dry-run
+→ проверить stub external_id по каждому каналу
+```
+
+Dry-run не меняет статус публикации и не отправляет данные во внешние сети.
