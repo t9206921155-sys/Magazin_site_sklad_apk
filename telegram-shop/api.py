@@ -2829,6 +2829,10 @@ def create_app(store, providers: dict, bot=None, notify_new_order=None, notify_o
     async def campaign_publication_update(pubid:int, body:dict, x_wh_token:str=Header(default=""), x_admin_token:str=Header(default="")):
         user=wh_user_from_headers(x_wh_token,x_admin_token); status=str(body.get("status",""))
         if status not in {"draft","approved","published","failed","rejected"}: raise HTTPException(422,"Недопустимый статус публикации")
+        current=store._q1("SELECT status FROM campaign_publications WHERE id=?",(pubid,))
+        if not current: raise HTTPException(404,"Публикация не найдена")
+        allowed={"draft":{"approved","rejected"},"approved":{"published","failed","rejected"},"published":set(),"failed":{"draft","approved"},"rejected":{"draft"}}
+        if status != current["status"] and status not in allowed.get(current["status"],set()): raise HTTPException(409,f"Переход {current['status']} → {status} запрещён")
         now=datetime.datetime.now().isoformat(timespec="seconds")
         with store._conn: cur=store._conn.execute("UPDATE campaign_publications SET status=?,external_id=?,error=?,updated_at=? WHERE id=?",(status,str(body.get("external_id","")),str(body.get("error","")),now,pubid))
         if not cur.rowcount: raise HTTPException(404,"Публикация не найдена")
