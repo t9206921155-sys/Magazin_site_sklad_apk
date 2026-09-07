@@ -12,3 +12,11 @@ class VKProvider(SocialProvider): channel='vk'
 class AvitoProvider(SocialProvider): channel='avito'
 class InstagramProvider(SocialProvider): channel='instagram'
 class TikTokProvider(SocialProvider): channel='tiktok'
+
+class StubProvider(SocialProvider):
+    """Deterministic local adapter for staging/manual checks; never sends network requests."""
+    channel='stub'
+    def publish(self, package):
+        if not package or package.get('status') not in ('approved','published'):
+            raise ValueError('package must be approved before stub publish')
+        return {'ok':True,'mode':'stub','external_id':f"stub-{package.get('publication_id')}", 'channel':self.channel}
