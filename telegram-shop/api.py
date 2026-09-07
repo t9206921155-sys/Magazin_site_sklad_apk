@@ -2805,8 +2805,11 @@ def create_app(store, providers: dict, bot=None, notify_new_order=None, notify_o
         if not name or not isinstance(channels,list) or not channels: raise HTTPException(422,"name и channels обязательны")
         if any(str(c) not in supported for c in channels): raise HTTPException(422,"Есть неподдерживаемый канал")
         channels=list(dict.fromkeys(str(c) for c in channels))
+        utm=body.get("utm") or {}
+        if not isinstance(utm,dict) or any(k not in {"source","medium","campaign","term","content"} for k in utm): raise HTTPException(422,"Недопустимые UTM-параметры")
+        if any(len(str(v))>200 for v in utm.values()): raise HTTPException(422,"Слишком длинный UTM-параметр")
         now=datetime.datetime.now().isoformat(timespec="seconds")
-        with store._conn: cur=store._conn.execute("INSERT INTO campaigns(name,channels,utm,created_by,created_at,updated_at) VALUES(?,?,?,?,?,?)",(name,json.dumps(channels),json.dumps(body.get("utm") or {}),user.get("id"),now,now))
+        with store._conn: cur=store._conn.execute("INSERT INTO campaigns(name,channels,utm,created_by,created_at,updated_at) VALUES(?,?,?,?,?,?)",(name,json.dumps(channels),json.dumps(utm),user.get("id"),now,now))
         return {"id":cur.lastrowid,"name":name,"status":"draft","channels":channels}
 
     @app.put("/api/marketing/campaigns/{cid}")
