@@ -2750,6 +2750,13 @@ def create_app(store, providers: dict, bot=None, notify_new_order=None, notify_o
         query="SELECT * FROM content_jobs" + (" WHERE status=?" if status else "") + " ORDER BY id DESC LIMIT 100"
         return [dict(r) for r in (store._q(query,(status,)) if status else store._q(query))]
 
+    @app.post("/api/content/jobs/{jid}/cancel")
+    async def content_job_cancel(jid:int, x_wh_token:str=Header(default=""), x_admin_token:str=Header(default="")):
+        user=wh_user_from_headers(x_wh_token,x_admin_token); now=datetime.datetime.now().isoformat(timespec="seconds")
+        with store._conn: cur=store._conn.execute("UPDATE content_jobs SET status=?,error=?,updated_at=? WHERE id=? AND status IN ('queued','processing')",("rejected","cancelled by "+user["name"],now,jid))
+        if not cur.rowcount: raise HTTPException(409,"Задача уже завершена или недоступна")
+        store.wh_log_add(user["name"],"отменил content job",f"job {jid}"); return {"ok":True,"id":jid,"status":"rejected"}
+
     @app.post("/api/content/jobs/{jid}/claim")
     async def content_job_claim(jid:int, body:dict=None, x_wh_token:str=Header(default=""), x_admin_token:str=Header(default="")):
         wh_user_from_headers(x_wh_token,x_admin_token); body=body or {}; provider=str(body.get("provider","external")).strip()

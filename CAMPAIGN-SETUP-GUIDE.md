@@ -141,3 +141,8 @@ POST /api/content/jobs/{id}/claim
 ```
 
 Только `queued` задача переходит в `processing`; повторный claim блокируется.
+
+
+## Cancel content job
+
+Queued или processing job можно отменить из CRM или через `POST /api/content/jobs/{id}/cancel`. После отмены job получает статус `rejected` и audit-запись. Завершённые jobs не отменяются.
