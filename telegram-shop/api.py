@@ -2827,8 +2827,9 @@ def create_app(store, providers: dict, bot=None, notify_new_order=None, notify_o
     async def campaign_publication(cid:int, body:dict, x_wh_token:str=Header(default=""), x_admin_token:str=Header(default="")):
         user=wh_user_from_headers(x_wh_token,x_admin_token); channel=str(body.get("channel","")).strip()
         if channel not in {"telegram","vk","avito","instagram","tiktok","wildberries"}: raise HTTPException(422,"Неизвестный канал")
-        campaign=store._q1("SELECT id,status FROM campaigns WHERE id=?",(cid,))
+        campaign=store._q1("SELECT id,status,channels FROM campaigns WHERE id=?",(cid,))
         if not campaign: raise HTTPException(404,"Кампания не найдена")
+        if channel not in json.loads(campaign["channels"] or "[]"): raise HTTPException(422,"Канал не входит в кампанию")
         if campaign["status"] in ("archived",): raise HTTPException(409,"Архивная кампания недоступна")
         existing=store._q1("SELECT id,status FROM campaign_publications WHERE campaign_id=? AND channel=? AND status IN ('draft','approved') ORDER BY id DESC LIMIT 1",(cid,channel))
         if existing: return {"id":existing["id"],"campaign_id":cid,"channel":channel,"status":existing["status"],"deduplicated":True}
