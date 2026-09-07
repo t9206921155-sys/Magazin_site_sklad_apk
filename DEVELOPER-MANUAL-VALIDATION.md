@@ -193,3 +193,6 @@ python3 telegram-shop/scripts/restore_sqlite.py backup.db \
 - [ ] Confirm package endpoint returns UTM and channel only after approve.
 - [ ] Confirm failed/rejected publication cannot be exported.
 - [ ] Perform provider checks only with staging credentials; do not publish to production.
+- [ ] Run `POST /api/marketing/publications/{id}/dry-run` for an approved publication.
+- [ ] Confirm dry-run returns `mode: stub` and does not create a real external publication.
+- [ ] Confirm draft/rejected publications are rejected by dry-run.
