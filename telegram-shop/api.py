@@ -2808,7 +2808,11 @@ def create_app(store, providers: dict, bot=None, notify_new_order=None, notify_o
     async def campaign_publication(cid:int, body:dict, x_wh_token:str=Header(default=""), x_admin_token:str=Header(default="")):
         user=wh_user_from_headers(x_wh_token,x_admin_token); channel=str(body.get("channel","")).strip()
         if channel not in {"telegram","vk","avito","instagram","tiktok","wildberries"}: raise HTTPException(422,"Неизвестный канал")
-        if not store._q1("SELECT id FROM campaigns WHERE id=?",(cid,)): raise HTTPException(404,"Кампания не найдена")
+        campaign=store._q1("SELECT id,status FROM campaigns WHERE id=?",(cid,))
+        if not campaign: raise HTTPException(404,"Кампания не найдена")
+        if campaign["status"] in ("archived",): raise HTTPException(409,"Архивная кампания недоступна")
+        existing=store._q1("SELECT id,status FROM campaign_publications WHERE campaign_id=? AND channel=? AND status IN ('draft','approved') ORDER BY id DESC LIMIT 1",(cid,channel))
+        if existing: return {"id":existing["id"],"campaign_id":cid,"channel":channel,"status":existing["status"],"deduplicated":True}
         now=datetime.datetime.now().isoformat(timespec="seconds")
         with store._conn: cur=store._conn.execute("INSERT INTO campaign_publications(campaign_id,channel,status,created_at,updated_at) VALUES(?,?,?,?,?)",(cid,channel,"draft",now,now))
         return {"id":cur.lastrowid,"campaign_id":cid,"channel":channel,"status":"draft"}
