@@ -2863,6 +2863,14 @@ def create_app(store, providers: dict, bot=None, notify_new_order=None, notify_o
         store.wh_log_add(user["name"],"изменил статус публикации",f"publication {pubid}: {status}")
         return {"ok":True,"id":pubid,"status":status}
 
+    @app.get("/api/marketing/summary")
+    async def marketing_summary(x_wh_token:str=Header(default=""), x_admin_token:str=Header(default="")):
+        wh_user_from_headers(x_wh_token,x_admin_token)
+        campaigns={r["status"]:r["n"] for r in store._q("SELECT status,COUNT(*) n FROM campaigns GROUP BY status")}
+        publications={r["status"]:r["n"] for r in store._q("SELECT status,COUNT(*) n FROM campaign_publications GROUP BY status")}
+        jobs={r["status"]:r["n"] for r in store._q("SELECT status,COUNT(*) n FROM content_jobs GROUP BY status")}
+        return {"campaigns":campaigns,"publications":publications,"content_jobs":jobs}
+
     @app.get("/api/marketing/publications")
     async def publications_list(status:str="", channel:str="", x_wh_token:str=Header(default=""), x_admin_token:str=Header(default="")):
         wh_user_from_headers(x_wh_token,x_admin_token)
