@@ -51,3 +51,10 @@
 - Добавлена история публикаций и статусы draft/approved/published/failed/rejected.
 - В CRM добавлен интерфейс создания кампании и подготовки публикации.
 - Реальные adapters социальных сетей подключаются после получения официальных credentials и проверки API.
+
+## Demo/staging workflow completed
+
+- Bulk prepare creates one draft publication per configured channel with deduplication.
+- Bulk approve changes only draft records to approved.
+- Bulk dry-run returns deterministic stub results without external network calls.
+- CRM exposes prepare-all, approve-all, dry-run and publication queue controls.
