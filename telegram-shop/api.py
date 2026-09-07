@@ -2842,6 +2842,13 @@ def create_app(store, providers: dict, bot=None, notify_new_order=None, notify_o
         store.wh_log_add(user["name"],"изменил статус кампании",f"campaign {cid}: {status}")
         return {"ok":True,"id":cid,"status":status}
 
+    @app.post("/api/marketing/campaigns/{cid}/dry-run")
+    async def campaign_dry_run(cid:int, x_wh_token:str=Header(default=""), x_admin_token:str=Header(default="")):
+        wh_user_from_headers(x_wh_token,x_admin_token)
+        if not store._q1("SELECT id FROM campaigns WHERE id=?",(cid,)): raise HTTPException(404,"Кампания не найдена")
+        rows=store._q("SELECT id,channel,status FROM campaign_publications WHERE campaign_id=? AND status IN ('approved','published') ORDER BY id",(cid,))
+        return {"ok":True,"mode":"dry-run","campaign_id":cid,"results":[{"publication_id":r["id"],"channel":r["channel"],"status":r["status"],"external_id":f"stub-{r['id']}"} for r in rows]}
+
     @app.post("/api/marketing/campaigns/{cid}/approve")
     async def campaign_approve_all(cid:int, x_wh_token:str=Header(default=""), x_admin_token:str=Header(default="")):
         user=wh_user_from_headers(x_wh_token,x_admin_token); campaign=store._q1("SELECT id FROM campaigns WHERE id=?",(cid,))
