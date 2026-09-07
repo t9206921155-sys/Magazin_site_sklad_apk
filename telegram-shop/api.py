@@ -2864,9 +2864,13 @@ def create_app(store, providers: dict, bot=None, notify_new_order=None, notify_o
         return {"ok":True,"id":pubid,"status":status}
 
     @app.get("/api/marketing/campaigns/{cid}/publications")
-    async def campaign_publications(cid:int, x_wh_token:str=Header(default=""), x_admin_token:str=Header(default="")):
+    async def campaign_publications(cid:int, status:str="", x_wh_token:str=Header(default=""), x_admin_token:str=Header(default="")):
         wh_user_from_headers(x_wh_token,x_admin_token)
-        return [dict(r) for r in store._q("SELECT * FROM campaign_publications WHERE campaign_id=? ORDER BY id DESC",(cid,))]
+        allowed={"draft","approved","published","failed","rejected"}
+        if status and status not in allowed: raise HTTPException(422,"Недопустимый статус публикации")
+        query="SELECT * FROM campaign_publications WHERE campaign_id=?" + (" AND status=?" if status else "") + " ORDER BY id DESC"
+        args=(cid,status) if status else (cid,)
+        return [dict(r) for r in store._q(query,args)]
 
     @app.get("/api/marketing/campaigns")
     async def campaigns_list(status:str="", x_wh_token:str=Header(default=""), x_admin_token:str=Header(default="")):
