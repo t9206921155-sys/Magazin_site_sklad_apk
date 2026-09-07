@@ -106,3 +106,9 @@ GET /api/content/jobs?status=failed
 ```text
 GET /api/marketing/campaigns/{id}/publications?status=approved
 ```
+
+Общая очередь публикаций:
+
+```text
+GET /api/marketing/publications?status=approved&channel=telegram
+```
