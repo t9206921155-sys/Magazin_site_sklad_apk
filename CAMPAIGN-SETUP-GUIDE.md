@@ -100,3 +100,9 @@ GET /api/content/jobs?status=failed
 ```
 
 Недопустимые статусы отклоняются API с ответом `422`.
+
+Публикации конкретной кампании также можно фильтровать:
+
+```text
+GET /api/marketing/campaigns/{id}/publications?status=approved
+```
