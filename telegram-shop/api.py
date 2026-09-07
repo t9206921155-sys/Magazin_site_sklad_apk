@@ -2794,6 +2794,14 @@ def create_app(store, providers: dict, bot=None, notify_new_order=None, notify_o
         with store._conn: cur=store._conn.execute("INSERT INTO campaign_publications(campaign_id,channel,status,created_at,updated_at) VALUES(?,?,?,?,?)",(cid,channel,"draft",now,now))
         return {"id":cur.lastrowid,"campaign_id":cid,"channel":channel,"status":"draft"}
 
+    @app.get("/api/marketing/publications/{pubid}/package")
+    async def publication_package(pubid:int, x_wh_token:str=Header(default=""), x_admin_token:str=Header(default="")):
+        wh_user_from_headers(x_wh_token,x_admin_token)
+        row=store._q1("SELECT p.*,c.name campaign_name,c.utm FROM campaign_publications p JOIN campaigns c ON c.id=p.campaign_id WHERE p.id=?",(pubid,))
+        if not row: raise HTTPException(404,"Публикация не найдена")
+        if row["status"] not in ("approved","published"): raise HTTPException(409,"Публикация не approved")
+        return {"publication_id":pubid,"campaign_id":row["campaign_id"],"campaign":row["campaign_name"],"channel":row["channel"],"utm":json.loads(row["utm"] or "{}"),"status":row["status"]}
+
     @app.put("/api/marketing/publications/{pubid}")
     async def campaign_publication_update(pubid:int, body:dict, x_wh_token:str=Header(default=""), x_admin_token:str=Header(default="")):
         user=wh_user_from_headers(x_wh_token,x_admin_token); status=str(body.get("status",""))
