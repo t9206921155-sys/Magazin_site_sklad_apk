@@ -40,3 +40,13 @@
 - Добавлена безопасная граница `WildberriesProvider` без scraping.
 - Без официального token/provider audit публикация намеренно отключена.
 - Доступно только формирование базового mapping товара и диагностическое сообщение.
+
+## Official API audit checklist
+
+- [ ] Confirm seller account and legal entity access.
+- [ ] Confirm official WB API endpoint and current documentation.
+- [ ] Confirm token scope and storage method without committing secrets.
+- [ ] Confirm product/card creation, stocks, prices and order capabilities.
+- [ ] Confirm rate limits, sandbox availability and error formats.
+- [ ] Validate one staging operation manually before enabling any provider method.
+- [ ] Keep scraping, browser automation and unofficial endpoints disabled.
