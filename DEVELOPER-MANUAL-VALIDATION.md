@@ -183,3 +183,13 @@ python3 telegram-shop/scripts/restore_sqlite.py backup.db \
 - [ ] Проверить записи в журнале операций.
 - [ ] Нажать выход и убедиться, что токен удалён из браузера.
 - [ ] Сохранить screenshots CRM без токенов и персональных данных.
+
+## Campaign Manager / Content approval
+
+- [ ] Create campaign with Telegram/VK/Avito channels.
+- [ ] Prepare publication and confirm status `draft`.
+- [ ] Confirm package endpoint rejects `draft`.
+- [ ] Approve publication from CRM.
+- [ ] Confirm package endpoint returns UTM and channel only after approve.
+- [ ] Confirm failed/rejected publication cannot be exported.
+- [ ] Perform provider checks only with staging credentials; do not publish to production.
