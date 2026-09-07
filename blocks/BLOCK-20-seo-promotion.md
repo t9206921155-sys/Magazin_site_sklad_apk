@@ -106,3 +106,14 @@
 - [ ] UTM сохраняется до заказа;
 - [ ] сбой одной площадки не ломает остальные;
 - [ ] screenshots каждой панели и публикации без секретов.
+
+## Реализованная безопасная основа
+
+- SEO helpers, SSR metadata, canonical/OG/JSON-LD уже присутствуют в API-рендеринге.
+- Реализованы `robots.txt` и `sitemap.xml` с товарами, категориями, блогом и seller routes.
+- Реализован UTM builder: `GET /api/marketing/utm`.
+- Campaign Manager хранит UTM, каналы, публикации и audit trail.
+- Для Telegram/VK/Avito/Instagram/TikTok существует provider boundary и dry-run режим.
+- Реальные OAuth/API публикации, рекламные кабинеты и screenshots остаются ручными staging-пунктами.
+
+**Текущий статус:** безопасная внутренняя основа реализована; внешние API и панели не считаются завершёнными до ручной проверки.
