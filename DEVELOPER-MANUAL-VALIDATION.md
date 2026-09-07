@@ -207,3 +207,5 @@ python3 telegram-shop/scripts/restore_sqlite.py backup.db \
 - [ ] Confirm dry-run does not change publication status or call an external network.
 - [ ] Run SEO smoke tests and confirm robots/sitemap routes and metadata helpers exist.
 - [ ] Inspect generated sitemap on staging for product/category URL correctness.
+- [ ] Run UTM smoke tests; confirm existing query and fragment are preserved.
+- [ ] Confirm non-http(s) URL is rejected by UTM builder.
