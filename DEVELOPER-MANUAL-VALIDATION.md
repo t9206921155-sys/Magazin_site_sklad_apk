@@ -205,3 +205,5 @@ python3 telegram-shop/scripts/restore_sqlite.py backup.db \
 - [ ] Use «Одобрить все» and confirm only draft records become approved.
 - [ ] Use «Dry-run» and confirm one stub result per approved channel.
 - [ ] Confirm dry-run does not change publication status or call an external network.
+- [ ] Run SEO smoke tests and confirm robots/sitemap routes and metadata helpers exist.
+- [ ] Inspect generated sitemap on staging for product/category URL correctness.
