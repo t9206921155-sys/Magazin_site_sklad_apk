@@ -6,7 +6,7 @@ WildberriesProvider=wb.WildberriesProvider
 
 
 def test_social_provider_disabled_without_credentials():
-    assert TelegramProvider().validate()["enabled"] is False
+    assert TelegramProvider().validate()["ok"] is False
 
 
 def test_wildberries_is_disabled_without_audit():
