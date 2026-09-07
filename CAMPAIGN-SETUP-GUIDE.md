@@ -85,3 +85,7 @@ signature = hmac.new(secret.encode(), payload.encode(), hashlib.sha256).hexdiges
 ```
 
 Передавайте результат в заголовке `X-Content-Signature`. Secret не помещать в Git, README, URL или логи.
+
+## CRM-фильтры
+
+В CRM доступны локальные фильтры очереди контента и кампаний. Они не изменяют данные на сервере и безопасны для staging/demo режима.
