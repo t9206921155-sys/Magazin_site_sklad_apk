@@ -2842,6 +2842,15 @@ def create_app(store, providers: dict, bot=None, notify_new_order=None, notify_o
         store.wh_log_add(user["name"],"изменил статус кампании",f"campaign {cid}: {status}")
         return {"ok":True,"id":cid,"status":status}
 
+    @app.post("/api/marketing/campaigns/{cid}/approve")
+    async def campaign_approve_all(cid:int, x_wh_token:str=Header(default=""), x_admin_token:str=Header(default="")):
+        user=wh_user_from_headers(x_wh_token,x_admin_token); campaign=store._q1("SELECT id FROM campaigns WHERE id=?",(cid,))
+        if not campaign: raise HTTPException(404,"Кампания не найдена")
+        now=datetime.datetime.now().isoformat(timespec="seconds")
+        with store._conn: cur=store._conn.execute("UPDATE campaign_publications SET status=?,updated_at=? WHERE campaign_id=? AND status='draft'",("approved",now,cid))
+        store.wh_log_add(user["name"],"одобрил публикации кампании",f"campaign {cid}")
+        return {"ok":True,"campaign_id":cid,"approved":cur.rowcount}
+
     @app.post("/api/marketing/campaigns/{cid}/prepare")
     async def campaign_prepare(cid:int, x_wh_token:str=Header(default=""), x_admin_token:str=Header(default="")):
         user=wh_user_from_headers(x_wh_token,x_admin_token); campaign=store._q1("SELECT id,status,channels FROM campaigns WHERE id=?",(cid,))
