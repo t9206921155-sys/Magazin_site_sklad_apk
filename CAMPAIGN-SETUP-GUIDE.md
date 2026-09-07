@@ -89,3 +89,14 @@ signature = hmac.new(secret.encode(), payload.encode(), hashlib.sha256).hexdiges
 ## CRM-фильтры
 
 В CRM доступны локальные фильтры очереди контента и кампаний. Они не изменяют данные на сервере и безопасны для staging/demo режима.
+
+## Server-side filtering
+
+Для интеграций можно фильтровать данные без загрузки полного списка:
+
+```text
+GET /api/marketing/campaigns?status=active
+GET /api/content/jobs?status=failed
+```
+
+Недопустимые статусы отклоняются API с ответом `422`.
