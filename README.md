@@ -131,3 +131,5 @@ docker compose up -d --build
 ### Campaign Manager и внешний content pipeline
 
 Campaign Manager работает в режиме подготовки: кампании и публикации создаются со статусом `draft`, ручное approve переводит публикацию в `approved`, после чего внешний официальный provider может получить publication package. AI-video генерация выполняется внешним сервисом через `content_jobs`; VPS не выполняет тяжёлый рендер. Реальные публикации отключены до проверки официальных API и credentials.
+
+Подробная инструкция: [CAMPAIGN-SETUP-GUIDE.md](CAMPAIGN-SETUP-GUIDE.md)
