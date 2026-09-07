@@ -2767,6 +2767,10 @@ def create_app(store, providers: dict, bot=None, notify_new_order=None, notify_o
     async def content_job_result(jid:int, body:dict, x_wh_token:str=Header(default=""), x_admin_token:str=Header(default="")):
         wh_user_from_headers(x_wh_token,x_admin_token); url=str(body.get("result_url","")).strip()
         if not url.startswith(("https://","http://")): raise HTTPException(422,"result_url должен быть URL")
+        job=store._q1("SELECT id,status,result_url FROM content_jobs WHERE id=?",(jid,))
+        if not job: raise HTTPException(404,"Задача не найдена")
+        if job["status"] == "review" and job["result_url"] == url: return {"ok":True,"status":"review","id":jid,"idempotent":True}
+        if job["status"] not in ("queued","processing","review"): raise HTTPException(409,"Задача не ожидает результат")
         now=datetime.datetime.now().isoformat(timespec="seconds")
         with store._conn: cur=store._conn.execute("UPDATE content_jobs SET status=?,result_url=?,error=?,updated_at=? WHERE id=?",("review",url,str(body.get("error","")),now,jid))
         if not cur.rowcount: raise HTTPException(404,"Задача не найдена")
