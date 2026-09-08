@@ -143,3 +143,5 @@ python3 -m pytest -q tests/test_provider_boundaries.py tests/test_seo_assets.py 
 Полная инструкция по настройке: [SETUP-MANUAL.md](SETUP-MANUAL.md)
 
 Staging/production validation: [PRODUCTION-VALIDATION-RUNBOOK.md](PRODUCTION-VALIDATION-RUNBOOK.md)
+
+Provider diagnostics читают только наличие `*_TOKEN` и `*_ACCOUNT_ID`; реальные transport-методы остаются отключены до staging approval. Проверка: `GET /api/marketing/providers`.
