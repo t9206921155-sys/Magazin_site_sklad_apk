@@ -10,8 +10,10 @@ class OfficialAdapter:
     channel = 'base'
     def __init__(self, token='', account_id=''):
         self.token = str(token or '').strip(); self.account_id = str(account_id or '').strip()
+    @property
+    def enabled(self): return bool(self.token and self.account_id)
     def diagnostics(self):
-        return {'channel': self.channel, 'enabled': bool(self.token and self.account_id), 'transport': 'disabled', 'dry_run': True}
+        return {'channel': self.channel, 'enabled': self.enabled, 'transport': 'disabled', 'dry_run': True}
     def validate_credentials(self):
         if not self.token or not self.account_id: raise CredentialsMissing(f'{self.channel}: credentials required')
         return True
