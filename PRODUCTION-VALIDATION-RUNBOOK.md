@@ -51,3 +51,13 @@ WILDBERRIES_ADAPTER_ACCOUNT_ID=
 ## Production gate
 
 Production publish разрешается только после ручного подтверждения API scopes, rate limits, account permissions, rollback и backup/restore. Screenshots делать только в staging/production, без токенов и персональных данных.
+
+## Preflight
+
+Перед каждым deploy запускать:
+
+```bash
+deploy/preflight-validation.sh
+```
+
+Скрипт останавливается при ошибке syntax/tests/mode changes или если adapter boundary больше не dry-run gated.
