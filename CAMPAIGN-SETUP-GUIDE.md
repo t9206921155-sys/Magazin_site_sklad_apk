@@ -194,3 +194,7 @@ utm_source=telegram&utm_campaign=summer-sale&utm_content=video-1
 - `diagnostics()` — безопасное состояние;
 - `dry_run(package)` — локальная проверка approved package;
 - `publish(package)` — только после официального API audit и staging-проверки.
+
+## Official adapter scaffolding
+
+Автоматически подготовлены безопасные boundaries для Telegram, VK, Avito, Meta/Instagram, TikTok и Wildberries. Все adapters работают только в dry-run до настройки официального transport и credentials. Реальные token/account values не хранятся в Git.
