@@ -16,3 +16,8 @@ def test_utm_rejects_non_http():
     try: build('javascript:alert(1)','x')
     except ValueError: return
     assert False
+
+def test_utm_rejects_missing_scheme():
+    try: build('//example.test/path','x')
+    except ValueError: return
+    assert False
