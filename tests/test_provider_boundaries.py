@@ -22,3 +22,9 @@ def test_dry_run_requires_approval():
     except ValueError:
         return
     assert False
+
+def test_diagnostics_exposes_safe_dry_run_state():
+    data = TelegramProvider().diagnostics()
+    assert data['enabled'] is False
+    assert data['dry_run'] is True
+    assert data['publishing'] == 'disabled'

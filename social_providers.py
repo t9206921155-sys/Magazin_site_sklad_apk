@@ -5,6 +5,7 @@ class SocialProvider:
     @property
     def enabled(self): return bool(self.token)
     def validate(self): return {'ok':self.enabled,'channel':self.channel,'error':'' if self.enabled else 'credentials not configured'}
+    def diagnostics(self): return {'channel':self.channel,'enabled':self.enabled,'dry_run':True,'publishing':'enabled' if self.enabled else 'disabled'}
     def dry_run(self, package):
         if not package or package.get('status') not in ('approved','published'):
             raise ValueError('package must be approved before dry-run')
