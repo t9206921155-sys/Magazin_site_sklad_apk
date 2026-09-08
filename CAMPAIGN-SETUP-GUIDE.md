@@ -175,3 +175,13 @@ Endpoint возвращает только сохранённые данные C
 ```text
 utm_source=telegram&utm_campaign=summer-sale&utm_content=video-1
 ```
+
+## Unified provider dry-run contract
+
+Каждый provider должен принимать approved package и возвращать единый результат:
+
+```json
+{"ok":true,"mode":"dry-run","channel":"telegram","external_id":"dry-123"}
+```
+
+`publish()` остаётся отключённым до реализации официального adapter-а.

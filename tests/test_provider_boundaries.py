@@ -14,3 +14,11 @@ def test_wildberries_is_disabled_without_audit():
     status = provider.audit_status()
     assert status["publishing"] == "disabled"
     assert status["scraping"] is False
+
+def test_dry_run_requires_approval():
+    provider = TelegramProvider()
+    try:
+        provider.dry_run({'status':'draft','publication_id':1})
+    except ValueError:
+        return
+    assert False

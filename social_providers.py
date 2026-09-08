@@ -5,6 +5,10 @@ class SocialProvider:
     @property
     def enabled(self): return bool(self.token)
     def validate(self): return {'ok':self.enabled,'channel':self.channel,'error':'' if self.enabled else 'credentials not configured'}
+    def dry_run(self, package):
+        if not package or package.get('status') not in ('approved','published'):
+            raise ValueError('package must be approved before dry-run')
+        return {'ok':True,'mode':'dry-run','channel':self.channel,'external_id':f"dry-{package.get('publication_id','unknown')}"}
     def publish(self, package): raise NotImplementedError('Official adapter required before publishing')
 
 class TelegramProvider(SocialProvider): channel='telegram'
