@@ -3,6 +3,8 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
 printf '%s\n' '[preflight] syntax checks'
+printf '%s\n' '[preflight] secret scan'
+"$ROOT/deploy/secret-scan.sh"
 python3 -m py_compile telegram-shop/api.py telegram-shop/store.py marketing_adapters.py
 printf '%s\n' '[preflight] test suite'
 python3 -m pytest -q tests
