@@ -650,6 +650,7 @@ class Store:
             ("condition", "TEXT DEFAULT 'new'"),      # состояние: new | used | defect (маркетплейс)
             ("subcategory", "TEXT DEFAULT ''"),       # подкатегория (маркетплейс)
             ("params", "TEXT DEFAULT '{}'"),          # параметры: {бренд, размер, цвет…}
+            ("negotiable", "INTEGER DEFAULT 0"),      # можно поторговаться (блок 09)
         ):
             if col not in cols:
                 self._conn.execute(f"ALTER TABLE products ADD COLUMN {col} {ddl}")
@@ -724,6 +725,7 @@ class Store:
             p["params"] = {}
         p["on_showcase"] = bool(p.get("on_showcase", 1))
         p["in_stock"] = bool(p.get("in_stock"))
+        p["negotiable"] = bool(p.get("negotiable"))
         return p
 
     def _insert_product(self, p: dict):
@@ -731,8 +733,8 @@ class Store:
             "INSERT OR REPLACE INTO products(id, code, name, category, price, old_price, stock,"
             " description, photo, in_stock, badges, created_at, updated_at, seller_id, barcode,"
             " storage_location, owner_name, photos, on_showcase, purchase_price, is_archived,"
-            " condition, subcategory, params)"
-            " VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+            " condition, subcategory, params, negotiable)"
+            " VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
             (int(p.get("id", 0)), p.get("code", ""), p.get("name", ""), p.get("category", "Прочее"),
              int(p.get("price", 0)), int(p.get("old_price", 0)), int(p.get("stock", -1)),
              p.get("description", ""), p.get("photo", PLACEHOLDER_PHOTO),
@@ -742,7 +744,8 @@ class Store:
              json.dumps(p.get("photos", []), ensure_ascii=False), int(bool(p.get("on_showcase", 1))),
              int(p.get("purchase_price", 0)), int(bool(p.get("is_archived", 0))),
              p.get("condition", "new"), p.get("subcategory", ""),
-             json.dumps(p.get("params", {}), ensure_ascii=False)))
+             json.dumps(p.get("params", {}), ensure_ascii=False),
+             int(bool(p.get("negotiable", 0)))))
 
     def _insert_order(self, o: dict):
         self._conn.execute(
@@ -904,6 +907,8 @@ class Store:
         if "condition" in data and data["condition"] is not None:
             c = str(data["condition"]).strip()
             p["condition"] = c if c in ("new", "used", "defect") else "new"
+        if "negotiable" in data and data["negotiable"] is not None:
+            p["negotiable"] = bool(data["negotiable"])
         if "params" in data and data["params"] is not None:
             pr = data["params"]
             if isinstance(pr, dict):

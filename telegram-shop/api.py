@@ -577,8 +577,64 @@ def create_app(store, providers: dict, bot=None, notify_new_order=None, notify_o
                 return c
         return ""
 
+    def _seller_ratings_map(products: list) -> dict:
+        """Рейтинг продавца для каждого товара (с memo по seller_id, блок 09)."""
+        memo, out = {}, {}
+        for p in products:
+            sid = int(p.get("seller_id") or 0)
+            if not sid:
+                out[p["id"]] = 0.0
+                continue
+            if sid not in memo:
+                try:
+                    r = store.seller_rating(sid)
+                except Exception:
+                    r = {}
+                memo[sid] = float((r or {}).get("rating") or 0)
+            out[p["id"]] = memo[sid]
+        return out
+
+    def _apply_catalog_filters(products: list, cat: str = "", sub: str = "", condition: str = "",
+                               seller: str = "", price_min: int = 0, price_max: int = 0,
+                               has_photo: bool = False, negotiable: bool = False,
+                               q: str = "", sort: str = "") -> list:
+        """Общие фильтры и сортировка каталога — один код для SSR и API (блок 09)."""
+        if cat:
+            products = [p for p in products if p.get("category") == cat]
+        if sub:
+            products = [p for p in products if (p.get("subcategory") or "").strip() == sub]
+        if condition:
+            products = [p for p in products if p.get("condition") == condition]
+        if seller:
+            products = [p for p in products if p.get("seller_slug") == seller]
+        if price_min:
+            products = [p for p in products if int(p.get("price", 0) or 0) >= price_min]
+        if price_max:
+            products = [p for p in products if int(p.get("price", 0) or 0) <= price_max]
+        if has_photo:
+            products = [p for p in products if p.get("photo") or p.get("photos")]
+        if negotiable:
+            products = [p for p in products if p.get("negotiable")]
+        if q.strip():
+            # умный поиск: опечатки, синонимы, ранжирование
+            scored = {pid: sc for pid, sc in store.search_products(q, limit=500)}
+            products = [p for p in products if p["id"] in scored]
+            products.sort(key=lambda p: -scored[p["id"]])
+        if sort == "price_asc":
+            products.sort(key=lambda p: int(p.get("price", 0) or 0))
+        elif sort == "price_desc":
+            products.sort(key=lambda p: int(p.get("price", 0) or 0), reverse=True)
+        elif sort == "new":
+            products.sort(key=lambda p: p.get("created_at", ""), reverse=True)
+        elif sort == "rating":
+            rmap = _seller_ratings_map(products)
+            products.sort(key=lambda p: rmap.get(p["id"], 0.0), reverse=True)
+        return products
+
     def _render_catalog(request: Request, cat: str = "", q: str = "", page: int = 1,
-                        seller: str = "", subcat: str = "", condition: str = ""):
+                        seller: str = "", subcat: str = "", condition: str = "",
+                        price_min: int = 0, price_max: int = 0, has_photo: bool = False,
+                        negotiable: bool = False, sort: str = ""):
         s = store.settings
         products = _visible_products()
         categories = store.categories()
@@ -587,27 +643,19 @@ def create_app(store, providers: dict, bot=None, notify_new_order=None, notify_o
         q = q.strip()
         seller = seller.strip()
         condition = condition.strip()
-        if seller:
-            products = [p for p in products if p.get("seller_slug") == seller]
-        if price_min: products = [p for p in products if int(p.get("price", 0) or 0) >= price_min]
-        if price_max: products = [p for p in products if int(p.get("price", 0) or 0) <= price_max]
-        if has_photo: products = [p for p in products if p.get("photo") or p.get("photos")]
-        if negotiable: products = [p for p in products if p.get("negotiable") or p.get("allow bargaining")]
-        if cat:
-            products = [p for p in products if p.get("category") == cat]
-        if subcat:
-            products = [p for p in products if (p.get("subcategory") or "").strip() == subcat]
-        if condition:
-            products = [p for p in products if p.get("condition") == condition]
-        if q:
-            # умный поиск: опечатки, синонимы, ранжирование
-            scored = {pid: sc for pid, sc in store.search_products(q, limit=500)}
-            products = [p for p in products if p["id"] in scored]
-            products.sort(key=lambda p: -scored[p["id"]])
-        if sort == "price_asc": products.sort(key=lambda p: int(p.get("price", 0) or 0))
-        elif sort == "price_desc": products.sort(key=lambda p: int(p.get("price", 0) or 0), reverse=True)
-        elif sort == "new": products.sort(key=lambda p: p.get("created_at", ""), reverse=True)
-        elif sort == "rating": products.sort(key=lambda p: float(p.get("seller_rating", 0) or 0), reverse=True)
+        try:
+            price_min = max(0, int(price_min or 0))
+        except (TypeError, ValueError):
+            price_min = 0
+        try:
+            price_max = max(0, int(price_max or 0))
+        except (TypeError, ValueError):
+            price_max = 0
+        sort = sort if sort in ("", "price_asc", "price_desc", "new", "rating") else ""
+        products = _apply_catalog_filters(
+            products, cat=cat, sub=subcat, condition=condition, seller=seller,
+            price_min=price_min, price_max=price_max, has_photo=has_photo,
+            negotiable=negotiable, q=q, sort=sort)
         subs = store.subcategories(cat) if cat else []
         per_page = 24
         total = len(products)
@@ -635,10 +683,20 @@ def create_app(store, providers: dict, bot=None, notify_new_order=None, notify_o
         extra = []
         if q:
             extra.append("q=" + urllib.parse.quote(q))
-        if seller and not cat:
+        if seller:
             extra.append("seller=" + urllib.parse.quote(seller))
         if condition:
             extra.append("condition=" + urllib.parse.quote(condition))
+        if price_min:
+            extra.append("price_min=" + str(price_min))
+        if price_max:
+            extra.append("price_max=" + str(price_max))
+        if sort:
+            extra.append("sort=" + urllib.parse.quote(sort))
+        if has_photo:
+            extra.append("has_photo=true")
+        if negotiable:
+            extra.append("negotiable=true")
         url = _abs(request, path) + (("?" + "&".join(extra)) if extra else "")
         canon = url + (("&" if "?" in url else "?") + f"page={page}" if page > 1 else "")
         title = seo.page_title(s["shop_name"],
@@ -652,6 +710,8 @@ def create_app(store, providers: dict, bot=None, notify_new_order=None, notify_o
             heading=heading, sub=sub, products=page_products, categories=categories,
             cat=cat, subcat=subcat, subs=subs, condition=condition,
             condition_labels=CONDITION_LABELS, q=q, page=page, pages=pages, total=total,
+            seller=seller, price_min=price_min, price_max=price_max,
+            has_photo=has_photo, negotiable=negotiable, sort=sort,
             cat_emojis={c: cat_emoji(c) for c in categories},
             cat_slugs={c: slugify_ru(c) for c in categories},
         )
@@ -659,21 +719,32 @@ def create_app(store, providers: dict, bot=None, notify_new_order=None, notify_o
 
     @app.get("/catalog")
     async def catalog_page(request: Request, cat: str = "", q: str = "", page: int = 1,
-                           seller: str = "", sub: str = "", condition: str = ""):
+                           seller: str = "", sub: str = "", condition: str = "",
+                           price_min: int = 0, price_max: int = 0, has_photo: bool = False,
+                           negotiable: bool = False, sort: str = ""):
         return _render_catalog(request, cat=cat, q=q, page=page, seller=seller,
-                               subcat=sub, condition=condition)
+                               subcat=sub, condition=condition, price_min=price_min,
+                               price_max=price_max, has_photo=has_photo,
+                               negotiable=negotiable, sort=sort)
 
     @app.get("/catalog/{cat_slug}")
     async def catalog_cat_page(request: Request, cat_slug: str, q: str = "", page: int = 1,
-                               condition: str = ""):
+                               seller: str = "", condition: str = "",
+                               price_min: int = 0, price_max: int = 0, has_photo: bool = False,
+                               negotiable: bool = False, sort: str = ""):
         cat = _cat_by_slug(cat_slug)
         if not cat:
             raise HTTPException(404, "Категория не найдена")
-        return _render_catalog(request, cat=cat, q=q, page=page, condition=condition)
+        return _render_catalog(request, cat=cat, q=q, page=page, seller=seller,
+                               condition=condition, price_min=price_min,
+                               price_max=price_max, has_photo=has_photo,
+                               negotiable=negotiable, sort=sort)
 
     @app.get("/catalog/{cat_slug}/{sub_slug}")
     async def catalog_sub_page(request: Request, cat_slug: str, sub_slug: str, q: str = "",
-                               page: int = 1, condition: str = ""):
+                               page: int = 1, seller: str = "", condition: str = "",
+                               price_min: int = 0, price_max: int = 0, has_photo: bool = False,
+                               negotiable: bool = False, sort: str = ""):
         cat = _cat_by_slug(cat_slug)
         if not cat:
             raise HTTPException(404, "Категория не найдена")
@@ -685,7 +756,9 @@ def create_app(store, providers: dict, bot=None, notify_new_order=None, notify_o
         if not subcat:
             raise HTTPException(404, "Подкатегория не найдена")
         return _render_catalog(request, cat=cat, subcat=subcat, q=q, page=page,
-                               condition=condition)
+                               seller=seller, condition=condition, price_min=price_min,
+                               price_max=price_max, has_photo=has_photo,
+                               negotiable=negotiable, sort=sort)
 
     @app.get("/p/{product_id}")
     async def product_page(request: Request, product_id: int):
@@ -971,33 +1044,41 @@ def create_app(store, providers: dict, bot=None, notify_new_order=None, notify_o
     async def catalog(q: str = "", cat: str = "", sub: str = "", condition: str = "",
                       seller: str = "", price_min: int = 0, price_max: int = 0,
                       has_photo: bool = False, negotiable: bool = False,
-                      sort: str = ""):
-        products = _visible_products()
-        if cat:
-            products = [p for p in products if p.get("category") == cat]
-        if sub:
-            products = [p for p in products if (p.get("subcategory") or "").strip() == sub]
-        if condition:
-            products = [p for p in products if p.get("condition") == condition]
-        if seller:
-            products = [p for p in products if p.get("seller_slug") == seller]
-        if price_min: products = [p for p in products if int(p.get("price", 0) or 0) >= price_min]
-        if price_max: products = [p for p in products if int(p.get("price", 0) or 0) <= price_max]
-        if has_photo: products = [p for p in products if p.get("photo") or p.get("photos")]
-        if negotiable: products = [p for p in products if p.get("negotiable") or p.get("allow bargaining")]
-        if q.strip():
-            scored = {pid: sc for pid, sc in store.search_products(q, limit=500)}
-            products = [p for p in products if p["id"] in scored]
-            products.sort(key=lambda p: -scored[p["id"]])
-        if sort == "price_asc": products.sort(key=lambda p: int(p.get("price", 0) or 0))
-        elif sort == "price_desc": products.sort(key=lambda p: int(p.get("price", 0) or 0), reverse=True)
-        elif sort == "new": products.sort(key=lambda p: p.get("created_at", ""), reverse=True)
-        elif sort == "rating": products.sort(key=lambda p: float(p.get("seller_rating", 0) or 0), reverse=True)
+                      sort: str = "", page: int = 1, per_page: int = 0):
+        sort = sort if sort in ("", "price_asc", "price_desc", "new", "rating") else ""
+        # валидация параметров (блок 09): без 500 на мусорном вводе
+        try:
+            price_min = max(0, int(price_min or 0))
+        except (TypeError, ValueError):
+            price_min = 0
+        try:
+            price_max = max(0, int(price_max or 0))
+        except (TypeError, ValueError):
+            price_max = 0
+        try:
+            page = max(1, int(page or 1))
+        except (TypeError, ValueError):
+            page = 1
+        try:
+            per_page = min(100, max(0, int(per_page or 0)))
+        except (TypeError, ValueError):
+            per_page = 0
+        products = _apply_catalog_filters(
+            _visible_products(), cat=cat.strip(), sub=sub.strip(), condition=condition.strip(),
+            seller=seller.strip(), price_min=price_min, price_max=price_max,
+            has_photo=has_photo, negotiable=negotiable, q=q, sort=sort)
+        total = len(products)
+        pages = max(1, (total + per_page - 1) // per_page) if per_page else 1
+        if per_page:
+            page = min(page, pages)
+            products = products[(page - 1) * per_page: page * per_page]
         subs = store.subcategories(cat) if cat else []
         return {"products": products, "categories": store.categories(),
                 "subcategories": subs,
                 "condition_labels": CONDITION_LABELS,
-                "marketplace": bool((store.settings.get("marketplace") or {}).get("enabled"))}
+                "marketplace": bool((store.settings.get("marketplace") or {}).get("enabled")),
+                "total": total, "page": page if per_page else 1,
+                "pages": pages, "per_page": per_page}
 
     @app.get("/api/marketing/utm")
     async def marketing_utm(url: str, source: str, medium: str="social", campaign: str="", content: str=""):

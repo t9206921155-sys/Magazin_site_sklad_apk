@@ -13,10 +13,10 @@
 
 ## P1 — marketplace catalog
 
-- [ ] Полное API-покрытие фильтров и сортировки.
-- [ ] UI seller filter, condition, photo, negotiable, price.
-- [ ] Тесты empty catalog, спецсимволов, invalid params и pagination.
-- [ ] Скриншоты staging для каждого фильтра.
+- [x] Полное API-покрытие фильтров и сортировки (блок 09, 08.09.2026: единый `_apply_catalog_filters`, пагинация `page/per_page/total/pages`, валидация параметров).
+- [x] UI seller filter, condition, photo, negotiable, price (Mini App — клиентские, SSR `/catalog` — форма фильтров; флаг `negotiable` добавлен в модель товара и кабинет продавца).
+- [x] Тесты empty catalog, спецсимволов, invalid params и pagination (`tests-block09.py`, 47/47).
+- [ ] Скриншоты staging для каждого фильтра (ручной пункт — нужен staging URL).
 
 ## P2 — Marketplace 2.0
 

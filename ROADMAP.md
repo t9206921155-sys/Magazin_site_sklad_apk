@@ -41,11 +41,12 @@ git sparse-checkout set --no-cone '/*' \
 | 06a | Мультисклад: интерфейс | ✅ | 04.09.2026 | `blocks/BLOCK-06a-multiwarehouse-ui.md` |
 | 07 | Отчёты по оборачиваемости | ✅ | 04.09.2026 | `blocks/BLOCK-07-reports.md` |
 | 08 | Прямая печать на IP-принтер (ZPL по сети) | ✅ | 04.09.2026 | `blocks/BLOCK-08-network-printing.md` |
-| 09 | Маркетплейс: каталог, поиск, фильтры | ⏳ | — | `blocks/BLOCK-09-marketplace-catalog.md` |
+| 09 | Маркетплейс: каталог, поиск, фильтры | ✅ | 08.09.2026 | `blocks/BLOCK-09-marketplace-catalog.md` |
 | 10 | Тесты и CI | ✅ | 04.09.2026 | `blocks/BLOCK-10-tests-ci.md` |
 | 11 | Проверка на реальном железе | ⛔ | — | `blocks/BLOCK-11-hardware.md` |
 
-**Готово: 7 из 13.** Следующий блок — **06a (мультисклад: интерфейс)**.
+**Готово: 10 из 13.** Следующий блок основного трека — **13 (единый storage layer)**;
+блок 11 — ручная проверка на реальном железе (⛔, вне песочницы).
 
 ---
 
@@ -71,13 +72,15 @@ git sparse-checkout set --no-cone '/*' \
 `GET/POST /1c/catalog`, **`GET/POST /1c/stock`**, `GET /1c/orders`,
 `POST /1c/orders/ack`, `POST /1c/orders/status`.
 
-### Тесты — 84 автотеста, все проходят
+### Тесты — 100+ автотестов, все проходят
 ```bash
 cd telegram-shop
 python3 tests-labels.py       # 20 — этикетки и ценники
 node tests-hid-scanner.js     #  8 — HID-парсер
 python3 tests-stage5.py       # 23 — 1С и офлайн (нужен запущенный сервер)
 python3 tests-block06.py      # 33 — мультисклад (нужен запущенный сервер)
+python3 tests-block09.py      # 47 — каталог и фильтры (нужен запущенный сервер)
+pytest tests/                 # 16 — маркетинг/SEO/провайдеры (из корня репо)
 ```
 
 ---
@@ -93,6 +96,9 @@ python3 tests-block06.py      # 33 — мультисклад (нужен зап
 | Service worker | cache-first на API: склад показывал устаревшие остатки, кэшировал ключи | 04 |
 | Обмен с 1С | Нельзя обновить только остатки — требовался полный каталог | 04 |
 | Новый товар вне мультисклада | `add_product` не писал в `wh_stock` — разбивка пустая, перемещение падало | 06 |
+| SSR-каталог 500 | Свободные имена `price_min/sort/...` в `_render_catalog` — NameError, `/catalog` лежал целиком | 09 |
+| Фильтр «только с торгом» | У товара не было поля `negotiable` (проверялся несуществующий ключ) — фильтр не влиял на выдачу | 09 |
+| `sort=rating`-заглушка | Сортировал по несуществующему `seller_rating` товара; теперь рейтинг продавца из `store.seller_rating` | 09 |
 
 ---
 

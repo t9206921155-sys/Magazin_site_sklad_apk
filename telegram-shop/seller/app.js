@@ -270,6 +270,7 @@ function openProductModal(p) {
           <button type="button" class="btn ghost small" onclick="addParamRow()">＋ Добавить параметр</button>
         </div>
         <label class="switch-row full"><input type="checkbox" id="pf-on" ${p.in_stock !== false ? 'checked' : ''}> В наличии</label>
+        <label class="switch-row full"><input type="checkbox" id="pf-negotiable" ${p.negotiable ? 'checked' : ''}> 🤝 Можно поторговать (покупатели смогут предлагать цену)</label>
       </div>
       <div style="display:flex; gap:10px; margin-top:14px">
         <button class="btn" id="pf-save">Сохранить</button>
@@ -296,7 +297,7 @@ function openProductModal(p) {
       category: $('#pf-cat').value || 'Прочее', subcategory: $('#pf-subcat').value,
       condition: $('#pf-cond').value, params,
       description: $('#pf-desc').value,
-      in_stock: $('#pf-on').checked, photo_data: photoData,
+      in_stock: $('#pf-on').checked, negotiable: $('#pf-negotiable').checked, photo_data: photoData,
     };
     try {
       if (p.id) await api('/api/seller/products/' + p.id, { method: 'PUT', body: JSON.stringify(body) });
