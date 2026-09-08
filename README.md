@@ -133,3 +133,9 @@ docker compose up -d --build
 Campaign Manager работает в режиме подготовки: кампании и публикации создаются со статусом `draft`, ручное approve переводит публикацию в `approved`, после чего внешний официальный provider может получить publication package. AI-video генерация выполняется внешним сервисом через `content_jobs`; VPS не выполняет тяжёлый рендер. Реальные публикации отключены до проверки официальных API и credentials.
 
 Подробная инструкция: [CAMPAIGN-SETUP-GUIDE.md](CAMPAIGN-SETUP-GUIDE.md)
+
+Проверка безопасных boundaries и SEO/UTM smoke-тестов:
+
+```bash
+python3 -m pytest -q tests/test_provider_boundaries.py tests/test_seo_assets.py tests/test_utm_builder.py
+```
