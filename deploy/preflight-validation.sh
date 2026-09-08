@@ -25,7 +25,9 @@ PY2
 printf '%s\n' '[preflight] production publish remains adapter-gated'
 python3 - <<'PY'
 from marketing_adapters import ADAPTERS
+from marketing_adapter_registry import diagnostics
 assert ADAPTERS and all(cls().diagnostics()['dry_run'] for cls in ADAPTERS.values())
-print(f'{len(ADAPTERS)} adapters are dry-run gated')
+assert set(diagnostics()) == set(ADAPTERS)
+print(f'{len(ADAPTERS)} adapters are dry-run gated and registry-wired')
 PY
 printf '%s\n' '[preflight] OK'
