@@ -211,3 +211,8 @@ python3 telegram-shop/scripts/restore_sqlite.py backup.db \
 - [ ] Confirm non-http(s) URL is rejected by UTM builder.
 - [ ] CRM provider panel displays Wildberries audit as disabled before official audit.
 - [ ] Confirm no scraping or external WB request occurs during diagnostics.
+- [ ] Provider `validate()` reports missing credentials without exposing secrets.
+- [ ] Provider `diagnostics()` reports publishing disabled before audit.
+- [ ] Provider `dry_run()` accepts approved package and returns deterministic result.
+- [ ] Provider `dry_run()` rejects draft package.
+- [ ] Provider `publish()` remains disabled until official staging approval.
