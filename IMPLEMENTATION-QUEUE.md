@@ -31,7 +31,7 @@
 
 ## P3 — real hardware
 
-- [ ] Android APK.
+- [~] Android APK: складское «Склад» 1.0.6 готово (apk/aab, подписано, QR/deep-link). Покупательское приложение НЕ сделано — болванка в mobile/; ТЗ и план: `mobile/ANDROID-APP-TZ.md`, `blocks/BLOCK-25-mobile-buyer-app.md` (блок 25).
 - [ ] HID/ТСД.
 - [ ] Zebra/Eltron.
 - [ ] IP printer.

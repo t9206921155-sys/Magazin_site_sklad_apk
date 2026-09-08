@@ -167,6 +167,10 @@ telegram-shop/tests-*   ← автотесты
 staging-валидация по `DEVELOPER-MANUAL-VALIDATION.md`), **18** (backup на тестовом
 VPS), **22** (ждёт официальный API-аудит Wildberries). В песочнице для них делать
 нечего — они выполняются владельцем на staging по готовым инструкциям.
+**Мобильные приложения (08.09.2026):** складское APK готово (Sklad-1.0.6,
+`ru.telegramshop.sklad`); покупательское — НЕТ (болванка в `mobile/`, сборке не
+подлежит). Подготовлены ТЗ и план: **блок 25** + `mobile/ANDROID-APP-TZ.md`
+(Фаза 1 — WebView-обёртка за 1–2 дня, Фазы 2–6 — React Native за 4–5 недель).
 
 **Порядок приоритета:** после инфраструктурных блоков 13–15 выполнять блоки 20 (SEO/продвижение), 21 (Content Hub и AI prompt queue), затем 22 (Wildberries), 23–24. Ручной блок 17 выполняется на staging параллельно, а автодеплой финализируется последним.
 
@@ -182,6 +186,7 @@ VPS), **22** (ждёт официальный API-аудит Wildberries). В п
 
 | 23 | Content Hub и AI Video Queue | ✅ | 08.09.2026 | `blocks/BLOCK-23-content-hub-ai-queue.md` |
 | 24 | Campaign Manager и публикация по каналам | ✅ | 08.09.2026 | `blocks/BLOCK-24-campaign-manager.md` |
+| 25 | Мобильное приложение покупателя (Android) | ⏳ | — (Ф1); 15 (Ф2+) | `blocks/BLOCK-25-mobile-buyer-app.md` · ТЗ: `mobile/ANDROID-APP-TZ.md` |
 
 ### Текущий прогресс (08.09.2026) — все кодовые блоки закрыты
 
