@@ -81,3 +81,14 @@ deploy/https-preflight.sh https://example.com
 ```
 
 В sandbox этот шаг не выполняется против production URL.
+
+## Environment preflight
+
+Перед deploy проверить environment без вывода secret values:
+
+```bash
+deploy/env-preflight.sh
+deploy/secret-scan.sh
+```
+
+В demo режиме отсутствие credentials допустимо, потому что реальные adapters отключены.
