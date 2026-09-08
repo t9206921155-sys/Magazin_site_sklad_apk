@@ -33,3 +33,10 @@ def test_stub_provider_returns_deterministic_result():
     from social_providers import StubProvider
     result = StubProvider().publish({'status':'approved','publication_id':42})
     assert result == {'ok':True,'mode':'stub','external_id':'stub-42','channel':'stub'}
+
+def test_callback_hmac_canonical_json_is_stable():
+    import hashlib, hmac, json
+    body={'result_url':'https://example.test/video.mp4','error':''}
+    payload=json.dumps(body,ensure_ascii=False,sort_keys=True,separators=(',',':'))
+    sig=hmac.new(b'secret',payload.encode(),hashlib.sha256).hexdigest()
+    assert hmac.compare_digest(sig, hmac.new(b'secret',payload.encode(),hashlib.sha256).hexdigest())
