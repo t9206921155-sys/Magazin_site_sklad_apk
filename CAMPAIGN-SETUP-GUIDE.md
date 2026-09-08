@@ -185,3 +185,12 @@ utm_source=telegram&utm_campaign=summer-sale&utm_content=video-1
 ```
 
 `publish()` остаётся отключённым до реализации официального adapter-а.
+
+## Provider contract
+
+Перед подключением реального adapter-а provider должен реализовать:
+
+- `validate()` — проверка credentials;
+- `diagnostics()` — безопасное состояние;
+- `dry_run(package)` — локальная проверка approved package;
+- `publish(package)` — только после официального API audit и staging-проверки.
