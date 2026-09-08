@@ -28,3 +28,8 @@ def test_diagnostics_exposes_safe_dry_run_state():
     assert data['enabled'] is False
     assert data['dry_run'] is True
     assert data['publishing'] == 'disabled'
+
+def test_stub_provider_returns_deterministic_result():
+    from social_providers import StubProvider
+    result = StubProvider().publish({'status':'approved','publication_id':42})
+    assert result == {'ok':True,'mode':'stub','external_id':'stub-42','channel':'stub'}
