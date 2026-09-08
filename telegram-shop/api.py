@@ -971,20 +971,28 @@ def create_app(store, providers: dict, bot=None, notify_new_order=None, notify_o
     @app.get("/sitemap.xml")
     async def sitemap(request: Request):
         base = _abs(request, "/")
-        urls = [(base, "daily", "1.0"), (base + "catalog", "daily", "0.9")]
-        urls += [(base + f"p/{p['id']}", "daily", "0.8") for p in store.products() if p.get("in_stock")]
-        urls += [(base + "blog", "weekly", "0.7"), (base + "download/android", "weekly", "0.8"), (base + "download/android/rustore", "weekly", "0.7"), (base + "privacy", "monthly", "0.4")]
-        urls += [(base + f"blog/{post['slug']}", "monthly", "0.6") for post in store.posts(published_only=True)]
+        def _day(v) -> str:
+            return str(v or "")[:10]
+        stamps = [(p.get("updated_at") or p.get("created_at") or "") for p in store.products()]
+        home_last = _day(max(stamps) if stamps else "")
+        urls = [(base, "daily", "1.0", home_last), (base + "catalog", "daily", "0.9", home_last)]
+        urls += [(base + f"p/{p['id']}", "daily", "0.8", _day(p.get("updated_at") or p.get("created_at")))
+                 for p in store.products() if p.get("in_stock")]
+        urls += [(base + "blog", "weekly", "0.7", ""), (base + "download/android", "weekly", "0.8", ""),
+                 (base + "download/android/rustore", "weekly", "0.7", ""), (base + "privacy", "monthly", "0.4", "")]
+        urls += [(base + f"blog/{post['slug']}", "monthly", "0.6", _day(post.get("updated_at") or post.get("created_at")))
+                 for post in store.posts(published_only=True)]
         if (store.settings.get("marketplace") or {}).get("enabled"):
-            urls += [(base + "sellers", "weekly", "0.7"), (base + "become-seller", "monthly", "0.6")]
-            urls += [(base + f"seller/{sl['slug']}", "weekly", "0.6") for sl in store.sellers("active")]
-        urls += [(base + f"catalog/{slugify_ru(c)}", "weekly", "0.7") for c in store.categories()]
+            urls += [(base + "sellers", "weekly", "0.7", ""), (base + "become-seller", "monthly", "0.6", "")]
+            urls += [(base + f"seller/{sl['slug']}", "weekly", "0.6", _day(sl.get("updated_at"))) for sl in store.sellers("active")]
+        urls += [(base + f"catalog/{slugify_ru(c)}", "weekly", "0.7", "") for c in store.categories()]
         for s in store.subcategories():
             if s.get("id"):
-                urls.append((base + f"catalog/{slugify_ru(s['category'])}/{s['slug']}", "weekly", "0.7"))
+                urls.append((base + f"catalog/{slugify_ru(s['category'])}/{s['slug']}", "weekly", "0.7", ""))
         xml = '<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n'
-        for u, freq, prio in urls:
-            xml += f"  <url><loc>{u}</loc><changefreq>{freq}</changefreq><priority>{prio}</priority></url>\n"
+        for u, freq, prio, lastmod in urls:
+            lastmod_tag = f"<lastmod>{lastmod}</lastmod>" if lastmod else ""
+            xml += f"  <url><loc>{u}</loc>{lastmod_tag}<changefreq>{freq}</changefreq><priority>{prio}</priority></url>\n"
         xml += "</urlset>"
         return Response(xml, media_type="application/xml")
 
@@ -2973,6 +2981,37 @@ def create_app(store, providers: dict, bot=None, notify_new_order=None, notify_o
         with store._conn: cur=store._conn.execute("UPDATE content_jobs SET status=?,result_url=?,error=?,updated_at=? WHERE id=?",(target_status,url,error,now,jid))
         if not cur.rowcount: raise HTTPException(404,"Задача не найдена")
         return {"ok":True,"status":"review","id":jid}
+
+    @app.post("/api/content/jobs/{jid}/fallback")
+    async def content_job_fallback(jid:int, x_wh_token:str=Header(default=""), x_admin_token:str=Header(default="")):
+        """Блок 23: локальный fallback-рендер слайдшоу без ИИ (media.py + ffmpeg).
+
+        Доступен для задач queued/processing/failed: рендерит ролик из фото
+        товара и переводит задачу в review. ИИ-провайдер не нужен.
+        """
+        wh_user_from_headers(x_wh_token, x_admin_token)
+        job = store._q1("SELECT * FROM content_jobs WHERE id=?", (jid,))
+        if not job:
+            raise HTTPException(404, "Задача не найдена")
+        if job["status"] not in ("queued", "processing", "failed"):
+            raise HTTPException(409, f"Fallback недоступен для статуса {job['status']}")
+        p = store.get_product(int(job["product_id"]))
+        if not p:
+            raise HTTPException(404, "Товар задачи не найден")
+        now = datetime.datetime.now().isoformat(timespec="seconds")
+        try:
+            url = media_module.generate_video(p, store.settings["shop_name"], seconds=8)
+        except Exception as e:
+            with store._conn:
+                store._conn.execute("UPDATE content_jobs SET status='failed',error=?,updated_at=? WHERE id=?",
+                                    (f"fallback render failed: {str(e)[:120]}", now, jid))
+            raise HTTPException(500, f"Не удалось собрать слайдшоу: {str(e)[:120]}")
+        with store._conn:
+            store._conn.execute(
+                "UPDATE content_jobs SET status='review',result_url=?,error='',provider='local-slideshow',updated_at=? WHERE id=?",
+                (url, now, jid))
+        store.wh_log_add("crm", "fallback-рендер слайдшоу", f"job {jid} -> {url}")
+        return {"ok": True, "status": "review", "result_url": url, "provider": "local-slideshow"}
 
     @app.get("/api/marketing/wildberries/audit")
     async def wildberries_audit(x_wh_token:str=Header(default=""), x_admin_token:str=Header(default="")):
