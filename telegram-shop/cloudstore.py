@@ -25,6 +25,7 @@ from urllib.parse import quote
 import requests
 
 import config
+from storage_contracts import DatabaseProviderMixin
 import importer
 
 log = logging.getLogger("shop.cloud")
@@ -47,7 +48,7 @@ def _s3_http_url(endpoint: str, bucket: str, key: str) -> str:
     return f"{base}/{quote(str(bucket), safe='-_.~')}/{key}"
 
 
-class SupabaseClient:
+class SupabaseClient(DatabaseProviderMixin):
     def __init__(self, url: str, key: str, bucket: str = "shop-photos",
                  schema: str = "public", table: str = "products"):
         self.url = (url or "").rstrip("/")
@@ -211,6 +212,9 @@ class YandexDiskClient:
             with urllib.request.urlopen(req, timeout=15) as r: return r.status, json.loads(r.read() or b"{}")
         except urllib.error.HTTPError as e:
             return e.code, {"error":e.read().decode(errors="replace")[:500]}
+        except Exception as e:
+            # сеть недоступна/TLS/таймаут: понятная ошибка вместо исключения (блок 13)
+            return 503, {"error": f"Яндекс Диск недоступен: {str(e)[:180]}"}
     def ping(self):
         if not self.enabled: return {"ok":False,"error":"Не задан OAuth-токен Яндекс Диска"}
         status,data=self._request("/resources", query={"path":self.root})
@@ -240,7 +244,7 @@ class YandexDiskClient:
         return data.get("public_url", "") if status == 200 else ""
 
 
-class S3Client:
+class S3Client(DatabaseProviderMixin):
     """S3-совместимое объектное хранилище.
 
     Используется для:
@@ -386,7 +390,7 @@ class S3Client:
             return {"ok": False, "error": str(e)[:200]}
 
 
-class MySQLClient:
+class MySQLClient(DatabaseProviderMixin):
     """Внешний каталог товаров в MySQL / MariaDB.
 
     Нужен только для таблицы каталога. Фото при таком режиме всё равно стоит хранить в S3.
@@ -514,6 +518,83 @@ class MySQLClient:
         except Exception as e:
             return {"ok": False, "error": str(e)[:200]}
 
+    def upsert_stock(self, items: list) -> dict:
+        """Нативное обновление остатков/цен по коду — без перезаливки каталога."""
+        try:
+            self._ensure_table()
+            table = self.table.replace("`", "")
+            updated, not_found = 0, []
+            with self._conn() as conn:
+                with conn.cursor() as cur:
+                    for it in items or []:
+                        code = str((it or {}).get("code") or "").strip()
+                        if not code:
+                            continue
+                        sets, args = [], []
+                        if it.get("stock") is not None:
+                            sets.append("stock=%s"); args.append(int(it["stock"]))
+                        if it.get("price") is not None:
+                            sets.append("price=%s"); args.append(int(it["price"]))
+                        if it.get("old_price") is not None:
+                            sets.append("old_price=%s"); args.append(int(it["old_price"]))
+                        if not sets:
+                            continue
+                        args.append(code)
+                        cur.execute(f"UPDATE `{table}` SET {', '.join(sets)} WHERE code=%s", tuple(args))
+                        updated += cur.rowcount if cur.rowcount > 0 else 0
+                        if cur.rowcount <= 0:
+                            not_found.append(code)
+            return {"ok": True, "updated": updated, "missing": not_found}
+        except Exception as e:
+            return {"ok": False, "error": str(e)[:200]}
+
+
+class SQLiteProvider(DatabaseProviderMixin):
+    """Локальная SQLite-база склада как полноправный DatabaseProvider (блок 13).
+
+    Позволяет бизнес-логике и контрактным тестам работать с режимом vps
+    через тот же интерфейс, что и Supabase/MySQL/S3.
+    """
+
+    def __init__(self, store):
+        self.store = store
+
+    def ping(self) -> dict:
+        try:
+            self.store._q1("SELECT 1")
+            return {"ok": True, "status": 200}
+        except Exception as e:
+            return {"ok": False, "error": str(e)[:200]}
+
+    def push_products(self, products: list) -> dict:
+        try:
+            for p in products or []:
+                self.store.upsert_product_with_id(p)
+            return {"ok": True, "count": len(products or [])}
+        except Exception as e:
+            return {"ok": False, "error": str(e)[:200]}
+
+    def pull_products(self) -> dict:
+        try:
+            return {"ok": True, "products": self.store.products()}
+        except Exception as e:
+            return {"ok": False, "error": str(e)[:200]}
+
+    def upsert_product(self, product: dict) -> dict:
+        try:
+            self.store.upsert_product_with_id(product)
+            return {"ok": True, "count": 1}
+        except Exception as e:
+            return {"ok": False, "error": str(e)[:200]}
+
+    def upsert_stock(self, items: list) -> dict:
+        try:
+            res = self.store.update_stock_by_code(items or [])
+            return {"ok": True, "updated": int(res.get("updated") or 0),
+                    "missing": res.get("not_found") or []}
+        except Exception as e:
+            return {"ok": False, "error": str(e)[:200]}
+
 
 def database_mode(cloud: dict) -> str:
     c = dict(cloud or {})
@@ -573,9 +654,15 @@ def _mysql_client_from_cloud(cloud: dict) -> MySQLClient:
     )
 
 
-def database_provider_from_cloud(cloud: dict):
-    """Return the configured database adapter through the common provider boundary."""
+def database_provider_from_cloud(cloud: dict, store=None):
+    """Return the configured database adapter through the common provider boundary.
+
+    Блок 13: режим vps при переданном store возвращает SQLiteProvider —
+    все режимы реализуют единый DatabaseProvider-контракт.
+    """
     mode, provider = _catalog_client_from_cloud(cloud or {})
+    if mode == "vps" and store is not None:
+        return mode, SQLiteProvider(store)
     return mode, provider
 
 

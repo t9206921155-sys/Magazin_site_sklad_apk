@@ -4,7 +4,7 @@
 
 ## P0 — перед production
 
-- [~] Runtime storage layer: контракты, фабрики и диагностика готовы; полный runtime-переход требует staging-проверки.
+- [x] Runtime storage layer: полный DatabaseProvider-контракт (catalog/product/stock/batch), SQLiteProvider, фабрика, диагностика, allowlist+маскирование секретов, контрактные тесты (блок 13). Живые провайдеры Supabase/MySQL/S3/YD — staging-проверка в блоках 14/17.
 - [~] Yandex Disk: REST-интеграция готова; staging-проверка token/upload/public URL ожидает ручных credentials.
 - [ ] MySQL/MariaDB: миграция SQLite, сверка данных и rollback.
 - [ ] Backup/restore: автоматическая проверка восстановления на чистой БД.

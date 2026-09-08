@@ -3161,6 +3161,25 @@ def create_app(store, providers: dict, bot=None, notify_new_order=None, notify_o
         return store.wh_logs(100)
 
     # ------------------------------------------------------------------ склад: расширенные настройки
+    # Блок 13: allowlist полей cloud-конфигурации. Неизвестные поля (в том
+    # числе случайно попавшие в настройки секреты) при сохранении отбрасываются.
+    CLOUD_FIELDS = {
+        "enabled", "provider", "db_mode", "use_cdn",
+        "url", "key", "public_key", "supabase_schema", "supabase_table",
+        "bucket", "photo_prefix", "catalog_prefix", "backup_bucket", "backup_prefix",
+        "s3_preset", "s3_endpoint", "s3_access_key", "s3_secret_key", "s3_region",
+        "photo_provider", "yandex_disk_token", "yandex_disk_path",
+        "mysql_host", "mysql_port", "mysql_user", "mysql_database", "mysql_table",
+        "mysql_password",
+    }
+
+    def _is_secret_cloud_field(name: str) -> bool:
+        """Похоже ли имя поля на секрет (для динамической маскировки в GET)."""
+        if name == "s3_access_key":  # идентификатор ключа, не сам секрет
+            return False
+        kl = name.lower()
+        return "token" in kl or "secret" in kl or "password" in kl or kl.endswith("key")
+
     @app.get("/api/warehouse/settings")
     async def wh_settings(x_wh_token: str = Header(default=""),
                           x_admin_token: str = Header(default="")):
@@ -3178,10 +3197,16 @@ def create_app(store, providers: dict, bot=None, notify_new_order=None, notify_o
         cloud["supabase_schema"] = cloud.get("supabase_schema") or "public"
         cloud["supabase_table"] = cloud.get("supabase_table") or "products"
         # Секреты не возвращаем в явном виде: пустое поле в UI означает «оставить как есть».
-        cloud["key"] = "•••" if cloud.get("key") else ""
-        cloud["public_key"] = "•••" if cloud.get("public_key") else ""
-        cloud["s3_secret_key"] = "•••" if cloud.get("s3_secret_key") else ""
-        cloud["mysql_password"] = "•••" if cloud.get("mysql_password") else ""
+        masked = set()
+        for f in ("key", "public_key", "s3_secret_key", "mysql_password", "yandex_disk_token"):
+            cloud[f] = "•••" if cloud.get(f) else ""
+            masked.add(f)
+        # динамическая маскировка: любые другие secret-подобные поля (блок 13)
+        for f in list(cloud):
+            if f in masked or not _is_secret_cloud_field(f):
+                continue
+            cloud[f] = "•••" if cloud.get(f) else ""
+            masked.add(f)
         soc = s.get("social") or {}
         return {
             "cloud": cloud,
@@ -3204,9 +3229,13 @@ def create_app(store, providers: dict, bot=None, notify_new_order=None, notify_o
             raise HTTPException(403, "Только администратор склада")
         patch = {}
         if "cloud" in body:
-            current_cloud = dict(store.settings.get("cloud") or {})
-            incoming_cloud = dict(body["cloud"] or {})
-            for secret_field in ("key", "public_key", "s3_secret_key", "mysql_password", "yandex_disk_token"):
+            current_cloud = {k: v for k, v in (store.settings.get("cloud") or {}).items()
+                             if k in CLOUD_FIELDS}
+            incoming_cloud = {k: v for k, v in dict(body["cloud"] or {}).items()
+                              if k in CLOUD_FIELDS}
+            for secret_field in CLOUD_FIELDS:
+                if not _is_secret_cloud_field(secret_field):
+                    continue
                 incoming_value = str(incoming_cloud.get(secret_field, "") or "")
                 if incoming_value in ("", "•••"):
                     incoming_cloud[secret_field] = current_cloud.get(secret_field, "")

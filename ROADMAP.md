@@ -45,8 +45,8 @@ git sparse-checkout set --no-cone '/*' \
 | 10 | Тесты и CI | ✅ | 04.09.2026 | `blocks/BLOCK-10-tests-ci.md` |
 | 11 | Проверка на реальном железе | ⛔ | — | `blocks/BLOCK-11-hardware.md` |
 
-**Готово: 10 из 13.** Следующий блок основного трека — **13 (единый storage layer)**;
-блок 11 — ручная проверка на реальном железе (⛔, вне песочницы).
+**Готово: 11 из 13.** Следующий блок основного трека — **14 (backup, restore и миграция
+MySQL/MariaDB)**; блок 11 — ручная проверка на реальном железе (⛔, вне песочницы).
 
 ---
 
@@ -80,6 +80,8 @@ node tests-hid-scanner.js     #  8 — HID-парсер
 python3 tests-stage5.py       # 23 — 1С и офлайн (нужен запущенный сервер)
 python3 tests-block06.py      # 33 — мультисклад (нужен запущенный сервер)
 python3 tests-block09.py      # 47 — каталог и фильтры (нужен запущенный сервер)
+python3 tests-storage-contracts.py  # 32 — контракты storage-провайдеров (офлайн)
+python3 tests-block13.py      # 33 — storage layer: маскирование, диагностика (нужен сервер)
 pytest tests/                 # 16 — маркетинг/SEO/провайдеры (из корня репо)
 ```
 
@@ -99,6 +101,8 @@ pytest tests/                 # 16 — маркетинг/SEO/провайдер
 | SSR-каталог 500 | Свободные имена `price_min/sort/...` в `_render_catalog` — NameError, `/catalog` лежал целиком | 09 |
 | Фильтр «только с торгом» | У товара не было поля `negotiable` (проверялся несуществующий ключ) — фильтр не влиял на выдачу | 09 |
 | `sort=rating`-заглушка | Сортировал по несуществующему `seller_rating` товара; теперь рейтинг продавца из `store.seller_rating` | 09 |
+| Утечка YD OAuth-токена | `GET /api/warehouse/settings` отдавал `yandex_disk_token` в открытом виде (в т.ч. роли worker) | 13 |
+| Неизвестные secret-поля в настройках | PUT мерджил произвольные поля — секрет с неизвестным именем возвращался клиенту без маскировки; теперь allowlist + динамическая маскировка | 13 |
 
 ---
 
@@ -142,7 +146,7 @@ telegram-shop/tests-*   ← автотесты
 | # | Блок | Статус | Зависит от | Файл плана |
 |---|---|---|---|---|
 | 12 | Production health-check и post-deploy smoke | ✅ | 10 | `blocks/BLOCK-12-production-smoke.md` |
-| 13 | Единый storage layer и конфигурация провайдеров | ⏳ | 12 | `blocks/BLOCK-13-storage-layer.md` |
+| 13 | Единый storage layer и конфигурация провайдеров | ✅ | 08.09.2026 | `blocks/BLOCK-13-storage-layer.md` |
 | 14 | Backup, restore и миграция MySQL/MariaDB | ⏳ | 13 | `blocks/BLOCK-14-backup-mysql.md` |
 | 15 | Production security и observability | ⏳ | 12 | `blocks/BLOCK-15-security-observability.md` |
 | 16 | Marketplace 2.0: продавцы, сделки и доверие | ⏳ | 13, 15 | `blocks/BLOCK-16-marketplace-2.md` |
