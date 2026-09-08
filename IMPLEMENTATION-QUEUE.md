@@ -6,8 +6,8 @@
 
 - [x] Runtime storage layer: полный DatabaseProvider-контракт (catalog/product/stock/batch), SQLiteProvider, фабрика, диагностика, allowlist+маскирование секретов, контрактные тесты (блок 13). Живые провайдеры Supabase/MySQL/S3/YD — staging-проверка в блоках 14/17.
 - [~] Yandex Disk: REST-интеграция готова; staging-проверка token/upload/public URL ожидает ручных credentials.
-- [ ] MySQL/MariaDB: миграция SQLite, сверка данных и rollback.
-- [ ] Backup/restore: автоматическая проверка восстановления на чистой БД.
+- [x] MySQL/MariaDB: `scripts/migrate_sqlite_to_mysql.py` — dry-run, копирование, сверка COUNT+SHA256 по всем таблицам, read-only источник, `--drop-existing`; DDL под strict MySQL 8. Реальный `--apply` на боевом MySQL — staging (блок 17).
+- [x] Backup/restore: `scripts/verify_restore.py` — восстановление во временную БД + сверка с живой (COUNT, опц. SHA256); тесты tests-block14 (32/32). Восстановление на чистом VPS — блок 18.
 - [~] Production smoke: скрипт готов; запуск на staging/production ожидает URL.
 - [~] Security: CORS, metrics token, rate limit и headers готовы; ручной аудит production ожидает окружение.
 

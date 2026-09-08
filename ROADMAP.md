@@ -45,8 +45,8 @@ git sparse-checkout set --no-cone '/*' \
 | 10 | Тесты и CI | ✅ | 04.09.2026 | `blocks/BLOCK-10-tests-ci.md` |
 | 11 | Проверка на реальном железе | ⛔ | — | `blocks/BLOCK-11-hardware.md` |
 
-**Готово: 11 из 13.** Следующий блок основного трека — **14 (backup, restore и миграция
-MySQL/MariaDB)**; блок 11 — ручная проверка на реальном железе (⛔, вне песочницы).
+**Основной трек закрыт: 11 из 12** (остался только ручной блок 11 — реальное железо).
+В треке hardening закрыты 12, 13, 14 — следующий **15 (production security и observability)**.
 
 ---
 
@@ -82,6 +82,7 @@ python3 tests-block06.py      # 33 — мультисклад (нужен зап
 python3 tests-block09.py      # 47 — каталог и фильтры (нужен запущенный сервер)
 python3 tests-storage-contracts.py  # 32 — контракты storage-провайдеров (офлайн)
 python3 tests-block13.py      # 33 — storage layer: маскирование, диагностика (нужен сервер)
+python3 tests-block14.py      # 32 — backup/restore, миграция SQLite→MySQL (нужен сервер)
 pytest tests/                 # 16 — маркетинг/SEO/провайдеры (из корня репо)
 ```
 
@@ -147,7 +148,7 @@ telegram-shop/tests-*   ← автотесты
 |---|---|---|---|---|
 | 12 | Production health-check и post-deploy smoke | ✅ | 10 | `blocks/BLOCK-12-production-smoke.md` |
 | 13 | Единый storage layer и конфигурация провайдеров | ✅ | 08.09.2026 | `blocks/BLOCK-13-storage-layer.md` |
-| 14 | Backup, restore и миграция MySQL/MariaDB | ⏳ | 13 | `blocks/BLOCK-14-backup-mysql.md` |
+| 14 | Backup, restore и миграция MySQL/MariaDB | ✅ | 08.09.2026 | `blocks/BLOCK-14-backup-mysql.md` |
 | 15 | Production security и observability | ⏳ | 12 | `blocks/BLOCK-15-security-observability.md` |
 | 16 | Marketplace 2.0: продавцы, сделки и доверие | ⏳ | 13, 15 | `blocks/BLOCK-16-marketplace-2.md` |
 
