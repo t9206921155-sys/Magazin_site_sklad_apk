@@ -19,15 +19,15 @@
 - [x] Тесты empty catalog, спецсимволов, invalid params и pagination (`tests-block09.py`, 47/47).
 - [ ] Скриншоты staging для каждого фильтра (ручной пункт — нужен staging URL).
 
-## P2 — Marketplace 2.0
+## P2 — Marketplace 2.0 (блок 16, 08.09.2026)
 
-- [ ] Seller verification.
-- [ ] Store subscriptions.
-- [ ] Seller plans and listing limits.
-- [ ] Reservation and price negotiation.
-- [ ] Complaints, moderation and blacklist.
-- [ ] Escrow state machine.
-- [ ] Seller analytics and promotion.
+- [x] Seller verification (было: verification_status + админ-подтверждение).
+- [x] Store subscriptions (подписки на витрины + лента новинок).
+- [x] Seller plans and listing limits (было: планы, лимиты 429).
+- [x] Reservation and price negotiation (бронь с TTL + offers/countered).
+- [x] Complaints, moderation and blacklist (жалобы, очередь, бан/разбан).
+- [x] Escrow state machine (held_balance + escrow_days, авто-релиз).
+- [x] Seller analytics and promotion (просмотры витрины, «поднять» на 24ч/7д cooldown).
 
 ## P3 — real hardware
 

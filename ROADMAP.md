@@ -85,6 +85,7 @@ python3 tests-block09.py      # 47 — каталог и фильтры (нуж�
 python3 tests-storage-contracts.py  # 32 — контракты storage-провайдеров (офлайн)
 python3 tests-block13.py      # 33 — storage layer: маскирование, диагностика (нужен сервер)
 python3 tests-block14.py      # 32 — backup/restore, миграция SQLite→MySQL (нужен сервер)
+python3 tests-block16.py      # 45 — подписки, брони, жалобы, бусты (нужен сервер)
 python3 tests-block15.py      # 40 — security/observability (нужен сервер; ЗАПУСКАТЬ ПОСЛЕДНИМ)
 pytest tests/                 # 16 — маркетинг/SEO/провайдеры (из корня репо)
 ```
@@ -153,7 +154,7 @@ telegram-shop/tests-*   ← автотесты
 | 13 | Единый storage layer и конфигурация провайдеров | ✅ | 08.09.2026 | `blocks/BLOCK-13-storage-layer.md` |
 | 14 | Backup, restore и миграция MySQL/MariaDB | ✅ | 08.09.2026 | `blocks/BLOCK-14-backup-mysql.md` |
 | 15 | Production security и observability | ✅ | 08.09.2026 | `blocks/BLOCK-15-security-observability.md` |
-| 16 | Marketplace 2.0: продавцы, сделки и доверие | ⏳ | 13, 15 | `blocks/BLOCK-16-marketplace-2.md` |
+| 16 | Marketplace 2.0: продавцы, сделки и доверие | ✅ | 08.09.2026 | `blocks/BLOCK-16-marketplace-2.md` |
 
 **Правило продолжения:** новая сессия читает `ROADMAP.md`, `SESSION-PLAYBOOK.md` и первый незакрытый файл блока из этого трека. Не начинать следующий блок до заполнения отчёта и push текущего.
 

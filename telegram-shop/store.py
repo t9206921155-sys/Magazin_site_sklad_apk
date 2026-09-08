@@ -229,6 +229,23 @@ CREATE TABLE IF NOT EXISTS campaigns(
 CREATE TABLE IF NOT EXISTS campaign_publications(
   id INTEGER PRIMARY KEY AUTOINCREMENT, campaign_id INTEGER NOT NULL, channel TEXT NOT NULL, status TEXT DEFAULT 'draft', external_id TEXT DEFAULT '', error TEXT DEFAULT '', created_at TEXT, updated_at TEXT
 );
+CREATE TABLE IF NOT EXISTS store_subscriptions(
+  id INTEGER PRIMARY KEY AUTOINCREMENT, seller_id INTEGER NOT NULL,
+  user_key TEXT NOT NULL, created_at TEXT,
+  UNIQUE(seller_id, user_key)
+);
+CREATE TABLE IF NOT EXISTS reservations(
+  id INTEGER PRIMARY KEY AUTOINCREMENT, product_id INTEGER NOT NULL,
+  seller_id INTEGER DEFAULT 0, buyer_key TEXT NOT NULL,
+  qty INTEGER DEFAULT 1, status TEXT DEFAULT 'active',
+  created_at TEXT, expires_at TEXT
+);
+CREATE TABLE IF NOT EXISTS complaints(
+  id INTEGER PRIMARY KEY AUTOINCREMENT, product_id INTEGER DEFAULT 0,
+  seller_id INTEGER DEFAULT 0, reporter_key TEXT DEFAULT '',
+  reason TEXT DEFAULT '', text TEXT DEFAULT '', status TEXT DEFAULT 'pending',
+  created_at TEXT, resolved_at TEXT, resolution TEXT DEFAULT ''
+);
 CREATE TABLE IF NOT EXISTS content_jobs(
   id INTEGER PRIMARY KEY AUTOINCREMENT, product_id INTEGER NOT NULL, provider TEXT DEFAULT '', status TEXT DEFAULT 'draft', prompt TEXT DEFAULT '', result_url TEXT DEFAULT '', error TEXT DEFAULT '', created_by INTEGER, created_at TEXT, updated_at TEXT
 );
@@ -669,9 +686,12 @@ class Store:
             ("ai_month", "TEXT DEFAULT ''"),                    # месяц учёта ИИ (YYYY-MM)
             ("verification_status", "TEXT DEFAULT 'unverified'"),  # unverified|pending|verified|rejected
             ("verification_data", "TEXT DEFAULT '{}'"),         # {inn, owner_name, doc_photo}
+            ("views", "INTEGER DEFAULT 0"),                     # просмотры витрины (блок 16)
         ):
             if col not in scols:
                 self._conn.execute(f"ALTER TABLE sellers ADD COLUMN {col} {ddl}")
+        if "boosted_until" not in cols:
+            self._conn.execute("ALTER TABLE products ADD COLUMN boosted_until TEXT DEFAULT ''")
         self._conn.execute("DROP TABLE IF EXISTS commission")
         self._conn.commit()
 
@@ -2799,6 +2819,193 @@ class Store:
                 (_now_iso(), int(offer_id)))
             self._conn.commit()
             return self.offer_by_id(offer_id)
+
+    # ---------------- блок 16: Marketplace 2.0 ----------------
+    # --- подписки на витрины ---
+    def store_subscribe(self, seller_id: int, user_key: str) -> dict:
+        with _lock:
+            self._conn.execute(
+                "INSERT OR IGNORE INTO store_subscriptions(seller_id, user_key, created_at) VALUES(?,?,?)",
+                (int(seller_id), str(user_key or "")[:120], _now_iso()))
+            self._conn.commit()
+            active = self._q1("SELECT 1 x FROM store_subscriptions WHERE seller_id=? AND user_key=?",
+                              (int(seller_id), str(user_key or "")[:120]))
+            return {"ok": bool(active), "subscribed": bool(active)}
+
+    def store_unsubscribe(self, seller_id: int, user_key: str) -> dict:
+        with _lock:
+            cur = self._conn.execute("DELETE FROM store_subscriptions WHERE seller_id=? AND user_key=?",
+                                     (int(seller_id), str(user_key or "")[:120]))
+            self._conn.commit()
+            # после отписки подписки нет (даже если её и не было)
+            return {"ok": True, "subscribed": False, "was_subscribed": cur.rowcount > 0}
+
+    def store_subscription_list(self, seller_id: int) -> int:
+        return self._count("SELECT COUNT(*) c FROM store_subscriptions WHERE seller_id=?",
+                           (int(seller_id),))
+
+    def user_store_subscriptions(self, user_key: str) -> list:
+        """Витрины, на которые подписан покупатель, с последними новинками."""
+        rows = self._q("SELECT s.id, s.slug, s.store_name, s.verification_status FROM store_subscriptions ss"
+                       " JOIN sellers s ON s.id=ss.seller_id WHERE ss.user_key=? ORDER BY ss.created_at DESC",
+                       (str(user_key or "")[:120],))
+        out = []
+        for r in rows:
+            d = dict(r)
+            news = self.seller_products(d["id"])[:4]
+            d["latest"] = [{"id": p["id"], "name": p["name"], "price": p["price"], "photo": p["photo"]}
+                           for p in news]
+            out.append(d)
+        return out
+
+    # --- бронь товара ---
+    def create_reservation(self, product_id: int, buyer_key: str, qty: int = 1, hours: int = 48) -> dict:
+        p = self.get_product(product_id)
+        if not p or not p.get("in_stock") or p.get("is_archived"):
+            raise ValueError("Товар недоступен для брони")
+        qty = max(1, min(99, int(qty or 1)))
+        if int(p.get("stock", -1)) >= 0 and int(p["stock"]) < qty:
+            raise ValueError("Недостаточно товара для брони")
+        expires = (datetime.now(timezone.utc) + timedelta(hours=max(1, min(168, int(hours or 48))))
+                   ).isoformat(timespec="seconds")
+        with _lock:
+            self._conn.execute(
+                "INSERT INTO reservations(product_id, seller_id, buyer_key, qty, status, created_at, expires_at)"
+                " VALUES(?,?,?,?,?,?,?)",
+                (int(product_id), int(p.get("seller_id") or 0), str(buyer_key or "")[:120],
+                 qty, "active", _now_iso(), expires))
+            self._conn.commit()
+            r = self._q1("SELECT * FROM reservations ORDER BY id DESC LIMIT 1")
+            return dict(r)
+
+    def get_reservations(self, buyer_key: str = "", seller_id: int = 0, status: str = "active") -> list:
+        sql, args = "SELECT * FROM reservations WHERE 1=1", []
+        if buyer_key:
+            sql += " AND buyer_key=?"; args.append(str(buyer_key)[:120])
+        if seller_id:
+            sql += " AND seller_id=?"; args.append(int(seller_id))
+        if status:
+            sql += " AND status=?"; args.append(str(status))
+        sql += " ORDER BY created_at DESC"
+        return [dict(r) for r in self._q(sql, tuple(args))]
+
+    def reservation_by_id(self, rid: int):
+        r = self._q1("SELECT * FROM reservations WHERE id=?", (int(rid),))
+        return dict(r) if r else None
+
+    def cancel_reservation(self, rid: int, buyer_key: str) -> dict:
+        with _lock:
+            r = self.reservation_by_id(rid)
+            if not r:
+                raise ValueError("Бронь не найдена")
+            if str(r.get("buyer_key") or "") != str(buyer_key or "")[:120]:
+                raise ValueError("Нет прав на отмену этой брони")
+            self._conn.execute("UPDATE reservations SET status='cancelled' WHERE id=? AND status='active'",
+                               (int(rid),))
+            self._conn.commit()
+            return self.reservation_by_id(rid)
+
+    def _expire_reservations(self):
+        with _lock:
+            self._conn.execute("UPDATE reservations SET status='expired'"
+                               " WHERE status='active' AND expires_at < ?", (_now_iso(),))
+
+    # --- жалобы ---
+    def create_complaint(self, product_id: int, reporter_key: str, reason: str, text: str) -> dict:
+        pid = int(product_id or 0)
+        seller_id = 0
+        if pid:
+            p = self.get_product(pid)
+            if not p:
+                raise ValueError("Товар не найден")
+            seller_id = int(p.get("seller_id") or 0)
+        reason = str(reason or "").strip()[:60]
+        allowed = {"fraud", "fake", "prohibited", "wrong_item", "not_delivered", "other"}
+        if reason not in allowed:
+            reason = "other"
+        with _lock:
+            self._conn.execute(
+                "INSERT INTO complaints(product_id, seller_id, reporter_key, reason, text, status, created_at)"
+                " VALUES(?,?,?,?,?,?,?)",
+                (pid, seller_id, str(reporter_key or "")[:120], reason,
+                 str(text or "").strip()[:1000], "pending", _now_iso()))
+            self._conn.commit()
+            r = self._q1("SELECT * FROM complaints ORDER BY id DESC LIMIT 1")
+            return dict(r)
+
+    def get_complaints(self, status: str = "") -> list:
+        if status:
+            rows = self._q("SELECT * FROM complaints WHERE status=? ORDER BY created_at DESC", (status,))
+        else:
+            rows = self._q("SELECT * FROM complaints ORDER BY created_at DESC")
+        return [dict(r) for r in rows]
+
+    def resolve_complaint(self, cid: int, status: str, resolution: str = "") -> dict:
+        if status not in ("resolved", "dismissed"):
+            raise ValueError("Статус жалобы: resolved | dismissed")
+        with _lock:
+            r = self._q1("SELECT * FROM complaints WHERE id=?", (int(cid),))
+            if not r:
+                raise ValueError("Жалоба не найдена")
+            self._conn.execute(
+                "UPDATE complaints SET status=?, resolution=?, resolved_at=? WHERE id=?",
+                (status, str(resolution or "")[:300], _now_iso(), int(cid)))
+            self._conn.commit()
+            r = self._q1("SELECT * FROM complaints WHERE id=?", (int(cid),))
+            return dict(r) if r else None
+
+    # --- чёрный список продавцов (banned) ---
+    def ban_seller(self, seller_id: int, banned: bool = True) -> dict:
+        with _lock:
+            s = self.get_seller(seller_id)
+            if not s:
+                raise ValueError("Продавец не найден")
+            new_status = "banned" if banned else "active"
+            self._conn.execute("UPDATE sellers SET status=?, updated_at=? WHERE id=?",
+                               (new_status, _now_iso(), int(seller_id)))
+            self._conn.commit()
+            return self.get_seller(seller_id)
+
+    # --- просмотры витрины (seller analytics) ---
+    def seller_track_view(self, seller_id: int) -> int:
+        with _lock:
+            self._conn.execute("UPDATE sellers SET views=COALESCE(views,0)+1 WHERE id=?",
+                               (int(seller_id),))
+            self._conn.commit()
+            r = self._q1("SELECT COALESCE(views,0) v FROM sellers WHERE id=?", (int(seller_id),))
+            return int(r["v"]) if r else 0
+
+    # --- поднятие объявления (продвижение) ---
+    BOOST_HOURS = 24
+
+    def boost_product(self, product_id: int, seller_id: int = 0) -> dict:
+        """«Поднять объявление» на 24ч; не чаще одного раза в 7 дней."""
+        p = self.get_product(product_id)
+        if not p:
+            raise ValueError("Товар не найден")
+        if seller_id and int(p.get("seller_id") or 0) != int(seller_id):
+            raise ValueError("Это не ваш товар")
+        now = datetime.now(timezone.utc)
+        last = str(p.get("boosted_until") or "").strip()
+        if last:
+            try:
+                until = datetime.fromisoformat(last)
+                if until.tzinfo is None:
+                    until = until.replace(tzinfo=timezone.utc)
+                if until > now:
+                    raise ValueError("Объявление уже поднято до " + last)
+                if now - until < timedelta(days=7):
+                    raise ValueError("Поднять можно не чаще одного раза в 7 дней")
+            except ValueError:
+                raise
+            except Exception:
+                pass
+        boosted_until = (now + timedelta(hours=self.BOOST_HOURS)).isoformat(timespec="seconds")
+        with _lock:
+            self._conn.execute("UPDATE products SET boosted_until=? WHERE id=?",
+                               (boosted_until, int(product_id)))
+            self._conn.commit()
+        return {"ok": True, "boosted_until": boosted_until}
 
     # ---------------- сравнение товаров (#8) ----------------
     def compare_add(self, user_key: str, product_id: int) -> list:

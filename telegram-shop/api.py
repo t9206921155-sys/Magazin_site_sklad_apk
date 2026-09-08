@@ -689,6 +689,10 @@ def create_app(store, providers: dict, bot=None, notify_new_order=None, notify_o
         elif sort == "rating":
             rmap = _seller_ratings_map(products)
             products.sort(key=lambda p: rmap.get(p["id"], 0.0), reverse=True)
+        elif not sort:
+            # блок 16: поднятые объявления — вверху выдачи по умолчанию
+            now = datetime.datetime.now(datetime.timezone.utc).isoformat()
+            products.sort(key=lambda p: 0 if (p.get("boosted_until") or "") > now else 1)
         return products
 
     def _render_catalog(request: Request, cat: str = "", q: str = "", page: int = 1,
@@ -3607,6 +3611,11 @@ def create_app(store, providers: dict, bot=None, notify_new_order=None, notify_o
         data = store.seller_public(slug)
         if not data or data["status"] != "active":
             raise HTTPException(404, "Магазин не найден")
+        try:
+            data["views"] = store.seller_track_view(int(data.get("id") or 0))
+            data["subscribers"] = store.store_subscription_list(int(data.get("id") or 0))
+        except Exception:
+            pass
         s = store.settings
         url = _abs(request, f"/seller/{slug}")
         ctx = _seo_ctx(
@@ -4028,6 +4037,130 @@ def create_app(store, providers: dict, bot=None, notify_new_order=None, notify_o
         if not r:
             raise HTTPException(404, "Предложение не найдено")
         return r
+
+    # ------------------------------------------------------------------ блок 16: Marketplace 2.0
+    def _seller_by_slug_or_404(slug: str) -> dict:
+        s = store.seller_public(slug)
+        if not s or s.get("status") not in ("active", "banned"):
+            raise HTTPException(404, "Магазин не найден")
+        return s
+
+    @app.post("/api/sellers/{slug}/subscribe")
+    async def seller_subscribe(slug: str, body: dict):
+        """Подписка покупателя на витрину («любимые магазины»)."""
+        s = _seller_by_slug_or_404(slug)
+        user_key = str(body.get("user_key") or "").strip()
+        if len(user_key) < 4:
+            raise HTTPException(422, "Укажите user_key покупателя")
+        r = store.store_subscribe(int(s["id"]), user_key)
+        return {**r, "subscribers": store.store_subscription_list(int(s["id"]))}
+
+    @app.post("/api/sellers/{slug}/unsubscribe")
+    async def seller_unsubscribe(slug: str, body: dict):
+        s = _seller_by_slug_or_404(slug)
+        user_key = str(body.get("user_key") or "").strip()
+        if len(user_key) < 4:
+            raise HTTPException(422, "Укажите user_key покупателя")
+        r = store.store_unsubscribe(int(s["id"]), user_key)
+        return {**r, "subscribers": store.store_subscription_list(int(s["id"]))}
+
+    @app.get("/api/my/subscriptions")
+    async def my_subscriptions(user_key: str = ""):
+        """Витрины покупателя с лентой новинок подписок."""
+        if len(user_key.strip()) < 4:
+            raise HTTPException(422, "Укажите user_key покупателя")
+        return {"stores": store.user_store_subscriptions(user_key.strip())}
+
+    @app.post("/api/reservations", status_code=201)
+    async def create_reservation(body: dict):
+        """Бронь товара покупателем (по умолчанию на 48ч)."""
+        buyer_key = str(body.get("buyer_key") or "").strip()
+        if len(buyer_key) < 4:
+            raise HTTPException(422, "Укажите buyer_key покупателя")
+        try:
+            r = store.create_reservation(int(body.get("product_id") or 0), buyer_key,
+                                         qty=int(body.get("qty") or 1),
+                                         hours=int(body.get("hours") or 48))
+        except ValueError as e:
+            raise HTTPException(422, str(e))
+        except (TypeError, ValueError):
+            raise HTTPException(422, "Некорректный product_id")
+        return r
+
+    @app.get("/api/reservations")
+    async def list_reservations(buyer_key: str = "", status: str = "active"):
+        if len(buyer_key.strip()) < 4:
+            raise HTTPException(422, "Укажите buyer_key покупателя")
+        out = []
+        for r in store.get_reservations(buyer_key=buyer_key.strip(), status=status):
+            p = store.get_product(int(r["product_id"]))
+            r["product"] = ({k: p[k] for k in ("id", "name", "price", "photo")}
+                            if p else None)
+            out.append(r)
+        return {"reservations": out}
+
+    @app.delete("/api/reservations/{rid}")
+    async def cancel_reservation(rid: int, body: dict):
+        buyer_key = str(body.get("buyer_key") or "").strip()
+        if len(buyer_key) < 4:
+            raise HTTPException(422, "Укажите buyer_key покупателя")
+        try:
+            return store.cancel_reservation(rid, buyer_key)
+        except ValueError as e:
+            raise HTTPException(403 if "прав" in str(e) else 404, str(e))
+
+    @app.post("/api/complaints", status_code=201)
+    async def create_complaint(body: dict):
+        """Жалоба на товар/продавца — уходит в модерацию админу."""
+        reporter = str(body.get("reporter_key") or body.get("user_key") or "").strip()
+        if len(reporter) < 4:
+            raise HTTPException(422, "Укажите reporter_key")
+        text = str(body.get("text") or "").strip()
+        if len(text) < 10:
+            raise HTTPException(422, "Опишите проблему подробнее (от 10 символов)")
+        try:
+            return store.create_complaint(int(body.get("product_id") or 0), reporter,
+                                          str(body.get("reason") or "other"), text)
+        except ValueError as e:
+            raise HTTPException(404, str(e))
+
+    @app.get("/admin/api/complaints")
+    async def admin_complaints(status: str = "", x_admin_token: str = Header(default="")):
+        require_admin(x_admin_token)
+        return {"complaints": store.get_complaints(status.strip())}
+
+    @app.post("/admin/api/complaints/{cid}/resolve")
+    async def admin_complaint_resolve(cid: int, body: dict, x_admin_token: str = Header(default="")):
+        """Решение по жалобе; опционально сразу бан продавца."""
+        require_admin(x_admin_token)
+        try:
+            r = store.resolve_complaint(cid, str(body.get("status") or ""), str(body.get("resolution") or ""))
+        except ValueError as e:
+            raise HTTPException(422, str(e))
+        if r and body.get("ban_seller") and int(r.get("seller_id") or 0):
+            store.ban_seller(int(r["seller_id"]), True)
+        return r
+
+    @app.post("/admin/api/sellers/{sid}/ban")
+    async def admin_seller_ban(sid: int, body: dict, x_admin_token: str = Header(default="")):
+        """Чёрный список: banned-продавец исчезает из выдачи и витрин."""
+        require_admin(x_admin_token)
+        try:
+            s = store.ban_seller(sid, bool(body.get("banned", True)))
+        except ValueError as e:
+            raise HTTPException(404, str(e))
+        store.wh_log_add("admin", "бан продавца" if body.get("banned", True) else "разбан продавца",
+                         f"seller id {sid}")
+        return {"ok": True, "seller": {"id": s["id"], "status": s["status"]}}
+
+    @app.post("/api/seller/products/{pid}/boost")
+    async def seller_boost_product(pid: int, x_seller_key: str = Header(default="")):
+        """"Поднять объявление" на 24ч (не чаще раза в 7 дней)."""
+        seller = require_seller(x_seller_key)
+        try:
+            return store.boost_product(pid, seller_id=int(seller["id"]))
+        except ValueError as e:
+            raise HTTPException(409, str(e))
 
     @app.post("/api/offers/{offer_id}/respond")
     async def respond_offer(offer_id: int, body: dict, x_seller_key: str = Header(default="")):
