@@ -2812,7 +2812,8 @@ def create_app(store, providers: dict, bot=None, notify_new_order=None, notify_o
     @app.get("/api/marketing/providers")
     async def marketing_providers(x_wh_token:str=Header(default=""), x_admin_token:str=Header(default="")):
         wh_user_from_headers(x_wh_token,x_admin_token)
-        return [{"channel":c,"enabled":False,"dry_run":True,"message":"official credentials required; publishing disabled"} for c in ("telegram","vk","avito","instagram","tiktok","wildberries")]
+        prefixes={"telegram":"TELEGRAM_ADAPTER","vk":"VK_ADAPTER","avito":"AVITO_ADAPTER","instagram":"META_ADAPTER","tiktok":"TIKTOK_ADAPTER","wildberries":"WILDBERRIES_ADAPTER"}
+        return [{"channel":c,"enabled":bool(os.getenv(prefixes[c]+"_TOKEN","").strip() and os.getenv(prefixes[c]+"_ACCOUNT_ID","").strip()),"dry_run":True,"message":"official transport disabled until staging approval"} for c in prefixes]
 
     @app.post("/api/marketing/campaigns")
     async def campaign_create(body:dict, x_wh_token:str=Header(default=""), x_admin_token:str=Header(default="")):
