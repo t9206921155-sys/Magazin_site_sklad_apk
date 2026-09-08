@@ -71,3 +71,13 @@ deploy/rollback-preflight.sh /path/to/backup.sqlite
 ```
 
 Скрипт только проверяет файл и расширение. Restore в sandbox или production автоматически не выполняется.
+
+## HTTPS preflight
+
+На staging/production проверить HTTPS и HSTS:
+
+```bash
+deploy/https-preflight.sh https://example.com
+```
+
+В sandbox этот шаг не выполняется против production URL.
