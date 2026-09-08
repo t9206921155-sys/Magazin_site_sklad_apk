@@ -139,3 +139,7 @@ Campaign Manager работает в режиме подготовки: камп
 ```bash
 python3 -m pytest -q tests/test_provider_boundaries.py tests/test_seo_assets.py tests/test_utm_builder.py
 ```
+
+Полная инструкция по настройке: [SETUP-MANUAL.md](SETUP-MANUAL.md)
+
+Staging/production validation: [PRODUCTION-VALIDATION-RUNBOOK.md](PRODUCTION-VALIDATION-RUNBOOK.md)
