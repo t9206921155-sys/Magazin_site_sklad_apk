@@ -11,6 +11,14 @@ if git diff --summary | grep -qi 'mode change'; then
   echo 'mode changes detected; aborting' >&2
   exit 1
 fi
+printf '%s\n' '[preflight] schema declarations'
+python3 - <<'PY2'
+from pathlib import Path
+schema=Path('telegram-shop/store.py').read_text()
+for table in ('content_jobs','campaigns','campaign_publications'):
+    assert f'CREATE TABLE IF NOT EXISTS {table}' in schema, table
+print('content/campaign schema declarations present')
+PY2
 printf '%s\n' '[preflight] production publish remains adapter-gated'
 python3 - <<'PY'
 from marketing_adapters import ADAPTERS
