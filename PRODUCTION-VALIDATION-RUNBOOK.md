@@ -61,3 +61,13 @@ deploy/preflight-validation.sh
 ```
 
 Скрипт останавливается при ошибке syntax/tests/mode changes или если adapter boundary больше не dry-run gated.
+
+## Rollback preflight
+
+Проверить наличие backup без выполнения restore:
+
+```bash
+deploy/rollback-preflight.sh /path/to/backup.sqlite
+```
+
+Скрипт только проверяет файл и расширение. Restore в sandbox или production автоматически не выполняется.
