@@ -1,0 +1,15 @@
+[Unit]
+Description=Telegram Shop server watchdog (health + disk + Telegram alerts)
+After=network-online.target magazin-shop.service
+
+[Service]
+Type=simple
+User=magazin
+WorkingDirectory=/opt/magazin-shop/telegram-shop
+EnvironmentFile=/opt/magazin-shop/telegram-shop/.env
+ExecStart=/opt/magazin-shop/telegram-shop/scripts/server_watchdog.sh http://127.0.0.1:8000/health/live
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target

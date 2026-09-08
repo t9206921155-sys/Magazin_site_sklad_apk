@@ -3212,20 +3212,47 @@ class Store:
             self._conn.commit()
             return secret
 
+    def _purge_expired_sessions(self):
+        """Блок 15: удаляет сессии быстрого входа старше WH_SESSION_TTL_DAYS."""
+        try:
+            cutoff = (datetime.now(timezone.utc)
+                      - timedelta(days=max(1, int(getattr(config, "WH_SESSION_TTL_DAYS", 30)))))
+            cutoff = cutoff.replace(tzinfo=None).isoformat(timespec="seconds")
+            self._conn.execute("DELETE FROM wh_sessions WHERE last_used < ? AND created_at < ?",
+                               (cutoff, cutoff))
+        except Exception:
+            pass
+
     def wh_session_login(self, secret: str):
-        """Проверяет секрет устройства и возвращает пользователя."""
+        """Проверяет секрет устройства и возвращает пользователя.
+
+        Блок 15: сессия недействительна, если не использовалась дольше
+        WH_SESSION_TTL_DAYS; просроченные сессии подчищаются при каждом входе.
+        """
+        self._purge_expired_sessions()
         r = self._q1("SELECT * FROM wh_sessions WHERE secret=?", (str(secret or ""),))
         if not r:
             return None
-        uid = int(dict(r)["user_id"])
-        row = self._q1("SELECT * FROM wh_users WHERE id=?", (uid,))
-        if not row:
+        row = dict(r)
+        used = str(row.get("last_used") or row.get("created_at") or "")
+        try:
+            age = datetime.now(timezone.utc) - datetime.fromisoformat(used)
+            if age > timedelta(days=max(1, int(getattr(config, "WH_SESSION_TTL_DAYS", 30)))):
+                with _lock:
+                    self._conn.execute("DELETE FROM wh_sessions WHERE secret=?", (str(secret),))
+                    self._conn.commit()
+                return None
+        except (ValueError, TypeError):
+            return None
+        uid = int(row["user_id"])
+        row2 = self._q1("SELECT * FROM wh_users WHERE id=?", (uid,))
+        if not row2:
             return None
         with _lock:
             self._conn.execute("UPDATE wh_sessions SET last_used=? WHERE secret=?",
                                (_now_iso(), str(secret)))
             self._conn.commit()
-        return dict(row)
+        return dict(row2)
 
     def wh_session_revoke(self, user_id: int) -> int:
         with _lock:

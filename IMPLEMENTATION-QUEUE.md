@@ -9,6 +9,7 @@
 - [x] MySQL/MariaDB: `scripts/migrate_sqlite_to_mysql.py` — dry-run, копирование, сверка COUNT+SHA256 по всем таблицам, read-only источник, `--drop-existing`; DDL под strict MySQL 8. Реальный `--apply` на боевом MySQL — staging (блок 17).
 - [x] Backup/restore: `scripts/verify_restore.py` — восстановление во временную БД + сверка с живой (COUNT, опц. SHA256); тесты tests-block14 (32/32). Восстановление на чистом VPS — блок 18.
 - [~] Production smoke: скрипт готов; запуск на staging/production ожидает URL.
+- [x] Security/observability (блок 15): rate limit login/1С/API, TTL сессий склада, маскирование секретов в логах, метрики латентности/статусов, диск в readiness, watchdog + TG-алерты, last_error бэкапа. CSP — бэктлог (нужен вынос inline-JS).
 - [~] Security: CORS, metrics token, rate limit и headers готовы; ручной аудит production ожидает окружение.
 
 ## P1 — marketplace catalog

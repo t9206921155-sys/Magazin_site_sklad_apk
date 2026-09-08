@@ -19,6 +19,7 @@ import io
 import json
 import logging
 import os
+import re
 import secrets
 import time
 import urllib.parse
@@ -74,6 +75,33 @@ from yandex_delivery import YandexDeliveryClient
 from fastapi.templating import Jinja2Templates
 
 log = logging.getLogger("shop.api")
+
+# Блок 15: маскирование секретов в логах (token=…, password=…, secret=…).
+_SECRET_LOG_RE = re.compile(
+    r"(?i)\b(token|password|passwd|secret|api[_-]?key|access[_-]?key|pass)\b(\s*[=:]\s*)([^\s;&'\"']+)")
+
+def mask_secrets(text: str) -> str:
+    try:
+        return _SECRET_LOG_RE.sub(lambda m: m.group(1) + m.group(2) + "<masked>", str(text))
+    except Exception:
+        return text
+
+class SecretMaskingFilter(logging.Filter):
+    """Правит record так, чтобы секреты не попадали в файлы логов."""
+
+    def filter(self, record):
+        try:
+            msg = record.getMessage()
+            masked = mask_secrets(msg)
+            if masked != msg:
+                record.msg, record.args = masked, ()
+        except Exception:
+            pass
+        return True
+
+for _lname in ("shop", "shop.api"):
+    _lg = logging.getLogger(_lname)
+    _lg.addFilter(SecretMaskingFilter())
 
 TEMPLATES = Jinja2Templates(directory=os.path.join(config.SITE_DIR, "templates"))
 
@@ -154,32 +182,64 @@ def create_app(store, providers: dict, bot=None, notify_new_order=None, notify_o
                notify_status=None, notify_admin=None, broadcast_sender=None):
     app = FastAPI(title="Telegram Shop", docs_url=None, redoc_url=None)
     app.add_middleware(CORSMiddleware, allow_origins=config.CORS_ORIGINS, allow_methods=["*"], allow_headers=["*"])
+    if config.TRUSTED_HOSTS:
+        from starlette.middleware.trustedhost import TrustedHostMiddleware
+        app.add_middleware(TrustedHostMiddleware, allowed_hosts=config.TRUSTED_HOSTS)
     _rate_buckets = {}
-    _request_metrics = {"requests": 0, "errors": 0}
+    _LAT_BUCKETS = (0.05, 0.1, 0.25, 0.5, 1.0, 2.0, 5.0)
+    _request_metrics = {"requests": 0, "errors": 0, "statuses": {}, "lat_sum": 0.0,
+                        "lat_max": 0.0, "lat_buckets": {b: 0 for b in _LAT_BUCKETS},
+                        "started": time.time()}
+
+    def _rate_check(key: str, limit: int) -> bool:
+        """Окно 60с. False — лимит превышен."""
+        now = time.time()
+        recent = [t for t in _rate_buckets.get(key, []) if now - t < 60]
+        if len(recent) >= limit:
+            _rate_buckets[key] = recent
+            return False
+        recent.append(now)
+        _rate_buckets[key] = recent
+        if len(_rate_buckets) > 10000:
+            for stale_key, stale in list(_rate_buckets.items())[:1000]:
+                if not stale or now - stale[-1] >= 60:
+                    _rate_buckets.pop(stale_key, None)
+        return True
+
     @app.middleware("http")
     async def request_observability(request: Request, call_next):
         started = time.monotonic(); request_id = secrets.token_hex(8)
         response = await call_next(request)
         _request_metrics["requests"] += 1
         if response.status_code >= 500: _request_metrics["errors"] += 1
-        response.headers["X-Request-ID"] = request_id
+        sc = str(response.status_code)
+        _request_metrics["statuses"][sc] = _request_metrics["statuses"].get(sc, 0) + 1
         elapsed = time.monotonic() - started
+        _request_metrics["lat_sum"] += elapsed
+        _request_metrics["lat_max"] = max(_request_metrics["lat_max"], elapsed)
+        for b in _LAT_BUCKETS:
+            if elapsed <= b:
+                _request_metrics["lat_buckets"][b] += 1
+                break
+        response.headers["X-Request-ID"] = request_id
         if elapsed > 2:
             log.warning("slow request id=%s method=%s path=%s elapsed=%.3fs", request_id, request.method, request.url.path, elapsed)
         return response
 
     @app.middleware("http")
     async def auth_rate_limit(request: Request, call_next):
-        if request.method == "POST" and request.url.path in ("/api/warehouse/login", "/api/warehouse/quick/login"):
-            now = time.time(); ip = request.client.host if request.client else "unknown"; key = (ip, request.url.path)
-            recent = [t for t in _rate_buckets.get(key, []) if now - t < 60]
-            if len(recent) >= config.AUTH_RATE_LIMIT:
+        """Блок 15: лимиты на вход, обмен с 1С и публичное API (окно 60с, ключ = IP)."""
+        path = request.url.path
+        ip = request.client.host if request.client else "unknown"
+        if request.method == "POST" and path in ("/api/warehouse/login", "/api/warehouse/quick/login"):
+            if not _rate_check(f"login:{ip}", config.AUTH_RATE_LIMIT):
                 return JSONResponse(status_code=429, content={"detail": "Слишком много попыток. Повторите через минуту."})
-            recent.append(now); _rate_buckets[key] = recent
-            # Bound memory when many clients probe the login endpoint.
-            if len(_rate_buckets) > 10000:
-                for stale_key, stale in list(_rate_buckets.items())[:1000]:
-                    if not stale or now - stale[-1] >= 60: _rate_buckets.pop(stale_key, None)
+        elif path.startswith("/1c/"):
+            if not _rate_check(f"1c:{ip}", config.RATE_LIMIT_1C):
+                return JSONResponse(status_code=429, content={"detail": "Превышен лимит запросов к 1С-обмену. Повторите через минуту."})
+        elif path.startswith("/api/"):
+            if not _rate_check(f"api:{ip}", config.RATE_LIMIT_API):
+                return JSONResponse(status_code=429, content={"detail": "Слишком много запросов. Повторите через минуту."})
         return await call_next(request)
 
     @app.middleware("http")
@@ -950,9 +1010,26 @@ def create_app(store, providers: dict, bot=None, notify_new_order=None, notify_o
 
     @app.get("/metrics")
     async def metrics(x_metrics_token: str = Header(default="")):
+        """Блок 15: телеметрия без секретов — счётчики, латентность, статусы."""
         if config.METRICS_TOKEN and not hmac.compare_digest(x_metrics_token, config.METRICS_TOKEN):
             raise HTTPException(403, "Metrics access denied")
-        return {"requests": _request_metrics["requests"], "errors": _request_metrics["errors"]}
+        m = _request_metrics
+        total = max(1, m["requests"])
+        buckets = m["lat_buckets"]
+        p95 = 5.0
+        for b in sorted(buckets):
+            if buckets[b] / total >= 0.95:
+                p95 = b
+                break
+        return {"requests": m["requests"], "errors": m["errors"],
+                "error_rate": round(m["errors"] / total, 4),
+                "uptime_s": int(time.time() - m["started"]),
+                "latency": {"avg_ms": round(m["lat_sum"] / total * 1000, 1),
+                            "p95_le_ms": int(p95 * 1000),
+                            "max_ms": round(m["lat_max"] * 1000, 1)},
+                "statuses": dict(sorted(m["statuses"].items())),
+                "last_backup_error": (store.settings.get("cloud_state") or {})
+                                     .get("backup", {}).get("last_error", "")}
 
     @app.get("/health/live")
     async def health_live():
@@ -973,7 +1050,15 @@ def create_app(store, providers: dict, bot=None, notify_new_order=None, notify_o
             checks["data_dir"] = os.path.isdir(config.DATA_DIR) and os.access(config.DATA_DIR, os.W_OK)
         except OSError:
             checks["data_dir"] = False
-        ok = all(checks.values())
+        try:
+            import shutil as _shutil
+            free_mb = _shutil.disk_usage(config.DATA_DIR).free // (1024 * 1024)
+            checks["disk_free_mb"] = int(free_mb)
+            checks["disk"] = free_mb >= config.DISK_FREE_MIN_MB
+        except OSError:
+            checks["disk_free_mb"] = -1
+            checks["disk"] = False
+        ok = checks.get("database") and checks.get("config") and checks.get("data_dir") and checks.get("disk")
         payload = {"ok": ok, "checks": checks}
         if not ok: return JSONResponse(status_code=503, content=payload)
         return payload
@@ -3301,6 +3386,8 @@ def create_app(store, providers: dict, bot=None, notify_new_order=None, notify_o
         st = store.settings.get("cloud_state") or {}
         c = store.settings.get("cloud") or {}
         backup = st.get("backup") or {}
+        backup["last_error"] = backup.get("last_error") or ""
+        backup["last_error_at"] = backup.get("last_error_at") or ""
         db_mode = cloudstore.database_mode(c)
         return {"enabled": bool(c.get("enabled")),
                 "provider": "s3",
@@ -3314,7 +3401,9 @@ def create_app(store, providers: dict, bot=None, notify_new_order=None, notify_o
                 "catalog_count": st.get("catalog_count") or 0,
                 "backup": {"at": backup.get("at") or "", "bucket": backup.get("bucket") or "",
                            "key": backup.get("key") or "", "size": backup.get("size") or 0,
-                           "path": backup.get("path") or ""}}
+                           "path": backup.get("path") or "",
+                           "last_error": backup.get("last_error") or "",
+                           "last_error_at": backup.get("last_error_at") or ""}}
 
     @app.get("/api/warehouse/direct/config")
     async def wh_direct_config(x_wh_token: str = Header(default=""),
@@ -3432,11 +3521,25 @@ def create_app(store, providers: dict, bot=None, notify_new_order=None, notify_o
         if user["role"] != "admin":
             raise HTTPException(403, "Только администратор склада")
         res = cloudstore.backup_db_to_cloud(store)
+
+        def _backup_state_err(err: str = ""):
+            st = dict(store.settings.get("cloud_state") or {})
+            b = dict(st.get("backup") or {})
+            if err:
+                b["last_error"], b["last_error_at"] = err[:200], datetime.datetime.now().isoformat(timespec="seconds")
+            else:
+                b.pop("last_error", None); b.pop("last_error_at", None)
+            st["backup"] = b
+            store.update_settings({"cloud_state": st})
+
         if res.get("ok"):
+            _backup_state_err()
             store.wh_log_add(user["name"], "бэкап SQLite в облако",
                              f"{res.get('path', '')} ({res.get('size', 0)} bytes)")
         else:
-            store.wh_log_add(user["name"], "ошибка бэкапа SQLite", res.get("error", ""))
+            # блок 15: неудачный бэкап фиксируется в диагностике и виден в /metrics
+            _backup_state_err(str(res.get("error") or "неизвестная ошибка бэкапа"))
+            store.wh_log_add(user["name"], "ошибка бэкапа SQLite", str(res.get("error", ""))[:120])
         return res
 
     @app.post("/api/warehouse/products/{pid}/publish")

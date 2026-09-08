@@ -35,6 +35,17 @@ CORS_ORIGINS = [x.strip() for x in os.getenv("CORS_ORIGINS", "*").split(",") if 
 METRICS_TOKEN = os.getenv("METRICS_TOKEN", "").strip()
 AUTH_RATE_LIMIT = max(1, int(os.getenv("AUTH_RATE_LIMIT", "20")))
 
+# --- Блок 15: production security и observability ---
+# Допустимые Host-заголовки (через запятую). Пусто — проверка отключена.
+TRUSTED_HOSTS = [x.strip() for x in os.getenv("TRUSTED_HOSTS", "").split(",") if x.strip()]
+# Rate limit (запросов/мин с одного IP): обмен с 1С и публичное API.
+RATE_LIMIT_1C = max(10, int(os.getenv("RATE_LIMIT_1C", "120")))
+RATE_LIMIT_API = max(30, int(os.getenv("RATE_LIMIT_API", "600")))
+# Срок жизни сессии быстрого входа склада (дней неактивности).
+WH_SESSION_TTL_DAYS = max(1, int(os.getenv("WH_SESSION_TTL_DAYS", "30")))
+# Минимум свободного места на диске с data/ (МБ) для readiness-пробы.
+DISK_FREE_MIN_MB = max(100, int(os.getenv("DISK_FREE_MIN_MB", "500")))
+
 DATA_DIR = os.path.join(BASE_DIR, "data")
 WEBAPP_DIR = os.path.join(BASE_DIR, "webapp")      # Mini App (Telegram) — /app
 SITE_DIR = os.path.join(BASE_DIR, "site")          # сайт-витрина — /
