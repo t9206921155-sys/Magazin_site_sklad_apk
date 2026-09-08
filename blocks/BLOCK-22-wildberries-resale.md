@@ -56,3 +56,7 @@
 - `WildberriesProvider.audit_status()` возвращает безопасный статус без сетевого вызова.
 - `GET /api/marketing/wildberries/audit` доступен только авторизованному пользователю.
 - `publish()` намеренно выбрасывает ошибку до завершения официального API/account audit.
+
+## CRM diagnostics
+
+CRM показывает WB audit рядом с остальными provider status. Это только диагностика: включение публикации не выполняется автоматически.
