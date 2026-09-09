@@ -36,10 +36,19 @@ else
   log "ВНИМАНИЕ: ${APK} и/или ${AAB} не найдены — в дистрибутиве не будет APK"
 fi
 
-# самопроверка: PDF и install.sh на месте внутри архива
-for f in "${NAME}/install.sh" "${NAME}/README.md" "${NAME}/docs/Telegram-Shop-руководство.pdf" "${NAME}/run-tests.sh"; do
-  unzip -l "$OUT" "$f" >/dev/null 2>&1 || { echo "в архиве нет $f"; exit 1; }
-done
+# самопроверка: PDF, install.sh и APK на месте внутри архива (unzip портит кириллицу — проверяем python'ом)
+python3 - "$OUT" <<'PY'
+import sys, zipfile
+z = zipfile.ZipFile(sys.argv[1])
+names = z.namelist()
+prefix = names[0].split("/")[0] + "/"
+need = ["install.sh", "README.md", "run-tests.sh", "docs/Telegram-Shop-руководство.pdf",
+        "telegram-shop/apk/Sklad-1.1.0-release.apk"]
+missing = [f for f in need if prefix + f not in names]
+if missing:
+    print("в архиве нет:", ", ".join(missing)); sys.exit(1)
+print("самопроверка архива: OK")
+PY
 
 log "Готово: $OUT ($(du -h "$OUT" | cut -f1))"
 echo    "Состав: исходники + docs/Telegram-Shop-руководство.pdf + install.sh + APK/AAB «Склад ${VERSION}»"
