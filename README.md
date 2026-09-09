@@ -62,7 +62,14 @@ Production-документация: [архитектура хранения](S
 
 Для авторизованных проверок задайте `WH_LOGIN` и `WH_PASSWORD` через окружение. План работ ведётся в [ROADMAP.md](ROADMAP.md), каждый блок описан в [blocks/](blocks/).
 
-## Быстрый старт
+## Быстрый старт (одной командой)
+
+```bash
+./install.sh          # окружение + зависимости + .env + запуск на :8000
+./install.sh --help   # опции: --venv, --test, --no-run
+```
+
+Вручную (если хочется по шагам):
 
 ```bash
 cd telegram-shop
@@ -85,19 +92,29 @@ python bot.py
 docker compose up -d --build
 ```
 
-## APK / AAB / мобильный склад
+## APK / AAB / мобильный склад — «Склад» 1.1.0
 
-Готовые артефакты:
+**Где взять складской APK 1.1.0 (versionCode 8):**
 
-- `telegram-shop/apk/Sklad-1.0.6-release.apk`
-- `telegram-shop/aab/Sklad-1.0.6-release.aab`
+| Способ | Адрес |
+|---|---|
+| Страница с QR | `https://ваш-сервер/download/android` |
+| Прямая ссылка | `https://ваш-сервер/apk/Sklad-1.1.0-release.apk` |
+| API обновлений | `/api/releases/android` — APK опрашивает сам и предлагает «Скачать обновление» |
+| В репозитории | `telegram-shop/apk/Sklad-1.1.0-release.apk` (+ `.aab` в `telegram-shop/aab/`) |
 
-Исходники Android-wrapper и сборка:
+Возможности 1.1.0: нативное сохранение этикеток/отчётов в «Загрузки», печать
+ZPL/EPL прямо с телефона по Wi-Fi (`:9100`), «экран не гаснет», вибро на скан,
+экран ошибки с «Повторить», приём сканов от ТСД (`sklad://scan?code=`).
+Обновление с 1.0.6 — поверх, подпись не менялась.
+
+Исходники Android-обёртки и сборка:
 
 - `telegram-shop/apk-build/android/`
-- `telegram-shop/apk-build/rebuild-apk.sh`
+- `telegram-shop/apk-build/rebuild-apk.sh` (локальная сборка)
+- `ci-build-apk.sh` — авто-сборка на GitHub Actions: коммитит APK/AAB в ветку
+  (пропускается, если артефакты текущей версии уже в репо)
 - `telegram-shop/apk-build/README-APK.md`
-- `mobile/build-apk.sh`
 
 ## Документация по проекту
 
@@ -124,6 +141,17 @@ docker compose up -d --build
 - `telegram-shop/MARKETPLACE-PLAN.md` — дорожная карта маркетплейса
 - `telegram-shop/AUDIT.md` — аудит функционала
 
+## Руководство (PDF) и дистрибутив «всё в одном»
+
+- **PDF-пособие** по установке и настройке каждого компонента с примерами:
+  `docs/Telegram-Shop-руководство.pdf` (16 разделов: установка, .env, бот/Mini App,
+  склад и роли, сканеры и ТСД, печать ZPL/EPL/Wi-Fi, APK 1.1.0, 1С, маркетплейс,
+  SEO, безопасность, бэкапы, обновления, FAQ). Пересборка:
+  `python3 telegram-shop/scripts/make_user_manual.py`
+- **Дистрибутив** (исходники + руководство + install.sh + APK/AAB):
+  `distr/Telegram-Shop-1.1.0.zip`. Пересборка: `./build-distr.sh [версия]`
+- Установка получателем: `unzip Telegram-Shop-1.1.0.zip && cd Telegram-Shop-1.1.0 && ./install.sh`
+
 ## Рекомендация по git
 
 Рабочие изменения лучше вести через feature-ветки, а затем вливать в `main` после проверки.
@@ -140,7 +168,7 @@ Campaign Manager работает в режиме подготовки: камп
 python3 -m pytest -q tests/test_provider_boundaries.py tests/test_seo_assets.py tests/test_utm_builder.py
 ```
 
-Полная инструкция по настройке: [SETUP-MANUAL.md](SETUP-MANUAL.md)
+Полная инструкция по установке и настройке каждого компонента (PDF, с примерами): [docs/Telegram-Shop-руководство.pdf](docs/Telegram-Shop-руководство.pdf)
 
 Staging/production validation: [PRODUCTION-VALIDATION-RUNBOOK.md](PRODUCTION-VALIDATION-RUNBOOK.md)
 

@@ -1,0 +1,46 @@
+#!/usr/bin/env bash
+# ============================================================
+#  Сборка дистрибутива Telegram Shop «всё в одном»:
+#   исходники + PDF-руководство + install.sh + APK/AAB «Склад».
+#
+#  Запуск:  ./build-distr.sh [версия]     (по умолчанию — из apk-build/rebuild-apk.sh)
+#  Результат: distr/Telegram-Shop-<версия>.zip
+# ============================================================
+set -euo pipefail
+ROOT="$(cd "$(dirname "$0")" && pwd)"
+cd "$ROOT"
+
+VERSION="$(sed -n 's/^APP_VERSION="\([^"]*\)"/\1/p' telegram-shop/apk-build/rebuild-apk.sh | head -1)"
+[ -n "${1:-}" ] && VERSION="$1"
+[ -n "$VERSION" ] || { echo "не определил версию"; exit 1; }
+
+NAME="Telegram-Shop-${VERSION}"
+OUT_DIR="$ROOT/distr"
+OUT="$OUT_DIR/${NAME}.zip"
+
+command -v git >/dev/null || { echo "нужен git"; exit 1; }
+mkdir -p "$OUT_DIR"
+
+log(){ printf '\033[1;36m==>\033[0m %s\n' "$*"; }
+
+log "Собираю ${NAME}.zip из HEAD ($(git rev-parse --short HEAD))"
+rm -f "$OUT"
+# чистое дерево из git (без мусора) + запакованное PDF-руководство уже в docs/ (tracked)
+git archive --format=zip --prefix="${NAME}/" -o "$OUT" HEAD
+
+APK="telegram-shop/apk/Sklad-${VERSION}-release.apk"
+AAB="telegram-shop/aab/Sklad-${VERSION}-release.aab"
+if [ -f "$APK" ] && [ -f "$AAB" ]; then
+  log "APK/AAB ${VERSION} уже в дереве — включены автоматически"
+else
+  log "ВНИМАНИЕ: ${APK} и/или ${AAB} не найдены — в дистрибутиве не будет APK"
+fi
+
+# самопроверка: PDF и install.sh на месте внутри архива
+for f in "${NAME}/install.sh" "${NAME}/README.md" "${NAME}/docs/Telegram-Shop-руководство.pdf" "${NAME}/run-tests.sh"; do
+  unzip -l "$OUT" "$f" >/dev/null 2>&1 || { echo "в архиве нет $f"; exit 1; }
+done
+
+log "Готово: $OUT ($(du -h "$OUT" | cut -f1))"
+echo    "Состав: исходники + docs/Telegram-Shop-руководство.pdf + install.sh + APK/AAB «Склад ${VERSION}»"
+echo    "Установка получателем: unzip ${NAME}.zip && cd ${NAME} && ./install.sh"
