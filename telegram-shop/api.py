@@ -299,6 +299,9 @@ def create_app(store, providers: dict, bot=None, notify_new_order=None, notify_o
     os.makedirs(apk_dir, exist_ok=True)
     os.makedirs(aab_dir, exist_ok=True)
     app.mount("/apk", StaticFiles(directory=apk_dir), name="apk")
+    distr_dir = os.path.join(config.BASE_DIR, "..", "distr")
+    if os.path.isdir(distr_dir):
+        app.mount("/distr", StaticFiles(directory=distr_dir), name="distr")
     app.mount("/aab", StaticFiles(directory=aab_dir), name="aab")
 
     # ------------------------------------------------------------------ SEO-страницы (SSR)

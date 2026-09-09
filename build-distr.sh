@@ -28,13 +28,19 @@ rm -f "$OUT"
 # чистое дерево из git (без мусора) + запакованное PDF-руководство уже в docs/ (tracked)
 git archive --format=zip --prefix="${NAME}/" -o "$OUT" HEAD
 
+# добавить в дистрибутив APK/AAB только ТЕКУЩЕЙ версии (старые не тащим)
 APK="telegram-shop/apk/Sklad-${VERSION}-release.apk"
 AAB="telegram-shop/aab/Sklad-${VERSION}-release.aab"
-if [ -f "$APK" ] && [ -f "$AAB" ]; then
-  log "APK/AAB ${VERSION} уже в дереве — включены автоматически"
-else
-  log "ВНИМАНИЕ: ${APK} и/или ${AAB} не найдены — в дистрибутиве не будет APK"
-fi
+[ -f "$APK" ] && [ -f "$AAB" ] || { echo "нет ${APK} или ${AAB}"; exit 1; }
+python3 - "$OUT" "${NAME}" "$APK" "$AAB" <<'PY'
+import sys, zipfile
+path, prefix, apk, aab = sys.argv[1:5]
+z = zipfile.ZipFile(path, "a", zipfile.ZIP_DEFLATED)
+for src in (apk, aab):
+    z.write(src, prefix + src)
+z.close()
+print("добавлены:", apk, "+", aab)
+PY
 
 # самопроверка: PDF, install.sh и APK на месте внутри архива (unzip портит кириллицу — проверяем python'ом)
 python3 - "$OUT" <<'PY'
