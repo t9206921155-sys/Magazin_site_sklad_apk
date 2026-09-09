@@ -45,9 +45,10 @@ if git diff --cached --quiet; then
   echo "ci-build-apk: нечего коммитить"; exit 0
 fi
 git commit -m "CI: артефакты Sklad ${APP_VERSION} (APK+AAB) [skip ci]"
+# Пуш артефактов отсюда — best-effort: если GITHUB_TOKEN read-only,
+# доставку делает workflow build-apk (permissions: contents: write).
 if git push origin "HEAD:${GITHUB_REF_NAME}"; then
   echo "ci-build-apk: артефакты запушены в ${GITHUB_REF_NAME}"
 else
-  echo "ci-build-apk: не удалось запушить артефакты (read-only GITHUB_TOKEN?)"
-  exit 1
+  echo "ci-build-apk: push артефактов отклонён (read-only GITHUB_TOKEN) — доставит workflow build-apk"
 fi
