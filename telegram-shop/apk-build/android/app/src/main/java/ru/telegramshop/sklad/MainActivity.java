@@ -58,7 +58,6 @@ import java.net.Socket;
 import java.net.URL;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
-import java.util.Base64;
 
 /**
  * «Склад» — WebView-обёртка PWA /warehouse/.
@@ -785,7 +784,7 @@ public class MainActivity extends AppCompatActivity {
         @JavascriptInterface
         public boolean saveFile(String name, String base64) {
             try {
-                byte[] data = Base64.decode(base64 == null ? "" : base64, Base64.DEFAULT);
+                byte[] data = android.util.Base64.decode(base64 == null ? "" : base64, android.util.Base64.DEFAULT);
                 if (data.length == 0) return false;
                 String safe = (name == null || name.trim().isEmpty() ? "sklad-file" : name.trim())
                         .replaceAll("[\\/:*?\"<>|]", "_");
@@ -805,7 +804,7 @@ public class MainActivity extends AppCompatActivity {
         public String printRaw(String host, int port, String base64) {
             try {
                 if (TextUtils.isEmpty(host)) return "err: укажите IP принтера";
-                final byte[] data = Base64.decode(base64 == null ? "" : base64, Base64.DEFAULT);
+                final byte[] data = android.util.Base64.decode(base64 == null ? "" : base64, android.util.Base64.DEFAULT);
                 if (data.length == 0) return "err: пустые данные печати";
                 final String fHost = host.trim();
                 final int fPort = port > 0 ? port : 9100;
