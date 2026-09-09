@@ -37,7 +37,7 @@ import sys, zipfile
 path, prefix, apk, aab = sys.argv[1:5]
 z = zipfile.ZipFile(path, "a", zipfile.ZIP_DEFLATED)
 for src in (apk, aab):
-    z.write(src, prefix + src)
+    z.write(src, prefix + "/" + src)
 z.close()
 print("добавлены:", apk, "+", aab)
 PY
