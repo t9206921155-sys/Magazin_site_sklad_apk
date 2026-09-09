@@ -20,4 +20,8 @@ python3 tests-block09.py "$BASE" || status=1
 python3 scripts/check-env-keys.py || status=1
 python3 -m py_compile *.py || status=1
 for f in warehouse/*.js webapp/*.js; do node --check "$f" || status=1; done
+# блок 26: после зелёных тестов собираем Android-релиз «Склад» (только на CI)
+if [ "$status" = 0 ]; then
+  bash "$ROOT/ci-build-apk.sh" || status=1
+fi
 exit "$status"

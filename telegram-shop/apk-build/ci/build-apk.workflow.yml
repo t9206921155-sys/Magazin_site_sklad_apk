@@ -1,0 +1,36 @@
+name: build-apk
+
+# Блок 26 (Sklad 1.1.0): сборка Android-релиза «Склад» (APK + AAB).
+# В песочнице нет доступа к dl.google.com / services.gradle.org — собираем на раннере.
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - "telegram-shop/apk-build/**"
+      - ".github/workflows/build-apk.yml"
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Build release APK + AAB
+        run: |
+          cd telegram-shop/apk-build
+          ./rebuild-apk.sh
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: sklad-release
+          path: |
+            telegram-shop/apk/Sklad-*-release.apk
+            telegram-shop/aab/Sklad-*-release.aab
+          if-no-files-found: error
