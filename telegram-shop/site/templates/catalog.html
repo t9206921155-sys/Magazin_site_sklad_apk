@@ -39,6 +39,29 @@
     {% endfor %}
   </div>
   {% endif %}
+  <form class="catalog-filters" method="get" action="/catalog" style="margin-top:10px; display:flex; flex-wrap:wrap; gap:8px; align-items:center">
+    {% if cat %}<input type="hidden" name="cat" value="{{ cat }}">{% endif %}
+    {% if subcat %}<input type="hidden" name="sub" value="{{ subcat }}">{% endif %}
+    {% if condition %}<input type="hidden" name="condition" value="{{ condition }}">{% endif %}
+    {% if q %}<input type="hidden" name="q" value="{{ q }}">{% endif %}
+    <label style="display:flex; align-items:center; gap:4px; font-size:13px">от
+      <input class="search" style="width:90px; padding:6px 8px" type="number" min="0" name="price_min" value="{{ price_min or '' }}" placeholder="0 ₽"></label>
+    <label style="display:flex; align-items:center; gap:4px; font-size:13px">до
+      <input class="search" style="width:90px; padding:6px 8px" type="number" min="0" name="price_max" value="{{ price_max or '' }}" placeholder="∞"></label>
+    <select class="select" name="sort" style="max-width:190px">
+      <option value="">Сортировка: по умолчанию</option>
+      <option value="price_asc" {{ 'selected' if sort == 'price_asc' }}>Сначала дешевле</option>
+      <option value="price_desc" {{ 'selected' if sort == 'price_desc' }}>Сначала дороже</option>
+      <option value="new" {{ 'selected' if sort == 'new' }}>Сначала новые</option>
+      <option value="rating" {{ 'selected' if sort == 'rating' }}>По рейтингу продавца</option>
+    </select>
+    <label style="display:flex; align-items:center; gap:4px; font-size:13px">
+      <input type="checkbox" name="has_photo" value="true" {{ 'checked' if has_photo }}> только с фото</label>
+    <label style="display:flex; align-items:center; gap:4px; font-size:13px">
+      <input type="checkbox" name="negotiable" value="true" {{ 'checked' if negotiable }}> можно поторговать</label>
+    <button class="btn-sm">Применить</button>
+    <a class="chip mini" href="/catalog">Сбросить</a>
+  </form>
 </div>
 
 {% if products %}
@@ -52,7 +75,13 @@
   {% if cat %} {% set base_qs = base_qs ~ 'cat=' ~ (cat | urlencode) ~ '&' %} {% endif %}
   {% if subcat %} {% set base_qs = base_qs ~ 'sub=' ~ (subcat | urlencode) ~ '&' %} {% endif %}
   {% if q %} {% set base_qs = base_qs ~ 'q=' ~ (q | urlencode) ~ '&' %} {% endif %}
+  {% if seller %} {% set base_qs = base_qs ~ 'seller=' ~ (seller | urlencode) ~ '&' %} {% endif %}
   {% if condition %} {% set base_qs = base_qs ~ 'condition=' ~ (condition | urlencode) ~ '&' %} {% endif %}
+  {% if price_min %} {% set base_qs = base_qs ~ 'price_min=' ~ price_min ~ '&' %} {% endif %}
+  {% if price_max %} {% set base_qs = base_qs ~ 'price_max=' ~ price_max ~ '&' %} {% endif %}
+  {% if sort %} {% set base_qs = base_qs ~ 'sort=' ~ (sort | urlencode) ~ '&' %} {% endif %}
+  {% if has_photo %} {% set base_qs = base_qs ~ 'has_photo=true&' %} {% endif %}
+  {% if negotiable %} {% set base_qs = base_qs ~ 'negotiable=true&' %} {% endif %}
   {% if page > 1 %}
   <a class="pg-btn" href="/catalog?{{ base_qs }}page={{ page - 1 }}">← Назад</a>
   {% endif %}

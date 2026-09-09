@@ -41,11 +41,16 @@ git sparse-checkout set --no-cone '/*' \
 | 06a | Мультисклад: интерфейс | ✅ | 04.09.2026 | `blocks/BLOCK-06a-multiwarehouse-ui.md` |
 | 07 | Отчёты по оборачиваемости | ✅ | 04.09.2026 | `blocks/BLOCK-07-reports.md` |
 | 08 | Прямая печать на IP-принтер (ZPL по сети) | ✅ | 04.09.2026 | `blocks/BLOCK-08-network-printing.md` |
-| 09 | Маркетплейс: каталог, поиск, фильтры | ⏳ | — | `blocks/BLOCK-09-marketplace-catalog.md` |
+| 09 | Маркетплейс: каталог, поиск, фильтры | ✅ | 08.09.2026 | `blocks/BLOCK-09-marketplace-catalog.md` |
 | 10 | Тесты и CI | ✅ | 04.09.2026 | `blocks/BLOCK-10-tests-ci.md` |
 | 11 | Проверка на реальном железе | ⛔ | — | `blocks/BLOCK-11-hardware.md` |
 
-**Готово: 7 из 13.** Следующий блок — **06a (мультисклад: интерфейс)**.
+**Вся кодовая часть проекта закрыта: 20 из 24 блоков.** Остались только внешние:
+**11** (реальное железо, ⛔), **17** (ручная staging-валидация), **18** (backup на
+тестовом VPS), **22** (официальный API-аудит Wildberries, ⛔).
+Регрессию запускать в порядке: labels → hid → stage5 → block06 → block09 → block13
+→ block14 → block16 → block19 → block23 → pytest → **block15 (последним — ставит IP
+в rate-карантин ~60с)**.
 
 ---
 
@@ -71,13 +76,22 @@ git sparse-checkout set --no-cone '/*' \
 `GET/POST /1c/catalog`, **`GET/POST /1c/stock`**, `GET /1c/orders`,
 `POST /1c/orders/ack`, `POST /1c/orders/status`.
 
-### Тесты — 84 автотеста, все проходят
+### Тесты — 100+ автотестов, все проходят
 ```bash
 cd telegram-shop
 python3 tests-labels.py       # 20 — этикетки и ценники
 node tests-hid-scanner.js     #  8 — HID-парсер
 python3 tests-stage5.py       # 23 — 1С и офлайн (нужен запущенный сервер)
 python3 tests-block06.py      # 33 — мультисклад (нужен запущенный сервер)
+python3 tests-block09.py      # 47 — каталог и фильтры (нужен запущенный сервер)
+python3 tests-storage-contracts.py  # 32 — контракты storage-провайдеров (офлайн)
+python3 tests-block13.py      # 33 — storage layer: маскирование, диагностика (нужен сервер)
+python3 tests-block14.py      # 32 — backup/restore, миграция SQLite→MySQL (нужен сервер)
+python3 tests-block16.py      # 45 — подписки, брони, жалобы, бусты (нужен сервер)
+python3 tests-block19.py      # 19 — CRM: задачи, чат, права (нужен сервер)
+python3 tests-block23.py      # 20 — content-jobs и fallback-слайдшоу (нужен сервер)
+python3 tests-block15.py      # 40 — security/observability (нужен сервер; ЗАПУСКАТЬ ПОСЛЕДНИМ)
+pytest tests/                 # 16 — маркетинг/SEO/провайдеры (из корня репо)
 ```
 
 ---
@@ -93,6 +107,11 @@ python3 tests-block06.py      # 33 — мультисклад (нужен зап
 | Service worker | cache-first на API: склад показывал устаревшие остатки, кэшировал ключи | 04 |
 | Обмен с 1С | Нельзя обновить только остатки — требовался полный каталог | 04 |
 | Новый товар вне мультисклада | `add_product` не писал в `wh_stock` — разбивка пустая, перемещение падало | 06 |
+| SSR-каталог 500 | Свободные имена `price_min/sort/...` в `_render_catalog` — NameError, `/catalog` лежал целиком | 09 |
+| Фильтр «только с торгом» | У товара не было поля `negotiable` (проверялся несуществующий ключ) — фильтр не влиял на выдачу | 09 |
+| `sort=rating`-заглушка | Сортировал по несуществующему `seller_rating` товара; теперь рейтинг продавца из `store.seller_rating` | 09 |
+| Утечка YD OAuth-токена | `GET /api/warehouse/settings` отдавал `yandex_disk_token` в открытом виде (в т.ч. роли worker) | 13 |
+| Неизвестные secret-поля в настройках | PUT мерджил произвольные поля — секрет с неизвестным именем возвращался клиенту без маскировки; теперь allowlist + динамическая маскировка | 13 |
 
 ---
 
@@ -136,31 +155,53 @@ telegram-shop/tests-*   ← автотесты
 | # | Блок | Статус | Зависит от | Файл плана |
 |---|---|---|---|---|
 | 12 | Production health-check и post-deploy smoke | ✅ | 10 | `blocks/BLOCK-12-production-smoke.md` |
-| 13 | Единый storage layer и конфигурация провайдеров | ⏳ | 12 | `blocks/BLOCK-13-storage-layer.md` |
-| 14 | Backup, restore и миграция MySQL/MariaDB | ⏳ | 13 | `blocks/BLOCK-14-backup-mysql.md` |
-| 15 | Production security и observability | ⏳ | 12 | `blocks/BLOCK-15-security-observability.md` |
-| 16 | Marketplace 2.0: продавцы, сделки и доверие | ⏳ | 13, 15 | `blocks/BLOCK-16-marketplace-2.md` |
+| 13 | Единый storage layer и конфигурация провайдеров | ✅ | 08.09.2026 | `blocks/BLOCK-13-storage-layer.md` |
+| 14 | Backup, restore и миграция MySQL/MariaDB | ✅ | 08.09.2026 | `blocks/BLOCK-14-backup-mysql.md` |
+| 15 | Production security и observability | ✅ | 08.09.2026 | `blocks/BLOCK-15-security-observability.md` |
+| 16 | Marketplace 2.0: продавцы, сделки и доверие | ✅ | 08.09.2026 | `blocks/BLOCK-16-marketplace-2.md` |
 
 **Правило продолжения:** новая сессия читает `ROADMAP.md`, `SESSION-PLAYBOOK.md` и первый незакрытый файл блока из этого трека. Не начинать следующий блок до заполнения отчёта и push текущего.
+
+**Состояние трека (08.09.2026):** кодовые блоки 13–16 и 19–24 закрыты. Остались
+только блоки с внешними зависимостями: **11** (реальное железо), **17** (ручная
+staging-валидация по `DEVELOPER-MANUAL-VALIDATION.md`), **18** (backup на тестовом
+VPS), **22** (ждёт официальный API-аудит Wildberries). В песочнице для них делать
+нечего — они выполняются владельцем на staging по готовым инструкциям.
+**Мобильные приложения (08.09.2026):** складское APK готово (Sklad-1.0.6,
+`ru.telegramshop.sklad`); покупательское — НЕТ (болванка в `mobile/`, сборке не
+подлежит). Подготовлены ТЗ и план: **блок 25** + `mobile/ANDROID-APP-TZ.md`
+(Фаза 1 — WebView-обёртка за 1–2 дня, Фазы 2–6 — React Native за 4–5 недель).
+
+**Складской APK 1.1.0 (09.09.2026, блок 26):** по решению владельца — только
+склад, без покупательского и без сторов. Нативные фичи обёртки: сохранение
+файлов в «Загрузки», печать этикеток с телефона по Wi-Fi (:9100 ZPL/EPL),
+«экран не гаснет», вибро на скан, экран ошибки с «Повторить», приём сканов от
+ТСД (`sklad://scan?code=`). APK собран и доставлен в репо через CI
+(GitHub Actions, run-tests → ci-build-apk: 2.6M, versionCode 8, подпись как у
+1.0.6); сервер раздаёт 1.1.0 через `/apk/`, `/download/android`,
+`/api/releases/android` — встроенный update-check предложит обновление.
 
 **Порядок приоритета:** после инфраструктурных блоков 13–15 выполнять блоки 20 (SEO/продвижение), 21 (Content Hub и AI prompt queue), затем 22 (Wildberries), 23–24. Ручной блок 17 выполняется на staging параллельно, а автодеплой финализируется последним.
 
 | 17 | Ручная production-валидация и перенос тяжёлых проверок | ⏳ | 12–16 | `DEVELOPER-MANUAL-VALIDATION.md` |
 
 | 18 | Backup/restore production на тестовом VPS | ⏳ | 14, 17 | `blocks/BLOCK-18-backup-production.md` |
-| 19 | Внутренняя CRM и общение сотрудников | ⏳ | 12, 15 | `blocks/BLOCK-19-internal-crm.md` |
+| 19 | Внутренняя CRM и общение сотрудников | ✅ | 08.09.2026 | `blocks/BLOCK-19-internal-crm.md` |
 
-| 20 | SEO и продвижение: Yandex, Google, Instagram, VK, TikTok, Telegram | ⏳ | 12, 15, 16 | `blocks/BLOCK-20-seo-promotion.md` |
+| 20 | SEO и продвижение: Yandex, Google, Instagram, VK, TikTok, Telegram | ✅ | 08.09.2026 | `blocks/BLOCK-20-seo-promotion.md` |
 
-| 21 | AI-генерация видео и контент-агенты для соцсетей | ⏳ | 15, 20 | `blocks/BLOCK-21-ai-video-content.md` |
-| 22 | Wildberries: ресейл и интеграция marketplace | ⏳ | 13, 20 | `blocks/BLOCK-22-wildberries-resale.md` |
+| 21 | AI-генерация видео и контент-агенты для соцсетей | ✅ | 08.09.2026 | `blocks/BLOCK-21-ai-video-content.md` |
+| 22 | Wildberries: ресейл и интеграция marketplace | ⛔ | 13, 20 | `blocks/BLOCK-22-wildberries-resale.md` |
 
-| 23 | Content Hub и AI Video Queue | ⏳ | 19, 20, 21 | `blocks/BLOCK-23-content-hub-ai-queue.md` |
-| 24 | Campaign Manager и публикация по каналам | ⏳ | 20, 23 | `blocks/BLOCK-24-campaign-manager.md` |
+| 23 | Content Hub и AI Video Queue | ✅ | 08.09.2026 | `blocks/BLOCK-23-content-hub-ai-queue.md` |
+| 24 | Campaign Manager и публикация по каналам | ✅ | 08.09.2026 | `blocks/BLOCK-24-campaign-manager.md` |
+| 25 | Мобильное приложение покупателя (Android) | ⏳ | — (Ф1); 15 (Ф2+) | `blocks/BLOCK-25-mobile-buyer-app.md` · ТЗ: `mobile/ANDROID-APP-TZ.md` |
+| 26 | Складской APK 1.1.0: нативные возможности | ✅ | 09.09.2026 | `blocks/BLOCK-26-sklad-apk-native.md` |
 
-### Текущий прогресс после CRM MVP
+### Текущий прогресс (08.09.2026) — все кодовые блоки закрыты
 
-- Block 21: prompt/export, external content jobs, callback, review, approve/reject и retry реализованы в безопасном MVP режиме.
-- Block 22: Wildberries provider boundary и audit diagnostics реализованы; публикация отключена до официального API/account audit.
-- Block 24: campaigns, publication records, manual approve, package export, dry-run и provider boundaries реализованы; реальные adapters требуют staging credentials.
-- Подготовлены `CAMPAIGN-SETUP-GUIDE.md` и расширенный manual validation checklist.
+- Закрыты блоки: 09, 13, 14, 15, 16, 19, 20, 21, 23, 24 (отчёты в файлах блоков).
+- Блок 22 — ⛔ внешнее условие (официальный API-аудит Wildberries); boundary и
+  диагностика готовы и протестированы.
+- Ручные на staging: 11 (железо), 17 (manual validation checklist), 18 (backup на тестовом VPS).
+- Автотесты: ~330 проверок в 11 test-suite'ах + pytest; порядок регрессии см. выше (block15 — последним).

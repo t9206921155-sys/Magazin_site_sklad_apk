@@ -4,6 +4,7 @@ import android.Manifest;
 import android.annotation.SuppressLint;
 import android.app.Activity;
 import android.content.ActivityNotFoundException;
+import android.content.ContentValues;
 import android.content.Intent;
 import android.graphics.Color;
 import android.content.SharedPreferences;
@@ -11,6 +12,12 @@ import android.content.pm.PackageManager;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
+import android.os.Environment;
+import android.os.Handler;
+import android.os.Looper;
+import android.os.VibrationEffect;
+import android.os.Vibrator;
+import android.provider.MediaStore;
 import android.text.TextUtils;
 import android.view.View;
 import android.webkit.CookieManager;
@@ -40,9 +47,14 @@ import com.journeyapps.barcodescanner.ScanOptions;
 import org.json.JSONObject;
 
 import java.io.BufferedReader;
+import java.io.File;
+import java.io.FileOutputStream;
 import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.io.OutputStream;
 import java.net.HttpURLConnection;
+import java.net.InetSocketAddress;
+import java.net.Socket;
 import java.net.URL;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
@@ -66,7 +78,7 @@ public class MainActivity extends AppCompatActivity {
     private static final int REQ_FILE = 1001;
     private static final int REQ_CAMERA_WEB = 1002;
     private static final int REQ_CAMERA_NATIVE = 1003;
-    private static final String APP_UA = " SkladApp/1.0.6";
+    private static final String APP_UA = " SkladApp/1.1.0";
 
     private WebView webView;
     private View mainView, setupView;
@@ -81,6 +93,9 @@ public class MainActivity extends AppCompatActivity {
     private ValueCallback<Uri[]> filePathCallback;
     private PermissionRequest pendingCameraPermissionRequest;
     private ActivityResultLauncher<ScanOptions> nativeScanLauncher;
+    private View errorWrap;
+    private TextView errorText;
+    private Button btnRetry;
 
     @SuppressLint("SetJavaScriptEnabled")
     @Override
@@ -103,6 +118,11 @@ public class MainActivity extends AppCompatActivity {
         btnUpdate = findViewById(R.id.btn_update);
 
         nativeScanLauncher = registerForActivityResult(new ScanContract(), this::handleNativeScanResult);
+
+        errorWrap = findViewById(R.id.error_wrap);
+        errorText = findViewById(R.id.error_text);
+        btnRetry = findViewById(R.id.btn_retry);
+        btnRetry.setOnClickListener(v -> { hideError(); loadWarehouse(); });
 
         configureWebView();
         updateMeta();
@@ -246,6 +266,23 @@ public class MainActivity extends AppCompatActivity {
         }
         if (TextUtils.isEmpty(urlParam) && "1".equals(data.getQueryParameter("reset"))) {
             clearSavedServer();
+            return true;
+        }
+        // Блок 25: приём отсканированного кода от ТСД/терминала сбора данных.
+        // Настраивается в ТСД как intent/URL: sklad://scan?code=4600000000&mode=search
+        if (("scan".equals(host) || "code".equals(host)) && !TextUtils.isEmpty(data.getQueryParameter("code"))) {
+            String code = data.getQueryParameter("code");
+            String mode = data.getQueryParameter("mode");
+            if (TextUtils.isEmpty(baseUrl)) {
+                Toast.makeText(this, "Сначала подключитесь к серверу склада", Toast.LENGTH_LONG).show();
+                return true;
+            }
+            if (mainView.getVisibility() != View.VISIBLE) loadWarehouse();
+            vibrateFeedback();
+            final String fCode = code;
+            final String fMode = sanitizeScanMode(mode);
+            webView.postDelayed(() -> dispatchNativeScanResult(fCode, fMode), 600);
+            Toast.makeText(this, "Код получен от сканера", Toast.LENGTH_SHORT).show();
             return true;
         }
         if (TextUtils.isEmpty(urlParam)) return false;
@@ -445,8 +482,33 @@ public class MainActivity extends AppCompatActivity {
             dispatchNativeScanCancelled();
             return;
         }
+        vibrateFeedback();
         dispatchNativeScanResult(result.getContents(), activeNativeScanMode);
         activeNativeScanMode = "";
+    }
+
+    /** Блок 25: короткая вибрация — тактильный фидбек успешного сканирования. */
+    private void vibrateFeedback() {
+        try {
+            Vibrator v = (Vibrator) getSystemService(VIBRATOR_SERVICE);
+            if (v == null) return;
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                v.vibrate(VibrationEffect.createOneShot(60, VibrationEffect.DEFAULT_AMPLITUDE));
+            } else {
+                v.vibrate(60);
+            }
+        } catch (Exception ignored) { }
+    }
+
+    private void showError(String message) {
+        if (errorWrap == null) return;
+        errorText.setText(message);
+        errorWrap.setVisibility(View.VISIBLE);
+    }
+
+    private void hideError() {
+        if (errorWrap == null) return;
+        errorWrap.setVisibility(View.GONE);
     }
 
     private void dispatchNativeScanResult(String value, String mode) {
@@ -543,6 +605,7 @@ public class MainActivity extends AppCompatActivity {
         s.setMixedContentMode(WebSettings.MIXED_CONTENT_ALWAYS_ALLOW);
         s.setUserAgentString(s.getUserAgentString() + APP_UA);
         webView.addJavascriptInterface(new AndroidScannerBridge(), "AndroidScanner");
+        webView.addJavascriptInterface(new NativeBridge(), "AndroidNative");
 
         CookieManager cm = CookieManager.getInstance();
         cm.setAcceptCookie(true);
@@ -571,9 +634,15 @@ public class MainActivity extends AppCompatActivity {
             @Override
             public void onReceivedError(WebView view, WebResourceRequest request, WebResourceError error) {
                 if (request.isForMainFrame()) {
-                    Toast.makeText(MainActivity.this,
-                            "Сервер недоступен: " + error.getDescription(),
-                            Toast.LENGTH_LONG).show();
+                    showError("Сервер склада недоступен (" + error.getDescription()
+                            + ").\nПроверьте интернет и адрес сервера, затем нажмите «Повторить».");
+                }
+            }
+
+            @Override
+            public void onPageFinished(WebView view, String url) {
+                if (!TextUtils.isEmpty(url) && !"about:blank".equals(url) && isInternalUrl(url)) {
+                    hideError();
                 }
             }
         });
@@ -703,6 +772,148 @@ public class MainActivity extends AppCompatActivity {
         public void resetServerUrl() {
             runOnUiThread(MainActivity.this::clearSavedServer);
         }
+    }
+
+    /**
+     * Блок 25: нативные возможности для PWA склада (window.AndroidNative).
+     * Все методы безопасны для вызова из JS; тяжёлая работа — в отдельных потоках.
+     */
+    private final class NativeBridge {
+
+        /** Сохранить файл (PDF/PRN/CSV/JSON) в «Загрузки». Возвращает true при успехе. */
+        @JavascriptInterface
+        public boolean saveFile(String name, String base64) {
+            try {
+                byte[] data = android.util.Base64.decode(base64 == null ? "" : base64, android.util.Base64.DEFAULT);
+                if (data.length == 0) return false;
+                String safe = (name == null || name.trim().isEmpty() ? "sklad-file" : name.trim())
+                        .replaceAll("[\\/:*?\"<>|]", "_");
+                final boolean saved = saveToDownloads(safe, data);
+                final String shown = safe;
+                runOnUiThread(() -> Toast.makeText(MainActivity.this,
+                        saved ? "Сохранено: " + shown + " (Загрузки)" : "Не удалось сохранить файл",
+                        Toast.LENGTH_LONG).show());
+                return saved;
+            } catch (Exception e) {
+                return false;
+            }
+        }
+
+        /** Прямая печать с телефона в сетевой принтер (raw ZPL/EPL на host:port 9100). */
+        @JavascriptInterface
+        public String printRaw(String host, int port, String base64) {
+            try {
+                if (TextUtils.isEmpty(host)) return "err: укажите IP принтера";
+                final byte[] data = android.util.Base64.decode(base64 == null ? "" : base64, android.util.Base64.DEFAULT);
+                if (data.length == 0) return "err: пустые данные печати";
+                final String fHost = host.trim();
+                final int fPort = port > 0 ? port : 9100;
+                final String[] result = {"err: таймаут соединения"};
+                Thread t = new Thread(() -> {
+                    Socket s = new Socket();
+                    try {
+                        s.connect(new InetSocketAddress(fHost, fPort), 6000);
+                        s.setSoTimeout(6000);
+                        OutputStream os = s.getOutputStream();
+                        os.write(data);
+                        os.flush();
+                        result[0] = "ok:" + data.length;
+                    } catch (Exception e) {
+                        result[0] = "err: " + e.getMessage();
+                    } finally {
+                        try { s.close(); } catch (Exception ignored) { }
+                    }
+                });
+                t.start();
+                t.join(9000);
+                return result[0];
+            } catch (Exception e) {
+                return "err: " + e.getMessage();
+            }
+        }
+
+        /** Не гасить экран (удобно при длительном сканировании). */
+        @JavascriptInterface
+        public void keepAwake(boolean enable) {
+            runOnUiThread(() -> {
+                if (enable) {
+                    getWindow().addFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+                } else {
+                    getWindow().clearFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+                }
+            });
+        }
+
+        /** Короткая вибрация (фидбек сканирования/ошибки). */
+        @JavascriptInterface
+        public void vibrate(int ms) {
+            vibrateFeedback();
+        }
+
+        @JavascriptInterface
+        public void toast(String message) {
+            runOnUiThread(() -> Toast.makeText(MainActivity.this,
+                    message == null ? "" : message, Toast.LENGTH_SHORT).show());
+        }
+
+        /** Информация о приложении: версия, сервер. */
+        @JavascriptInterface
+        public String appInfo() {
+            JSONObject o = new JSONObject();
+            try {
+                o.put("version", BuildConfig.VERSION_NAME);
+                o.put("server", baseUrl == null ? "" : baseUrl);
+                o.put("platform", "android");
+            } catch (Exception ignored) { }
+            return o.toString();
+        }
+    }
+
+    private boolean saveToDownloads(String name, byte[] data) {
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                ContentValues cv = new ContentValues();
+                cv.put(MediaStore.Downloads.DISPLAY_NAME, name);
+                cv.put(MediaStore.Downloads.MIME_TYPE, mimeFor(name));
+                cv.put(MediaStore.Downloads.IS_PENDING, 1);
+                Uri uri = getContentResolver().insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, cv);
+                if (uri == null) return false;
+                try (OutputStream os = getContentResolver().openOutputStream(uri)) {
+                    if (os == null) return false;
+                    os.write(data);
+                    os.flush();
+                }
+                cv.clear();
+                cv.put(MediaStore.Downloads.IS_PENDING, 0);
+                getContentResolver().update(uri, cv, null, null);
+                return true;
+            }
+            // Android 6–9: папка приложения (доступна файловым менеджерам, без разрешений)
+            File dir = getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS);
+            if (dir == null) dir = getFilesDir();
+            if (dir == null) return false;
+            if (!dir.exists()) dir.mkdirs();
+            File out = new File(dir, name);
+            try (FileOutputStream fos = new FileOutputStream(out)) {
+                fos.write(data);
+                fos.flush();
+            }
+            return true;
+        } catch (Exception e) {
+            return false;
+        }
+    }
+
+    private String mimeFor(String name) {
+        String n = (name == null ? "" : name).toLowerCase();
+        if (n.endsWith(".pdf")) return "application/pdf";
+        if (n.endsWith(".prn") || n.endsWith(".zpl") || n.endsWith(".epl") || n.endsWith(".txt")) return "text/plain";
+        if (n.endsWith(".json")) return "application/json";
+        if (n.endsWith(".csv")) return "text/csv";
+        if (n.endsWith(".png")) return "image/png";
+        if (n.endsWith(".jpg") || n.endsWith(".jpeg")) return "image/jpeg";
+        if (n.endsWith(".mp4")) return "video/mp4";
+        return "application/octet-stream";
     }
 
     @Override

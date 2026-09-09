@@ -558,7 +558,7 @@ function renderList() {
   $('#bulkBtn').classList.toggle('active', selected.size > 0);
 }
 
-async function exportPrompt(id) { try { const r=await api('/api/content/prompt/'+id); const blob=new Blob([JSON.stringify(r,null,2)],{type:'application/json'}); const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='content-prompt-'+id+'.json'; a.click(); toast('Prompt экспортирован ✅'); } catch(e){toast(e.message,true);} }
+async function exportPrompt(id) { try { const r=await api('/api/content/prompt/'+id); const blob=new Blob([JSON.stringify(r,null,2)],{type:'application/json'}); if (await saveBlobNative('content-prompt-'+id+'.json', blob)) { toast('Prompt сохранён 📥'); return; } const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='content-prompt-'+id+'.json'; a.click(); toast('Prompt экспортирован ✅'); } catch(e){toast(e.message,true);} }
 async function showStock(id) { try { const r=await stockBreakdown(id); alert(r.rows.map(x=>`${x.warehouse_name}: ${x.qty}`).join('\n')+'\nИтого: '+r.total); } catch(e){toast(e.message,true);} }
 function toggleSel(id, on) {
   if (on) selected.add(String(id)); else selected.delete(String(id));
@@ -807,6 +807,38 @@ async function aiGen(mode) {
 
 /* ---------- сканер (BarcodeDetector + native Android fallback) ---------- */
 let SCAN_MODE = 'search';
+
+// Блок 25: «экран не гаснет» — настройка склада, применяется на старте APK
+function getKeepAwakePref() { try { return localStorage.getItem('sklad-keepawake') === '1'; } catch (e) { return false; } }
+function applyKeepAwake(on) {
+  try { localStorage.setItem('sklad-keepawake', on ? '1' : '0'); } catch (e) {}
+  const nb = nativeBridge();
+  if (nb) { try { nb.keepAwake(!!on); toast(on ? 'Экран не будет гаснуть ✅' : 'Экран гаснет как обычно'); } catch (e) {} }
+}
+
+// Блок 25: нативный мост APK (файлы, печать с телефона, экран, вибро)
+function nativeBridge() {
+  try {
+    return (window.AndroidNative && typeof window.AndroidNative.saveFile === 'function') ? window.AndroidNative : null;
+  } catch (e) { return null; }
+}
+function canPrintFromDevice() {
+  const nb = nativeBridge();
+  return !!(nb && typeof nb.printRaw === 'function');
+}
+function blobToBase64(blob) {
+  return new Promise((resolve, reject) => {
+    const fr = new FileReader();
+    fr.onload = () => resolve(String(fr.result || '').split(',')[1] || '');
+    fr.onerror = reject;
+    fr.readAsDataURL(blob);
+  });
+}
+async function saveBlobNative(filename, blob) {
+  const nb = nativeBridge();
+  if (!nb) return false;
+  try { return nb.saveFile(filename, await blobToBase64(blob)) === true; } catch (e) { return false; }
+}
 
 function hasNativeAndroidScanner() {
   try {
@@ -1126,7 +1158,10 @@ async function printLabels() {
           <div class="name">${esc(pr.name)}</div>
           <div class="meta">${pr.width_mm}×${pr.height_mm} мм · ${pr.format.toUpperCase()}</div>
         </div>
-        <button class="mini" onclick="printWithPrinter(${i})">Печать</button>
+        <div style="display:flex;gap:6px">
+          <button class="mini" onclick="printWithPrinter(${i})">Печать</button>
+          ${canPrintFromDevice() && pr.host ? `<button class="mini" title="Печать прямо с телефона по Wi-Fi" onclick="printWithPrinterLocal(${i})">📱 Wi-Fi</button>` : ''}
+        </div>
       </div>`).join('');
     $('#sheet2').classList.remove('hidden');
   } catch (e) { toast(e.message, true); }
@@ -1148,6 +1183,29 @@ async function printWithPrinter(i) {
       toast('PDF готов — печатайте через диалог принтера');
     }
     closeSheet2();
+  } catch (e) { toast(e.message, true); }
+}
+
+/* Блок 25: печать raw ZPL/EPL прямо с телефона в принтер в Wi-Fi сети склада
+   (VPS может быть недоступен из локальной сети — поэтому шлём с устройства). */
+async function printWithPrinterLocal(i) {
+  const ids = [...selected];
+  if (!ids.length) return toast('Отметьте товары чекбоксами', true);
+  try {
+    const nb = nativeBridge();
+    if (!nb) return toast('Печать с телефона доступна только в Android-приложении', true);
+    const printers = await fetch('/api/warehouse/printers', { headers: { 'X-Wh-Token': TOKEN, 'X-Admin-Token': TOKEN } }).then(r => r.json());
+    const pr = printers[i];
+    if (!pr) return toast('Профиль принтера не найден', true);
+    if (!pr.host) return toast('У принтера не указан IP-адрес', true);
+    if (pr.format !== 'zpl' && pr.format !== 'epl') return toast('Прямая печать с телефона — только ZPL/EPL', true);
+    const q = `ids=${ids.join(',')}&width=${pr.width_mm || 58}&height=${pr.height_mm || 40}&copies=${pr.copies || 1}`;
+    const raw = await fetch(`/api/warehouse/labels.prn?${q}&format=${pr.format}`, { headers: { 'X-Wh-Token': TOKEN, 'X-Admin-Token': TOKEN } }).then(r => r.text());
+    const b64 = btoa(unescape(encodeURIComponent(raw)));
+    toast('Отправляю на принтер ' + pr.host + '…');
+    const res = String(nb.printRaw(pr.host, pr.port || 9100, b64) || '');
+    if (res.startsWith('ok')) { toast('Напечатано с телефона ✅ (' + res.slice(3) + ' байт)'); closeSheet2(); }
+    else toast('Принтер недоступен: ' + res.slice(4), true);
   } catch (e) { toast(e.message, true); }
 }
 
@@ -1597,6 +1655,7 @@ async function downloadAuthed(url, filename, openInNewTab) {
     throw new Error(msg);
   }
   const blob = await res.blob();
+  if (await saveBlobNative(filename, blob)) { toast('Сохранено в «Загрузки» 📥 ' + filename); return; }
   const href = URL.createObjectURL(blob);
   if (openInNewTab) {
     const w = window.open(href, '_blank');
@@ -1661,6 +1720,7 @@ async function openSettings() {
         <button class="mini" onclick="openNativeAppSettings()">⚙️ Настроить адрес APK</button>
         <button class="mini" onclick="copyNativeServerUrl()">📋 Скопировать адрес</button>
       </div>
+      ${(nativeBridge() ? `<label class="lb" style="display:flex;gap:8px;align-items:center;margin:6px 0"><input type="checkbox" id="apk-keepawake" ${getKeepAwakePref() ? 'checked' : ''} onchange="applyKeepAwake(this.checked)"> Экран не гаснет во время работы</label>` : '')}
     ` : '';
     $('#sheet2-title').textContent = '⚙️ Настройки';
     $('#sheet2-body').innerHTML = (isAdmin ? `<h3>🏬 Склады</h3><button class=\"mini\" onclick=\"manageWarehouses()\">Управление складами</button>` : '') + apkBlock + `
@@ -2019,7 +2079,7 @@ async function delUser(id) {
 }
 
 async function openReports() { $('#sheet2-title').textContent='📊 Отчёты'; $('#sheet2-body').innerHTML=`<p>Выберите отчёт:</p><div class="row2">${['turnover','dead-stock','stock-value','abc'].map(k=>`<button class="mini" onclick="downloadReport('${k}')">${k}</button>`).join('')}</div><p style="color:#64748b;font-size:12px">PDF будет загружен с учётом выбранного склада.</p>`; $('#sheet2').classList.remove('hidden'); }
-async function downloadReport(kind) { try { const r=await fetch('/api/warehouse/reports/'+kind+'.pdf',{headers:{'X-Wh-Token':TOKEN,'X-Admin-Token':TOKEN}}); if(!r.ok) throw new Error('Ошибка '+r.status); const a=document.createElement('a'); a.href=URL.createObjectURL(await r.blob()); a.download='warehouse-'+kind+'.pdf'; a.click(); } catch(e){toast(e.message,true);} }
+async function downloadReport(kind) { try { const r=await fetch('/api/warehouse/reports/'+kind+'.pdf',{headers:{'X-Wh-Token':TOKEN,'X-Admin-Token':TOKEN}}); if(!r.ok) throw new Error('Ошибка '+r.status); const blob=await r.blob(); if (await saveBlobNative('warehouse-'+kind+'.pdf', blob)) { toast('Сохранено в «Загрузки» 📥'); return; } const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='warehouse-'+kind+'.pdf'; a.click(); } catch(e){toast(e.message,true);} }
 window.openReports=openReports; window.downloadReport=downloadReport;
 // журнал операций
 async function openLog() {
@@ -2055,4 +2115,6 @@ if ('serviceWorker' in navigator) {
     .catch(() => {});
 }
 updateOfflineBar();
+// Блок 25: применяем настройку «экран не гаснет» при старте APK
+if (getKeepAwakePref()) { const nb = nativeBridge(); if (nb) { try { nb.keepAwake(true); } catch (e) {} } }
 if (TOKEN) { $('#login').classList.add('hidden'); loadList(); syncTick(); setInterval(syncTick, 30000); }

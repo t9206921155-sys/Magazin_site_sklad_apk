@@ -19,6 +19,7 @@ import io
 import json
 import logging
 import os
+import re
 import secrets
 import time
 import urllib.parse
@@ -74,6 +75,33 @@ from yandex_delivery import YandexDeliveryClient
 from fastapi.templating import Jinja2Templates
 
 log = logging.getLogger("shop.api")
+
+# Блок 15: маскирование секретов в логах (token=…, password=…, secret=…).
+_SECRET_LOG_RE = re.compile(
+    r"(?i)\b(token|password|passwd|secret|api[_-]?key|access[_-]?key|pass)\b(\s*[=:]\s*)([^\s;&'\"']+)")
+
+def mask_secrets(text: str) -> str:
+    try:
+        return _SECRET_LOG_RE.sub(lambda m: m.group(1) + m.group(2) + "<masked>", str(text))
+    except Exception:
+        return text
+
+class SecretMaskingFilter(logging.Filter):
+    """Правит record так, чтобы секреты не попадали в файлы логов."""
+
+    def filter(self, record):
+        try:
+            msg = record.getMessage()
+            masked = mask_secrets(msg)
+            if masked != msg:
+                record.msg, record.args = masked, ()
+        except Exception:
+            pass
+        return True
+
+for _lname in ("shop", "shop.api"):
+    _lg = logging.getLogger(_lname)
+    _lg.addFilter(SecretMaskingFilter())
 
 TEMPLATES = Jinja2Templates(directory=os.path.join(config.SITE_DIR, "templates"))
 
@@ -154,32 +182,64 @@ def create_app(store, providers: dict, bot=None, notify_new_order=None, notify_o
                notify_status=None, notify_admin=None, broadcast_sender=None):
     app = FastAPI(title="Telegram Shop", docs_url=None, redoc_url=None)
     app.add_middleware(CORSMiddleware, allow_origins=config.CORS_ORIGINS, allow_methods=["*"], allow_headers=["*"])
+    if config.TRUSTED_HOSTS:
+        from starlette.middleware.trustedhost import TrustedHostMiddleware
+        app.add_middleware(TrustedHostMiddleware, allowed_hosts=config.TRUSTED_HOSTS)
     _rate_buckets = {}
-    _request_metrics = {"requests": 0, "errors": 0}
+    _LAT_BUCKETS = (0.05, 0.1, 0.25, 0.5, 1.0, 2.0, 5.0)
+    _request_metrics = {"requests": 0, "errors": 0, "statuses": {}, "lat_sum": 0.0,
+                        "lat_max": 0.0, "lat_buckets": {b: 0 for b in _LAT_BUCKETS},
+                        "started": time.time()}
+
+    def _rate_check(key: str, limit: int) -> bool:
+        """Окно 60с. False — лимит превышен."""
+        now = time.time()
+        recent = [t for t in _rate_buckets.get(key, []) if now - t < 60]
+        if len(recent) >= limit:
+            _rate_buckets[key] = recent
+            return False
+        recent.append(now)
+        _rate_buckets[key] = recent
+        if len(_rate_buckets) > 10000:
+            for stale_key, stale in list(_rate_buckets.items())[:1000]:
+                if not stale or now - stale[-1] >= 60:
+                    _rate_buckets.pop(stale_key, None)
+        return True
+
     @app.middleware("http")
     async def request_observability(request: Request, call_next):
         started = time.monotonic(); request_id = secrets.token_hex(8)
         response = await call_next(request)
         _request_metrics["requests"] += 1
         if response.status_code >= 500: _request_metrics["errors"] += 1
-        response.headers["X-Request-ID"] = request_id
+        sc = str(response.status_code)
+        _request_metrics["statuses"][sc] = _request_metrics["statuses"].get(sc, 0) + 1
         elapsed = time.monotonic() - started
+        _request_metrics["lat_sum"] += elapsed
+        _request_metrics["lat_max"] = max(_request_metrics["lat_max"], elapsed)
+        for b in _LAT_BUCKETS:
+            if elapsed <= b:
+                _request_metrics["lat_buckets"][b] += 1
+                break
+        response.headers["X-Request-ID"] = request_id
         if elapsed > 2:
             log.warning("slow request id=%s method=%s path=%s elapsed=%.3fs", request_id, request.method, request.url.path, elapsed)
         return response
 
     @app.middleware("http")
     async def auth_rate_limit(request: Request, call_next):
-        if request.method == "POST" and request.url.path in ("/api/warehouse/login", "/api/warehouse/quick/login"):
-            now = time.time(); ip = request.client.host if request.client else "unknown"; key = (ip, request.url.path)
-            recent = [t for t in _rate_buckets.get(key, []) if now - t < 60]
-            if len(recent) >= config.AUTH_RATE_LIMIT:
+        """Блок 15: лимиты на вход, обмен с 1С и публичное API (окно 60с, ключ = IP)."""
+        path = request.url.path
+        ip = request.client.host if request.client else "unknown"
+        if request.method == "POST" and path in ("/api/warehouse/login", "/api/warehouse/quick/login"):
+            if not _rate_check(f"login:{ip}", config.AUTH_RATE_LIMIT):
                 return JSONResponse(status_code=429, content={"detail": "Слишком много попыток. Повторите через минуту."})
-            recent.append(now); _rate_buckets[key] = recent
-            # Bound memory when many clients probe the login endpoint.
-            if len(_rate_buckets) > 10000:
-                for stale_key, stale in list(_rate_buckets.items())[:1000]:
-                    if not stale or now - stale[-1] >= 60: _rate_buckets.pop(stale_key, None)
+        elif path.startswith("/1c/"):
+            if not _rate_check(f"1c:{ip}", config.RATE_LIMIT_1C):
+                return JSONResponse(status_code=429, content={"detail": "Превышен лимит запросов к 1С-обмену. Повторите через минуту."})
+        elif path.startswith("/api/"):
+            if not _rate_check(f"api:{ip}", config.RATE_LIMIT_API):
+                return JSONResponse(status_code=429, content={"detail": "Слишком много запросов. Повторите через минуту."})
         return await call_next(request)
 
     @app.middleware("http")
@@ -239,6 +299,9 @@ def create_app(store, providers: dict, bot=None, notify_new_order=None, notify_o
     os.makedirs(apk_dir, exist_ok=True)
     os.makedirs(aab_dir, exist_ok=True)
     app.mount("/apk", StaticFiles(directory=apk_dir), name="apk")
+    distr_dir = os.path.join(config.BASE_DIR, "..", "distr")
+    if os.path.isdir(distr_dir):
+        app.mount("/distr", StaticFiles(directory=distr_dir), name="distr")
     app.mount("/aab", StaticFiles(directory=aab_dir), name="aab")
 
     # ------------------------------------------------------------------ SEO-страницы (SSR)
@@ -577,8 +640,68 @@ def create_app(store, providers: dict, bot=None, notify_new_order=None, notify_o
                 return c
         return ""
 
+    def _seller_ratings_map(products: list) -> dict:
+        """Рейтинг продавца для каждого товара (с memo по seller_id, блок 09)."""
+        memo, out = {}, {}
+        for p in products:
+            sid = int(p.get("seller_id") or 0)
+            if not sid:
+                out[p["id"]] = 0.0
+                continue
+            if sid not in memo:
+                try:
+                    r = store.seller_rating(sid)
+                except Exception:
+                    r = {}
+                memo[sid] = float((r or {}).get("rating") or 0)
+            out[p["id"]] = memo[sid]
+        return out
+
+    def _apply_catalog_filters(products: list, cat: str = "", sub: str = "", condition: str = "",
+                               seller: str = "", price_min: int = 0, price_max: int = 0,
+                               has_photo: bool = False, negotiable: bool = False,
+                               q: str = "", sort: str = "") -> list:
+        """Общие фильтры и сортировка каталога — один код для SSR и API (блок 09)."""
+        if cat:
+            products = [p for p in products if p.get("category") == cat]
+        if sub:
+            products = [p for p in products if (p.get("subcategory") or "").strip() == sub]
+        if condition:
+            products = [p for p in products if p.get("condition") == condition]
+        if seller:
+            products = [p for p in products if p.get("seller_slug") == seller]
+        if price_min:
+            products = [p for p in products if int(p.get("price", 0) or 0) >= price_min]
+        if price_max:
+            products = [p for p in products if int(p.get("price", 0) or 0) <= price_max]
+        if has_photo:
+            products = [p for p in products if p.get("photo") or p.get("photos")]
+        if negotiable:
+            products = [p for p in products if p.get("negotiable")]
+        if q.strip():
+            # умный поиск: опечатки, синонимы, ранжирование
+            scored = {pid: sc for pid, sc in store.search_products(q, limit=500)}
+            products = [p for p in products if p["id"] in scored]
+            products.sort(key=lambda p: -scored[p["id"]])
+        if sort == "price_asc":
+            products.sort(key=lambda p: int(p.get("price", 0) or 0))
+        elif sort == "price_desc":
+            products.sort(key=lambda p: int(p.get("price", 0) or 0), reverse=True)
+        elif sort == "new":
+            products.sort(key=lambda p: p.get("created_at", ""), reverse=True)
+        elif sort == "rating":
+            rmap = _seller_ratings_map(products)
+            products.sort(key=lambda p: rmap.get(p["id"], 0.0), reverse=True)
+        elif not sort:
+            # блок 16: поднятые объявления — вверху выдачи по умолчанию
+            now = datetime.datetime.now(datetime.timezone.utc).isoformat()
+            products.sort(key=lambda p: 0 if (p.get("boosted_until") or "") > now else 1)
+        return products
+
     def _render_catalog(request: Request, cat: str = "", q: str = "", page: int = 1,
-                        seller: str = "", subcat: str = "", condition: str = ""):
+                        seller: str = "", subcat: str = "", condition: str = "",
+                        price_min: int = 0, price_max: int = 0, has_photo: bool = False,
+                        negotiable: bool = False, sort: str = ""):
         s = store.settings
         products = _visible_products()
         categories = store.categories()
@@ -587,27 +710,19 @@ def create_app(store, providers: dict, bot=None, notify_new_order=None, notify_o
         q = q.strip()
         seller = seller.strip()
         condition = condition.strip()
-        if seller:
-            products = [p for p in products if p.get("seller_slug") == seller]
-        if price_min: products = [p for p in products if int(p.get("price", 0) or 0) >= price_min]
-        if price_max: products = [p for p in products if int(p.get("price", 0) or 0) <= price_max]
-        if has_photo: products = [p for p in products if p.get("photo") or p.get("photos")]
-        if negotiable: products = [p for p in products if p.get("negotiable") or p.get("allow bargaining")]
-        if cat:
-            products = [p for p in products if p.get("category") == cat]
-        if subcat:
-            products = [p for p in products if (p.get("subcategory") or "").strip() == subcat]
-        if condition:
-            products = [p for p in products if p.get("condition") == condition]
-        if q:
-            # умный поиск: опечатки, синонимы, ранжирование
-            scored = {pid: sc for pid, sc in store.search_products(q, limit=500)}
-            products = [p for p in products if p["id"] in scored]
-            products.sort(key=lambda p: -scored[p["id"]])
-        if sort == "price_asc": products.sort(key=lambda p: int(p.get("price", 0) or 0))
-        elif sort == "price_desc": products.sort(key=lambda p: int(p.get("price", 0) or 0), reverse=True)
-        elif sort == "new": products.sort(key=lambda p: p.get("created_at", ""), reverse=True)
-        elif sort == "rating": products.sort(key=lambda p: float(p.get("seller_rating", 0) or 0), reverse=True)
+        try:
+            price_min = max(0, int(price_min or 0))
+        except (TypeError, ValueError):
+            price_min = 0
+        try:
+            price_max = max(0, int(price_max or 0))
+        except (TypeError, ValueError):
+            price_max = 0
+        sort = sort if sort in ("", "price_asc", "price_desc", "new", "rating") else ""
+        products = _apply_catalog_filters(
+            products, cat=cat, sub=subcat, condition=condition, seller=seller,
+            price_min=price_min, price_max=price_max, has_photo=has_photo,
+            negotiable=negotiable, q=q, sort=sort)
         subs = store.subcategories(cat) if cat else []
         per_page = 24
         total = len(products)
@@ -635,10 +750,20 @@ def create_app(store, providers: dict, bot=None, notify_new_order=None, notify_o
         extra = []
         if q:
             extra.append("q=" + urllib.parse.quote(q))
-        if seller and not cat:
+        if seller:
             extra.append("seller=" + urllib.parse.quote(seller))
         if condition:
             extra.append("condition=" + urllib.parse.quote(condition))
+        if price_min:
+            extra.append("price_min=" + str(price_min))
+        if price_max:
+            extra.append("price_max=" + str(price_max))
+        if sort:
+            extra.append("sort=" + urllib.parse.quote(sort))
+        if has_photo:
+            extra.append("has_photo=true")
+        if negotiable:
+            extra.append("negotiable=true")
         url = _abs(request, path) + (("?" + "&".join(extra)) if extra else "")
         canon = url + (("&" if "?" in url else "?") + f"page={page}" if page > 1 else "")
         title = seo.page_title(s["shop_name"],
@@ -652,6 +777,8 @@ def create_app(store, providers: dict, bot=None, notify_new_order=None, notify_o
             heading=heading, sub=sub, products=page_products, categories=categories,
             cat=cat, subcat=subcat, subs=subs, condition=condition,
             condition_labels=CONDITION_LABELS, q=q, page=page, pages=pages, total=total,
+            seller=seller, price_min=price_min, price_max=price_max,
+            has_photo=has_photo, negotiable=negotiable, sort=sort,
             cat_emojis={c: cat_emoji(c) for c in categories},
             cat_slugs={c: slugify_ru(c) for c in categories},
         )
@@ -659,21 +786,32 @@ def create_app(store, providers: dict, bot=None, notify_new_order=None, notify_o
 
     @app.get("/catalog")
     async def catalog_page(request: Request, cat: str = "", q: str = "", page: int = 1,
-                           seller: str = "", sub: str = "", condition: str = ""):
+                           seller: str = "", sub: str = "", condition: str = "",
+                           price_min: int = 0, price_max: int = 0, has_photo: bool = False,
+                           negotiable: bool = False, sort: str = ""):
         return _render_catalog(request, cat=cat, q=q, page=page, seller=seller,
-                               subcat=sub, condition=condition)
+                               subcat=sub, condition=condition, price_min=price_min,
+                               price_max=price_max, has_photo=has_photo,
+                               negotiable=negotiable, sort=sort)
 
     @app.get("/catalog/{cat_slug}")
     async def catalog_cat_page(request: Request, cat_slug: str, q: str = "", page: int = 1,
-                               condition: str = ""):
+                               seller: str = "", condition: str = "",
+                               price_min: int = 0, price_max: int = 0, has_photo: bool = False,
+                               negotiable: bool = False, sort: str = ""):
         cat = _cat_by_slug(cat_slug)
         if not cat:
             raise HTTPException(404, "Категория не найдена")
-        return _render_catalog(request, cat=cat, q=q, page=page, condition=condition)
+        return _render_catalog(request, cat=cat, q=q, page=page, seller=seller,
+                               condition=condition, price_min=price_min,
+                               price_max=price_max, has_photo=has_photo,
+                               negotiable=negotiable, sort=sort)
 
     @app.get("/catalog/{cat_slug}/{sub_slug}")
     async def catalog_sub_page(request: Request, cat_slug: str, sub_slug: str, q: str = "",
-                               page: int = 1, condition: str = ""):
+                               page: int = 1, seller: str = "", condition: str = "",
+                               price_min: int = 0, price_max: int = 0, has_photo: bool = False,
+                               negotiable: bool = False, sort: str = ""):
         cat = _cat_by_slug(cat_slug)
         if not cat:
             raise HTTPException(404, "Категория не найдена")
@@ -685,7 +823,9 @@ def create_app(store, providers: dict, bot=None, notify_new_order=None, notify_o
         if not subcat:
             raise HTTPException(404, "Подкатегория не найдена")
         return _render_catalog(request, cat=cat, subcat=subcat, q=q, page=page,
-                               condition=condition)
+                               seller=seller, condition=condition, price_min=price_min,
+                               price_max=price_max, has_photo=has_photo,
+                               negotiable=negotiable, sort=sort)
 
     @app.get("/p/{product_id}")
     async def product_page(request: Request, product_id: int):
@@ -834,20 +974,28 @@ def create_app(store, providers: dict, bot=None, notify_new_order=None, notify_o
     @app.get("/sitemap.xml")
     async def sitemap(request: Request):
         base = _abs(request, "/")
-        urls = [(base, "daily", "1.0"), (base + "catalog", "daily", "0.9")]
-        urls += [(base + f"p/{p['id']}", "daily", "0.8") for p in store.products() if p.get("in_stock")]
-        urls += [(base + "blog", "weekly", "0.7"), (base + "download/android", "weekly", "0.8"), (base + "download/android/rustore", "weekly", "0.7"), (base + "privacy", "monthly", "0.4")]
-        urls += [(base + f"blog/{post['slug']}", "monthly", "0.6") for post in store.posts(published_only=True)]
+        def _day(v) -> str:
+            return str(v or "")[:10]
+        stamps = [(p.get("updated_at") or p.get("created_at") or "") for p in store.products()]
+        home_last = _day(max(stamps) if stamps else "")
+        urls = [(base, "daily", "1.0", home_last), (base + "catalog", "daily", "0.9", home_last)]
+        urls += [(base + f"p/{p['id']}", "daily", "0.8", _day(p.get("updated_at") or p.get("created_at")))
+                 for p in store.products() if p.get("in_stock")]
+        urls += [(base + "blog", "weekly", "0.7", ""), (base + "download/android", "weekly", "0.8", ""),
+                 (base + "download/android/rustore", "weekly", "0.7", ""), (base + "privacy", "monthly", "0.4", "")]
+        urls += [(base + f"blog/{post['slug']}", "monthly", "0.6", _day(post.get("updated_at") or post.get("created_at")))
+                 for post in store.posts(published_only=True)]
         if (store.settings.get("marketplace") or {}).get("enabled"):
-            urls += [(base + "sellers", "weekly", "0.7"), (base + "become-seller", "monthly", "0.6")]
-            urls += [(base + f"seller/{sl['slug']}", "weekly", "0.6") for sl in store.sellers("active")]
-        urls += [(base + f"catalog/{slugify_ru(c)}", "weekly", "0.7") for c in store.categories()]
+            urls += [(base + "sellers", "weekly", "0.7", ""), (base + "become-seller", "monthly", "0.6", "")]
+            urls += [(base + f"seller/{sl['slug']}", "weekly", "0.6", _day(sl.get("updated_at"))) for sl in store.sellers("active")]
+        urls += [(base + f"catalog/{slugify_ru(c)}", "weekly", "0.7", "") for c in store.categories()]
         for s in store.subcategories():
             if s.get("id"):
-                urls.append((base + f"catalog/{slugify_ru(s['category'])}/{s['slug']}", "weekly", "0.7"))
+                urls.append((base + f"catalog/{slugify_ru(s['category'])}/{s['slug']}", "weekly", "0.7", ""))
         xml = '<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n'
-        for u, freq, prio in urls:
-            xml += f"  <url><loc>{u}</loc><changefreq>{freq}</changefreq><priority>{prio}</priority></url>\n"
+        for u, freq, prio, lastmod in urls:
+            lastmod_tag = f"<lastmod>{lastmod}</lastmod>" if lastmod else ""
+            xml += f"  <url><loc>{u}</loc>{lastmod_tag}<changefreq>{freq}</changefreq><priority>{prio}</priority></url>\n"
         xml += "</urlset>"
         return Response(xml, media_type="application/xml")
 
@@ -877,9 +1025,26 @@ def create_app(store, providers: dict, bot=None, notify_new_order=None, notify_o
 
     @app.get("/metrics")
     async def metrics(x_metrics_token: str = Header(default="")):
+        """Блок 15: телеметрия без секретов — счётчики, латентность, статусы."""
         if config.METRICS_TOKEN and not hmac.compare_digest(x_metrics_token, config.METRICS_TOKEN):
             raise HTTPException(403, "Metrics access denied")
-        return {"requests": _request_metrics["requests"], "errors": _request_metrics["errors"]}
+        m = _request_metrics
+        total = max(1, m["requests"])
+        buckets = m["lat_buckets"]
+        p95 = 5.0
+        for b in sorted(buckets):
+            if buckets[b] / total >= 0.95:
+                p95 = b
+                break
+        return {"requests": m["requests"], "errors": m["errors"],
+                "error_rate": round(m["errors"] / total, 4),
+                "uptime_s": int(time.time() - m["started"]),
+                "latency": {"avg_ms": round(m["lat_sum"] / total * 1000, 1),
+                            "p95_le_ms": int(p95 * 1000),
+                            "max_ms": round(m["lat_max"] * 1000, 1)},
+                "statuses": dict(sorted(m["statuses"].items())),
+                "last_backup_error": (store.settings.get("cloud_state") or {})
+                                     .get("backup", {}).get("last_error", "")}
 
     @app.get("/health/live")
     async def health_live():
@@ -900,7 +1065,15 @@ def create_app(store, providers: dict, bot=None, notify_new_order=None, notify_o
             checks["data_dir"] = os.path.isdir(config.DATA_DIR) and os.access(config.DATA_DIR, os.W_OK)
         except OSError:
             checks["data_dir"] = False
-        ok = all(checks.values())
+        try:
+            import shutil as _shutil
+            free_mb = _shutil.disk_usage(config.DATA_DIR).free // (1024 * 1024)
+            checks["disk_free_mb"] = int(free_mb)
+            checks["disk"] = free_mb >= config.DISK_FREE_MIN_MB
+        except OSError:
+            checks["disk_free_mb"] = -1
+            checks["disk"] = False
+        ok = checks.get("database") and checks.get("config") and checks.get("data_dir") and checks.get("disk")
         payload = {"ok": ok, "checks": checks}
         if not ok: return JSONResponse(status_code=503, content=payload)
         return payload
@@ -971,33 +1144,41 @@ def create_app(store, providers: dict, bot=None, notify_new_order=None, notify_o
     async def catalog(q: str = "", cat: str = "", sub: str = "", condition: str = "",
                       seller: str = "", price_min: int = 0, price_max: int = 0,
                       has_photo: bool = False, negotiable: bool = False,
-                      sort: str = ""):
-        products = _visible_products()
-        if cat:
-            products = [p for p in products if p.get("category") == cat]
-        if sub:
-            products = [p for p in products if (p.get("subcategory") or "").strip() == sub]
-        if condition:
-            products = [p for p in products if p.get("condition") == condition]
-        if seller:
-            products = [p for p in products if p.get("seller_slug") == seller]
-        if price_min: products = [p for p in products if int(p.get("price", 0) or 0) >= price_min]
-        if price_max: products = [p for p in products if int(p.get("price", 0) or 0) <= price_max]
-        if has_photo: products = [p for p in products if p.get("photo") or p.get("photos")]
-        if negotiable: products = [p for p in products if p.get("negotiable") or p.get("allow bargaining")]
-        if q.strip():
-            scored = {pid: sc for pid, sc in store.search_products(q, limit=500)}
-            products = [p for p in products if p["id"] in scored]
-            products.sort(key=lambda p: -scored[p["id"]])
-        if sort == "price_asc": products.sort(key=lambda p: int(p.get("price", 0) or 0))
-        elif sort == "price_desc": products.sort(key=lambda p: int(p.get("price", 0) or 0), reverse=True)
-        elif sort == "new": products.sort(key=lambda p: p.get("created_at", ""), reverse=True)
-        elif sort == "rating": products.sort(key=lambda p: float(p.get("seller_rating", 0) or 0), reverse=True)
+                      sort: str = "", page: int = 1, per_page: int = 0):
+        sort = sort if sort in ("", "price_asc", "price_desc", "new", "rating") else ""
+        # валидация параметров (блок 09): без 500 на мусорном вводе
+        try:
+            price_min = max(0, int(price_min or 0))
+        except (TypeError, ValueError):
+            price_min = 0
+        try:
+            price_max = max(0, int(price_max or 0))
+        except (TypeError, ValueError):
+            price_max = 0
+        try:
+            page = max(1, int(page or 1))
+        except (TypeError, ValueError):
+            page = 1
+        try:
+            per_page = min(100, max(0, int(per_page or 0)))
+        except (TypeError, ValueError):
+            per_page = 0
+        products = _apply_catalog_filters(
+            _visible_products(), cat=cat.strip(), sub=sub.strip(), condition=condition.strip(),
+            seller=seller.strip(), price_min=price_min, price_max=price_max,
+            has_photo=has_photo, negotiable=negotiable, q=q, sort=sort)
+        total = len(products)
+        pages = max(1, (total + per_page - 1) // per_page) if per_page else 1
+        if per_page:
+            page = min(page, pages)
+            products = products[(page - 1) * per_page: page * per_page]
         subs = store.subcategories(cat) if cat else []
         return {"products": products, "categories": store.categories(),
                 "subcategories": subs,
                 "condition_labels": CONDITION_LABELS,
-                "marketplace": bool((store.settings.get("marketplace") or {}).get("enabled"))}
+                "marketplace": bool((store.settings.get("marketplace") or {}).get("enabled")),
+                "total": total, "page": page if per_page else 1,
+                "pages": pages, "per_page": per_page}
 
     @app.get("/api/marketing/utm")
     async def marketing_utm(url: str, source: str, medium: str="social", campaign: str="", content: str=""):
@@ -2804,6 +2985,37 @@ def create_app(store, providers: dict, bot=None, notify_new_order=None, notify_o
         if not cur.rowcount: raise HTTPException(404,"Задача не найдена")
         return {"ok":True,"status":"review","id":jid}
 
+    @app.post("/api/content/jobs/{jid}/fallback")
+    async def content_job_fallback(jid:int, x_wh_token:str=Header(default=""), x_admin_token:str=Header(default="")):
+        """Блок 23: локальный fallback-рендер слайдшоу без ИИ (media.py + ffmpeg).
+
+        Доступен для задач queued/processing/failed: рендерит ролик из фото
+        товара и переводит задачу в review. ИИ-провайдер не нужен.
+        """
+        wh_user_from_headers(x_wh_token, x_admin_token)
+        job = store._q1("SELECT * FROM content_jobs WHERE id=?", (jid,))
+        if not job:
+            raise HTTPException(404, "Задача не найдена")
+        if job["status"] not in ("queued", "processing", "failed"):
+            raise HTTPException(409, f"Fallback недоступен для статуса {job['status']}")
+        p = store.get_product(int(job["product_id"]))
+        if not p:
+            raise HTTPException(404, "Товар задачи не найден")
+        now = datetime.datetime.now().isoformat(timespec="seconds")
+        try:
+            url = media_module.generate_video(p, store.settings["shop_name"], seconds=8)
+        except Exception as e:
+            with store._conn:
+                store._conn.execute("UPDATE content_jobs SET status='failed',error=?,updated_at=? WHERE id=?",
+                                    (f"fallback render failed: {str(e)[:120]}", now, jid))
+            raise HTTPException(500, f"Не удалось собрать слайдшоу: {str(e)[:120]}")
+        with store._conn:
+            store._conn.execute(
+                "UPDATE content_jobs SET status='review',result_url=?,error='',provider='local-slideshow',updated_at=? WHERE id=?",
+                (url, now, jid))
+        store.wh_log_add("crm", "fallback-рендер слайдшоу", f"job {jid} -> {url}")
+        return {"ok": True, "status": "review", "result_url": url, "provider": "local-slideshow"}
+
     @app.get("/api/marketing/wildberries/audit")
     async def wildberries_audit(x_wh_token:str=Header(default=""), x_admin_token:str=Header(default="")):
         wh_user_from_headers(x_wh_token,x_admin_token)
@@ -3080,6 +3292,25 @@ def create_app(store, providers: dict, bot=None, notify_new_order=None, notify_o
         return store.wh_logs(100)
 
     # ------------------------------------------------------------------ склад: расширенные настройки
+    # Блок 13: allowlist полей cloud-конфигурации. Неизвестные поля (в том
+    # числе случайно попавшие в настройки секреты) при сохранении отбрасываются.
+    CLOUD_FIELDS = {
+        "enabled", "provider", "db_mode", "use_cdn",
+        "url", "key", "public_key", "supabase_schema", "supabase_table",
+        "bucket", "photo_prefix", "catalog_prefix", "backup_bucket", "backup_prefix",
+        "s3_preset", "s3_endpoint", "s3_access_key", "s3_secret_key", "s3_region",
+        "photo_provider", "yandex_disk_token", "yandex_disk_path",
+        "mysql_host", "mysql_port", "mysql_user", "mysql_database", "mysql_table",
+        "mysql_password",
+    }
+
+    def _is_secret_cloud_field(name: str) -> bool:
+        """Похоже ли имя поля на секрет (для динамической маскировки в GET)."""
+        if name == "s3_access_key":  # идентификатор ключа, не сам секрет
+            return False
+        kl = name.lower()
+        return "token" in kl or "secret" in kl or "password" in kl or kl.endswith("key")
+
     @app.get("/api/warehouse/settings")
     async def wh_settings(x_wh_token: str = Header(default=""),
                           x_admin_token: str = Header(default="")):
@@ -3097,10 +3328,16 @@ def create_app(store, providers: dict, bot=None, notify_new_order=None, notify_o
         cloud["supabase_schema"] = cloud.get("supabase_schema") or "public"
         cloud["supabase_table"] = cloud.get("supabase_table") or "products"
         # Секреты не возвращаем в явном виде: пустое поле в UI означает «оставить как есть».
-        cloud["key"] = "•••" if cloud.get("key") else ""
-        cloud["public_key"] = "•••" if cloud.get("public_key") else ""
-        cloud["s3_secret_key"] = "•••" if cloud.get("s3_secret_key") else ""
-        cloud["mysql_password"] = "•••" if cloud.get("mysql_password") else ""
+        masked = set()
+        for f in ("key", "public_key", "s3_secret_key", "mysql_password", "yandex_disk_token"):
+            cloud[f] = "•••" if cloud.get(f) else ""
+            masked.add(f)
+        # динамическая маскировка: любые другие secret-подобные поля (блок 13)
+        for f in list(cloud):
+            if f in masked or not _is_secret_cloud_field(f):
+                continue
+            cloud[f] = "•••" if cloud.get(f) else ""
+            masked.add(f)
         soc = s.get("social") or {}
         return {
             "cloud": cloud,
@@ -3123,9 +3360,13 @@ def create_app(store, providers: dict, bot=None, notify_new_order=None, notify_o
             raise HTTPException(403, "Только администратор склада")
         patch = {}
         if "cloud" in body:
-            current_cloud = dict(store.settings.get("cloud") or {})
-            incoming_cloud = dict(body["cloud"] or {})
-            for secret_field in ("key", "public_key", "s3_secret_key", "mysql_password", "yandex_disk_token"):
+            current_cloud = {k: v for k, v in (store.settings.get("cloud") or {}).items()
+                             if k in CLOUD_FIELDS}
+            incoming_cloud = {k: v for k, v in dict(body["cloud"] or {}).items()
+                              if k in CLOUD_FIELDS}
+            for secret_field in CLOUD_FIELDS:
+                if not _is_secret_cloud_field(secret_field):
+                    continue
                 incoming_value = str(incoming_cloud.get(secret_field, "") or "")
                 if incoming_value in ("", "•••"):
                     incoming_cloud[secret_field] = current_cloud.get(secret_field, "")
@@ -3191,6 +3432,8 @@ def create_app(store, providers: dict, bot=None, notify_new_order=None, notify_o
         st = store.settings.get("cloud_state") or {}
         c = store.settings.get("cloud") or {}
         backup = st.get("backup") or {}
+        backup["last_error"] = backup.get("last_error") or ""
+        backup["last_error_at"] = backup.get("last_error_at") or ""
         db_mode = cloudstore.database_mode(c)
         return {"enabled": bool(c.get("enabled")),
                 "provider": "s3",
@@ -3204,7 +3447,9 @@ def create_app(store, providers: dict, bot=None, notify_new_order=None, notify_o
                 "catalog_count": st.get("catalog_count") or 0,
                 "backup": {"at": backup.get("at") or "", "bucket": backup.get("bucket") or "",
                            "key": backup.get("key") or "", "size": backup.get("size") or 0,
-                           "path": backup.get("path") or ""}}
+                           "path": backup.get("path") or "",
+                           "last_error": backup.get("last_error") or "",
+                           "last_error_at": backup.get("last_error_at") or ""}}
 
     @app.get("/api/warehouse/direct/config")
     async def wh_direct_config(x_wh_token: str = Header(default=""),
@@ -3322,11 +3567,25 @@ def create_app(store, providers: dict, bot=None, notify_new_order=None, notify_o
         if user["role"] != "admin":
             raise HTTPException(403, "Только администратор склада")
         res = cloudstore.backup_db_to_cloud(store)
+
+        def _backup_state_err(err: str = ""):
+            st = dict(store.settings.get("cloud_state") or {})
+            b = dict(st.get("backup") or {})
+            if err:
+                b["last_error"], b["last_error_at"] = err[:200], datetime.datetime.now().isoformat(timespec="seconds")
+            else:
+                b.pop("last_error", None); b.pop("last_error_at", None)
+            st["backup"] = b
+            store.update_settings({"cloud_state": st})
+
         if res.get("ok"):
+            _backup_state_err()
             store.wh_log_add(user["name"], "бэкап SQLite в облако",
                              f"{res.get('path', '')} ({res.get('size', 0)} bytes)")
         else:
-            store.wh_log_add(user["name"], "ошибка бэкапа SQLite", res.get("error", ""))
+            # блок 15: неудачный бэкап фиксируется в диагностике и виден в /metrics
+            _backup_state_err(str(res.get("error") or "неизвестная ошибка бэкапа"))
+            store.wh_log_add(user["name"], "ошибка бэкапа SQLite", str(res.get("error", ""))[:120])
         return res
 
     @app.post("/api/warehouse/products/{pid}/publish")
@@ -3394,6 +3653,11 @@ def create_app(store, providers: dict, bot=None, notify_new_order=None, notify_o
         data = store.seller_public(slug)
         if not data or data["status"] != "active":
             raise HTTPException(404, "Магазин не найден")
+        try:
+            data["views"] = store.seller_track_view(int(data.get("id") or 0))
+            data["subscribers"] = store.store_subscription_list(int(data.get("id") or 0))
+        except Exception:
+            pass
         s = store.settings
         url = _abs(request, f"/seller/{slug}")
         ctx = _seo_ctx(
@@ -3815,6 +4079,130 @@ def create_app(store, providers: dict, bot=None, notify_new_order=None, notify_o
         if not r:
             raise HTTPException(404, "Предложение не найдено")
         return r
+
+    # ------------------------------------------------------------------ блок 16: Marketplace 2.0
+    def _seller_by_slug_or_404(slug: str) -> dict:
+        s = store.seller_public(slug)
+        if not s or s.get("status") not in ("active", "banned"):
+            raise HTTPException(404, "Магазин не найден")
+        return s
+
+    @app.post("/api/sellers/{slug}/subscribe")
+    async def seller_subscribe(slug: str, body: dict):
+        """Подписка покупателя на витрину («любимые магазины»)."""
+        s = _seller_by_slug_or_404(slug)
+        user_key = str(body.get("user_key") or "").strip()
+        if len(user_key) < 4:
+            raise HTTPException(422, "Укажите user_key покупателя")
+        r = store.store_subscribe(int(s["id"]), user_key)
+        return {**r, "subscribers": store.store_subscription_list(int(s["id"]))}
+
+    @app.post("/api/sellers/{slug}/unsubscribe")
+    async def seller_unsubscribe(slug: str, body: dict):
+        s = _seller_by_slug_or_404(slug)
+        user_key = str(body.get("user_key") or "").strip()
+        if len(user_key) < 4:
+            raise HTTPException(422, "Укажите user_key покупателя")
+        r = store.store_unsubscribe(int(s["id"]), user_key)
+        return {**r, "subscribers": store.store_subscription_list(int(s["id"]))}
+
+    @app.get("/api/my/subscriptions")
+    async def my_subscriptions(user_key: str = ""):
+        """Витрины покупателя с лентой новинок подписок."""
+        if len(user_key.strip()) < 4:
+            raise HTTPException(422, "Укажите user_key покупателя")
+        return {"stores": store.user_store_subscriptions(user_key.strip())}
+
+    @app.post("/api/reservations", status_code=201)
+    async def create_reservation(body: dict):
+        """Бронь товара покупателем (по умолчанию на 48ч)."""
+        buyer_key = str(body.get("buyer_key") or "").strip()
+        if len(buyer_key) < 4:
+            raise HTTPException(422, "Укажите buyer_key покупателя")
+        try:
+            r = store.create_reservation(int(body.get("product_id") or 0), buyer_key,
+                                         qty=int(body.get("qty") or 1),
+                                         hours=int(body.get("hours") or 48))
+        except ValueError as e:
+            raise HTTPException(422, str(e))
+        except (TypeError, ValueError):
+            raise HTTPException(422, "Некорректный product_id")
+        return r
+
+    @app.get("/api/reservations")
+    async def list_reservations(buyer_key: str = "", status: str = "active"):
+        if len(buyer_key.strip()) < 4:
+            raise HTTPException(422, "Укажите buyer_key покупателя")
+        out = []
+        for r in store.get_reservations(buyer_key=buyer_key.strip(), status=status):
+            p = store.get_product(int(r["product_id"]))
+            r["product"] = ({k: p[k] for k in ("id", "name", "price", "photo")}
+                            if p else None)
+            out.append(r)
+        return {"reservations": out}
+
+    @app.delete("/api/reservations/{rid}")
+    async def cancel_reservation(rid: int, body: dict):
+        buyer_key = str(body.get("buyer_key") or "").strip()
+        if len(buyer_key) < 4:
+            raise HTTPException(422, "Укажите buyer_key покупателя")
+        try:
+            return store.cancel_reservation(rid, buyer_key)
+        except ValueError as e:
+            raise HTTPException(403 if "прав" in str(e) else 404, str(e))
+
+    @app.post("/api/complaints", status_code=201)
+    async def create_complaint(body: dict):
+        """Жалоба на товар/продавца — уходит в модерацию админу."""
+        reporter = str(body.get("reporter_key") or body.get("user_key") or "").strip()
+        if len(reporter) < 4:
+            raise HTTPException(422, "Укажите reporter_key")
+        text = str(body.get("text") or "").strip()
+        if len(text) < 10:
+            raise HTTPException(422, "Опишите проблему подробнее (от 10 символов)")
+        try:
+            return store.create_complaint(int(body.get("product_id") or 0), reporter,
+                                          str(body.get("reason") or "other"), text)
+        except ValueError as e:
+            raise HTTPException(404, str(e))
+
+    @app.get("/admin/api/complaints")
+    async def admin_complaints(status: str = "", x_admin_token: str = Header(default="")):
+        require_admin(x_admin_token)
+        return {"complaints": store.get_complaints(status.strip())}
+
+    @app.post("/admin/api/complaints/{cid}/resolve")
+    async def admin_complaint_resolve(cid: int, body: dict, x_admin_token: str = Header(default="")):
+        """Решение по жалобе; опционально сразу бан продавца."""
+        require_admin(x_admin_token)
+        try:
+            r = store.resolve_complaint(cid, str(body.get("status") or ""), str(body.get("resolution") or ""))
+        except ValueError as e:
+            raise HTTPException(422, str(e))
+        if r and body.get("ban_seller") and int(r.get("seller_id") or 0):
+            store.ban_seller(int(r["seller_id"]), True)
+        return r
+
+    @app.post("/admin/api/sellers/{sid}/ban")
+    async def admin_seller_ban(sid: int, body: dict, x_admin_token: str = Header(default="")):
+        """Чёрный список: banned-продавец исчезает из выдачи и витрин."""
+        require_admin(x_admin_token)
+        try:
+            s = store.ban_seller(sid, bool(body.get("banned", True)))
+        except ValueError as e:
+            raise HTTPException(404, str(e))
+        store.wh_log_add("admin", "бан продавца" if body.get("banned", True) else "разбан продавца",
+                         f"seller id {sid}")
+        return {"ok": True, "seller": {"id": s["id"], "status": s["status"]}}
+
+    @app.post("/api/seller/products/{pid}/boost")
+    async def seller_boost_product(pid: int, x_seller_key: str = Header(default="")):
+        """"Поднять объявление" на 24ч (не чаще раза в 7 дней)."""
+        seller = require_seller(x_seller_key)
+        try:
+            return store.boost_product(pid, seller_id=int(seller["id"]))
+        except ValueError as e:
+            raise HTTPException(409, str(e))
 
     @app.post("/api/offers/{offer_id}/respond")
     async def respond_offer(offer_id: int, body: dict, x_seller_key: str = Header(default="")):

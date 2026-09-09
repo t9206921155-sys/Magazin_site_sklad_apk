@@ -5,16 +5,67 @@
     android:orientation="vertical"
     android:background="#F8FAFC">
 
-    <LinearLayout
+    <FrameLayout
         android:id="@+id/main_wrap"
         android:layout_width="match_parent"
-        android:layout_height="match_parent"
-        android:orientation="vertical">
+        android:layout_height="match_parent">
+
         <WebView
             android:id="@+id/webview"
             android:layout_width="match_parent"
             android:layout_height="match_parent" />
-    </LinearLayout>
+
+        <FrameLayout
+            android:id="@+id/error_wrap"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:background="#F8FAFC"
+            android:visibility="gone">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_gravity="center"
+                android:orientation="vertical"
+                android:padding="24dp">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_gravity="center_horizontal"
+                    android:text="📡"
+                    android:textSize="42sp" />
+
+                <TextView
+                    android:id="@+id/error_text"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="12dp"
+                    android:gravity="center"
+                    android:text="Сервер склада недоступен"
+                    android:textColor="#334155"
+                    android:textSize="15sp" />
+
+                <Button
+                    android:id="@+id/btn_retry"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="18dp"
+                    android:backgroundTint="#0F766E"
+                    android:text="Повторить подключение"
+                    android:textAllCaps="false" />
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="10dp"
+                    android:gravity="center"
+                    android:text="Долгое нажатие на экране склада — настройки APK"
+                    android:textColor="#94A3B8"
+                    android:textSize="12sp" />
+            </LinearLayout>
+        </FrameLayout>
+    </FrameLayout>
 
     <ScrollView
         android:id="@+id/setup_wrap"

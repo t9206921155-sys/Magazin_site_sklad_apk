@@ -1,0 +1,8 @@
+# не включать в git-архив (дистрибутив) служебные и «витринные» файлы;
+# APK/AAB добавляются в дистрибутив отдельно (build-distr.sh) — только текущая версия
+telegram-shop/screenshots/** export-ignore
+site-preview.png export-ignore
+ci-last-run.log export-ignore
+distr/** export-ignore
+telegram-shop/apk/*.apk export-ignore
+telegram-shop/aab/*.aab export-ignore
