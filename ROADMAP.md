@@ -176,9 +176,10 @@ VPS), **22** (ждёт официальный API-аудит Wildberries). В п
 склад, без покупательского и без сторов. Нативные фичи обёртки: сохранение
 файлов в «Загрузки», печать этикеток с телефона по Wi-Fi (:9100 ZPL/EPL),
 «экран не гаснет», вибро на скан, экран ошибки с «Повторить», приём сканов от
-ТСД (`sklad://scan?code=`). APK собран на GitHub Actions (2.6M, versionCode 8,
-подпись как у 1.0.6); ⏳ доставка артефактов в репо — после переподключения
-GitHub с правом workflows (GITHUB_TOKEN прогона read-only).
+ТСД (`sklad://scan?code=`). APK собран и доставлен в репо через CI
+(GitHub Actions, run-tests → ci-build-apk: 2.6M, versionCode 8, подпись как у
+1.0.6); сервер раздаёт 1.1.0 через `/apk/`, `/download/android`,
+`/api/releases/android` — встроенный update-check предложит обновление.
 
 **Порядок приоритета:** после инфраструктурных блоков 13–15 выполнять блоки 20 (SEO/продвижение), 21 (Content Hub и AI prompt queue), затем 22 (Wildberries), 23–24. Ручной блок 17 выполняется на staging параллельно, а автодеплой финализируется последним.
 
@@ -195,7 +196,7 @@ GitHub с правом workflows (GITHUB_TOKEN прогона read-only).
 | 23 | Content Hub и AI Video Queue | ✅ | 08.09.2026 | `blocks/BLOCK-23-content-hub-ai-queue.md` |
 | 24 | Campaign Manager и публикация по каналам | ✅ | 08.09.2026 | `blocks/BLOCK-24-campaign-manager.md` |
 | 25 | Мобильное приложение покупателя (Android) | ⏳ | — (Ф1); 15 (Ф2+) | `blocks/BLOCK-25-mobile-buyer-app.md` · ТЗ: `mobile/ANDROID-APP-TZ.md` |
-| 26 | Складской APK 1.1.0: нативные возможности | ✅* | 09.09.2026 | `blocks/BLOCK-26-sklad-apk-native.md` · *доставка артефактов — после переподключения GitHub |
+| 26 | Складской APK 1.1.0: нативные возможности | ✅ | 09.09.2026 | `blocks/BLOCK-26-sklad-apk-native.md` |
 
 ### Текущий прогресс (08.09.2026) — все кодовые блоки закрыты
 
