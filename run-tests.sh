@@ -1,6 +1,11 @@
 #!/usr/bin/env bash
 set -uo pipefail
-ROOT="$(cd "$(dirname "$0")" && pwd)"; cd "$ROOT/telegram-shop"
+ROOT="$(cd "$(dirname "$0")" && pwd)"
+# CI: дублируем весь вывод в файл — на Actions коммитим его в ветку для диагностики
+if [ -n "${GITHUB_EVENT_NAME:-}" ]; then
+  exec > >(tee /tmp/ci-run.log) 2>&1
+fi
+cd "$ROOT/telegram-shop"
 TMP_DB="$(mktemp -p "${TMPDIR:-/tmp}" magazin-tests-XXXXXX.db)"; LOG="${TMP_DB}.log"
 cleanup(){ [[ -n "${PID:-}" ]] && kill "$PID" 2>/dev/null || true; rm -f "$TMP_DB" "$LOG"; }
 trap cleanup EXIT
@@ -23,5 +28,18 @@ for f in warehouse/*.js webapp/*.js; do node --check "$f" || status=1; done
 # блок 26: после зелёных тестов собираем Android-релиз «Склад» (только на CI)
 if [ "$status" = 0 ]; then
   bash "$ROOT/ci-build-apk.sh" || status=1
+fi
+# CI: лог прогона — коммитом в ветку (диагностика + проверка прав на push)
+if [ -n "${GITHUB_EVENT_NAME:-}" ] && [ -n "${GITHUB_REF_NAME:-}" ] && [ -f /tmp/ci-run.log ]; then
+  cp /tmp/ci-run.log "$ROOT/ci-last-run.log"
+  git -C "$ROOT" config user.email "actions@github.com"
+  git -C "$ROOT" config user.name "github-actions[bot]"
+  git -C "$ROOT" add -f ci-last-run.log
+  if ! git -C "$ROOT" diff --cached --quiet; then
+    git -C "$ROOT" commit -q -m "CI: лог прогона (status=$status) [skip ci]"
+    git -C "$ROOT" push origin "HEAD:${GITHUB_REF_NAME}" \
+      && echo "ci-report: лог запушен" \
+      || echo "ci-report: push лога не удался (read-only GITHUB_TOKEN?)"
+  fi
 fi
 exit "$status"
