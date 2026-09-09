@@ -307,7 +307,7 @@ Note: Recompile with -Xlint:deprecation for details.
 > Task :app:createReleaseBundleListingFileRedirect
 > Task :app:bundleRelease
 
-BUILD SUCCESSFUL in 1m 31s
+BUILD SUCCESSFUL in 1m 32s
 50 actionable tasks: 50 executed
 
 [1;36m==>[0m Проверка подписи APK:
@@ -326,10 +326,8 @@ application-label:'Склад'
 
 [1;32mГОТОВО APK:[0m ../apk/Sklad-1.1.0-release.apk  (2.6M)
 [1;32mГОТОВО AAB:[0m ../aab/Sklad-1.1.0-release.aab  (2.5M)
-[arena/01a080a0-magazin-site-sklad-apk 5f6e487] CI: артефакты Sklad 1.1.0 (APK+AAB) [skip ci]
- 2 files changed, 0 insertions(+), 0 deletions(-)
- create mode 100644 telegram-shop/aab/Sklad-1.1.0-release.aab
- create mode 100644 telegram-shop/apk/Sklad-1.1.0-release.apk
+[arena/01a080a0-magazin-site-sklad-apk 7db15f0] CI: артефакты Sklad 1.1.0 (APK+AAB) [skip ci]
+ 1 file changed, 0 insertions(+), 0 deletions(-)
 To https://github.com/t9206921155-sys/Magazin_site_sklad_apk
-   4513876..5f6e487  HEAD -> arena/01a080a0-magazin-site-sklad-apk
+   ce4e1f9..7db15f0  HEAD -> arena/01a080a0-magazin-site-sklad-apk
 ci-build-apk: артефакты запушены в arena/01a080a0-magazin-site-sklad-apk
