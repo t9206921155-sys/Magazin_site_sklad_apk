@@ -32,6 +32,15 @@ fi
 # CI: лог прогона — коммитом в ветку (диагностика + проверка прав на push)
 if [ -n "${GITHUB_EVENT_NAME:-}" ] && [ -n "${GITHUB_REF_NAME:-}" ] && [ -f /tmp/ci-run.log ]; then
   cp /tmp/ci-run.log "$ROOT/ci-last-run.log"
+  # 1) аннотации: хвост лога чанками в base64 (читаются через API даже без доступа к логам)
+  tail -c 4200 /tmp/ci-run.log | base64 -w 640 > /tmp/ci-b64.txt
+  n=0
+  while IFS= read -r line; do
+    [ -n "$line" ] || continue
+    echo "::notice::CILOG[$n] $line"
+    n=$((n+1))
+  done < /tmp/ci-b64.txt
+  # 2) попытка закоммитить лог в ветку (проверка прав GITHUB_TOKEN на push)
   git -C "$ROOT" config user.email "actions@github.com"
   git -C "$ROOT" config user.name "github-actions[bot]"
   git -C "$ROOT" add -f ci-last-run.log
