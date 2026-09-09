@@ -18,7 +18,9 @@ AAB_NAME="Sklad-${APP_VERSION}-release.aab"
 GRADLE_VER="8.2.1"
 CACHE_BASE="${XDG_CACHE_HOME:-$HOME/.cache}/telegram-shop-apk"
 SDK_ROOT="${ANDROID_SDK_ROOT:-${CACHE_BASE}/android-sdk}"
-GRADLE_HOME="${GRADLE_HOME:-${CACHE_BASE}/gradle-${GRADLE_VER}}"
+# Пин без env-подмены: на GitHub Actions GRADLE_HOME указывает на системный Gradle 9.x,
+# несовместимый с AGP 8.x («Cannot mutate the dependencies of configuration»).
+GRADLE_HOME="${CACHE_BASE}/gradle-${GRADLE_VER}"
 JDK_HOME="${JDK17_HOME:-${CACHE_BASE}/jdk-17}"
 KEYSTORE_PASS="TgShop2026!"
 CMDLINE_TOOLS_URL="https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip"
