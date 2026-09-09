@@ -1,13 +1,20 @@
 name: build-apk
 
-# Блок 26 (Sklad 1.1.0): сборка Android-релиза «Склад» (APK + AAB).
-# В песочнице нет доступа к dl.google.com / services.gradle.org — собираем на раннере.
+# Блок 26 (Sklad 1.1.0): сборка Android-релиза «Склад» (APK + AAB) на раннере GitHub Actions.
+# В dev-песочнице нет доступа к dl.google.com / services.gradle.org — там сборка не выполняется.
+# Готовые артефакты коммитятся обратно в ветку (permissions: contents: write)
+# и отдаются сервером: /apk/Sklad-1.1.0-release.apk, /download/android, /api/releases/android.
 on:
   workflow_dispatch:
   push:
     paths:
       - "telegram-shop/apk-build/**"
-      - ".github/workflows/build-apk.yml"
+      - "telegram-shop/warehouse/**"
+
+# Поднимаем права GITHUB_TOKEN: по умолчанию в репо read-only,
+# поэтому пуш артефактов из run-tests.sh получал 403.
+permissions:
+  contents: write
 
 jobs:
   build:
@@ -26,7 +33,19 @@ jobs:
           cd telegram-shop/apk-build
           ./rebuild-apk.sh
 
-      - name: Upload artifacts
+      - name: Commit artifacts back to branch
+        run: |
+          git config user.email "actions@github.com"
+          git config user.name "github-actions[bot]"
+          git add telegram-shop/apk/Sklad-*-release.apk telegram-shop/aab/Sklad-*-release.aab
+          if git diff --cached --quiet; then
+            echo "Артефакты не изменились — пропуск"
+          else
+            git commit -m "CI: артефакты Sklad (APK+AAB)"
+            git push
+          fi
+
+      - name: Upload artifacts (history)
         uses: actions/upload-artifact@v4
         with:
           name: sklad-release
