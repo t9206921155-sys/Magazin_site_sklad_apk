@@ -223,5 +223,242 @@ health: 2 passed, 0 failed
   ✅ архивирован Б09АУДИТ дорогой
 
 47 passed, 0 failed
+1) Страница /download/app
+  ✅ страница отвечает 200
+  ✅ content-type text/html
+  ✅ заголовок про приложение
+  ✅ deep link shop://connect на странице
+  ✅ QR-ссылка /api/app/version/qr.svg
+  ✅ упомянут пакет ru.telegramshop.shop
+  ✅ нет inline onclick
+2) API /api/app/version
+  ✅ JSON 200
+  ✅ app=shop
+  ✅ package_id
+  ✅ version формата x.y.z
+  ✅ min_supported_version
+  ✅ deep_link_install
+  ✅ page_url указывает на /download/app
+  ✅ APK не собран: download_url — страница /download/app (фолбэк)
+  ℹ️ Shop-*.apk отсутствует в telegram-shop/apk — проверка раздачи пропущена (артефакт собирает CI)
+3) QR deep link
+  ✅ QR отдаётся SVG
+  ✅ QR — валидный SVG с данными
+  ✅ QR mode=install отдаётся
+4) Интеграция с сайтом
+  ✅ в футере есть ссылка /download/app
+  ✅ sitemap содержит /download/app
+  ✅ страница складского APK жива
+5) Безопасность страницы
+  ✅ CSP задан
+  ✅ X-Content-Type-Options
+  ✅ X-Frame-Options
+6) Пустой каталог не ломает страницу
+  ✅ страница с ?server= отвечает 200
+  ✅ адрес витрины подставлен
+
+Итого: 26 ok, 0 fail
+0) Подготовка: товар и продавец
+1) Строгий CSP на публичных страницах
+  ✅ /: 200
+  ✅ /: CSP задан
+  ✅ /: script-src 'self'
+  ✅ /: без unsafe-inline в script-src
+  ✅ /catalog: 200
+  ✅ /catalog: CSP задан
+  ✅ /catalog: script-src 'self'
+  ✅ /catalog: без unsafe-inline в script-src
+  ✅ /favorites: 200
+  ✅ /favorites: CSP задан
+  ✅ /favorites: script-src 'self'
+  ✅ /favorites: без unsafe-inline в script-src
+  ✅ /become-seller: 200
+  ✅ /become-seller: CSP задан
+  ✅ /become-seller: script-src 'self'
+  ✅ /become-seller: без unsafe-inline в script-src
+  ✅ /blog: 200
+  ✅ /blog: CSP задан
+  ✅ /blog: script-src 'self'
+  ✅ /blog: без unsafe-inline в script-src
+  ✅ /download/android: 200
+  ✅ /download/android: CSP задан
+  ✅ /download/android: script-src 'self'
+  ✅ /download/android: без unsafe-inline в script-src
+  ✅ /download/app: 200
+  ✅ /download/app: CSP задан
+  ✅ /download/app: script-src 'self'
+  ✅ /download/app: без unsafe-inline в script-src
+  ✅ /privacy: 200
+  ✅ /privacy: CSP задан
+  ✅ /privacy: script-src 'self'
+  ✅ /privacy: без unsafe-inline в script-src
+2) В HTML публичных страниц нет inline-скриптов и onclick
+  ✅ /: нет inline <script>
+  ✅ /: нет onclick=
+  ✅ /catalog: нет inline <script>
+  ✅ /catalog: нет onclick=
+  ✅ /favorites: нет inline <script>
+  ✅ /favorites: нет onclick=
+  ✅ /become-seller: нет inline <script>
+  ✅ /become-seller: нет onclick=
+  ✅ /blog: нет inline <script>
+  ✅ /blog: нет onclick=
+  ✅ /download/android: нет inline <script>
+  ✅ /download/android: нет onclick=
+  ✅ /download/app: нет inline <script>
+  ✅ /download/app: нет onclick=
+  ✅ /privacy: нет inline <script>
+  ✅ /privacy: нет onclick=
+  ✅ /p/12: нет inline <script>
+  ✅ /p/12: нет onclick=
+3) Страница товара: JS-файлы и JSON-LD на месте
+  ✅ подключён product-page.js
+  ✅ подключён page-common.js
+  ✅ data-product-id проставлен
+  ✅ JSON-LD сохранён
+  ✅ chat-кнопки без onclick
+4) Внешние JS-файлы отдаются
+  ✅ /site/js/page-common.js
+  ✅ /site/js/product-page.js
+  ✅ /site/js/home-page.js
+  ✅ /site/js/catalog-page.js
+  ✅ /site/js/favorites-page.js
+  ✅ /site/js/become-seller.js
+  ✅ /site/js/android-download.js
+  ✅ /site/js/android-rustore.js
+  ✅ /site/js/spa-bootstrap.js
+  ✅ /site/js/app-download.js
+5) Внутренние инструменты: только Report-Only
+  ✅ /shop: 200
+  ✅ /shop: enforce-CSP НЕ ставится
+  ✅ /shop: Report-Only задан
+  ✅ /app: 200
+  ✅ /app: enforce-CSP НЕ ставится
+  ✅ /app: Report-Only задан
+  ✅ /warehouse/: 200
+  ✅ /warehouse/: enforce-CSP НЕ ставится
+  ✅ /warehouse/: Report-Only задан
+  ✅ /admin/: 200
+  ✅ /admin/: enforce-CSP НЕ ставится
+  ✅ /admin/: Report-Only задан
+  ✅ /crm/: 200
+  ✅ /crm/: enforce-CSP НЕ ставится
+  ✅ /crm/: Report-Only задан
+6) Публичная витрина продавца — строгий CSP
+  ✅ витрина 200
+  ✅ витрина: CSP строгий
+7) SPA-страница /shop — shell без inline-скриптов
+  ✅ /shop: нет inline <script> после выноса bootstrap
+  ✅ /shop: подключён spa-bootstrap.js
+8) API не тронуты
+  ✅ /api/catalog 200
+  ✅ /health/ready 200
+
+Итого: 86 ok, 0 fail
 env keys: 18 documented, 0 missing
 ci-build-apk: артефакты 1.1.0 уже в репо — пропуск
+ci-build-shop-apk: собираю Shop 1.0.0 (code 1) на раннере...
+
+[1;36m==>[0m JDK: openjdk version "17.0.20.1" 2026-08-18
+
+[1;36m==>[0m Устанавливаю платформы Android (platform-tools, android-34, build-tools 34.0.0)...
+yes: standard output: Broken pipe
+
+[1;36m==>[0m Скачиваю Gradle 8.2.1...
+
+[1;36m==>[0m Gradle: 8.2.1
+
+[1;36m==>[0m Создаю общий ключ подписи (как у «Склада»)...
+
+[1;36m==>[0m Проверяю версию приложения (1.0.0 / code 1)...
+
+[1;36m==>[0m Собираю release APK и AAB...
+To honour the JVM settings for this build a single-use Daemon process will be forked. For more on this, please refer to https://docs.gradle.org/8.2.1/userguide/gradle_daemon.html#sec:disabling_the_daemon in the Gradle documentation.
+Daemon will be stopped at the end of the build 
+> Task :app:preBuild UP-TO-DATE
+> Task :app:preReleaseBuild UP-TO-DATE
+> Task :app:generateReleaseBuildConfig
+> Task :app:javaPreCompileRelease
+> Task :app:checkReleaseAarMetadata
+> Task :app:generateReleaseResValues
+> Task :app:mapReleaseSourceSetPaths
+> Task :app:generateReleaseResources
+> Task :app:mergeReleaseResources
+> Task :app:packageReleaseResources
+> Task :app:parseReleaseLocalResources
+> Task :app:createReleaseCompatibleScreenManifests
+> Task :app:extractDeepLinksRelease
+> Task :app:processReleaseMainManifest
+> Task :app:processReleaseManifest
+> Task :app:processReleaseManifestForPackage
+> Task :app:processReleaseResources
+
+> Task :app:compileReleaseJavaWithJavac
+Note: /home/runner/work/Magazin_site_sklad_apk/Magazin_site_sklad_apk/mobile/android-wrapper/app/src/main/java/ru/telegramshop/shop/MainActivity.java uses or overrides a deprecated API.
+Note: Recompile with -Xlint:deprecation for details.
+
+> Task :app:extractProguardFiles
+> Task :app:generateReleaseLintVitalReportModel
+> Task :app:lintVitalAnalyzeRelease
+> Task :app:lintVitalReportRelease
+> Task :app:lintVitalRelease
+> Task :app:mergeReleaseJniLibFolders
+> Task :app:mergeReleaseNativeLibs NO-SOURCE
+> Task :app:stripReleaseDebugSymbols NO-SOURCE
+> Task :app:extractReleaseNativeSymbolTables NO-SOURCE
+> Task :app:mergeReleaseNativeDebugMetadata NO-SOURCE
+> Task :app:checkReleaseDuplicateClasses
+> Task :app:dexBuilderRelease
+> Task :app:desugarReleaseFileDependencies
+> Task :app:mergeExtDexRelease
+> Task :app:mergeDexRelease
+> Task :app:mergeReleaseArtProfile
+> Task :app:mergeReleaseGlobalSynthetics
+> Task :app:compileReleaseArtProfile
+> Task :app:mergeReleaseShaders
+> Task :app:compileReleaseShaders NO-SOURCE
+> Task :app:generateReleaseAssets UP-TO-DATE
+> Task :app:mergeReleaseAssets
+> Task :app:compressReleaseAssets
+> Task :app:processReleaseJavaRes NO-SOURCE
+> Task :app:mergeReleaseJavaResource
+> Task :app:optimizeReleaseResources
+> Task :app:collectReleaseDependencies
+> Task :app:sdkReleaseDependencyData
+> Task :app:validateSigningRelease
+> Task :app:writeReleaseAppMetadata
+> Task :app:writeReleaseSigningConfigVersions
+> Task :app:packageRelease
+> Task :app:createReleaseApkListingFileRedirect
+> Task :app:assembleRelease
+> Task :app:processApplicationManifestReleaseForBundle
+> Task :app:bundleReleaseResources
+> Task :app:buildReleasePreBundle
+> Task :app:configureReleaseDependencies
+> Task :app:parseReleaseIntegrityConfig
+> Task :app:packageReleaseBundle
+> Task :app:signReleaseBundle
+> Task :app:produceReleaseBundleIdeListingFile
+> Task :app:createReleaseBundleListingFileRedirect
+> Task :app:bundleRelease
+
+BUILD SUCCESSFUL in 1m 32s
+50 actionable tasks: 50 executed
+
+[1;36m==>[0m Проверка подписи APK:
+Signer #1 certificate DN: CN=Telegram Shop, OU=Sklad, O=TelegramShop, L=Riga, C=LV
+Signer #1 certificate SHA-256 digest: 73c096bd09d62fa34f6df8dcf88c3c00e09b914d59e2bcdace19442aafc9d8c0
+Signer #1 certificate SHA-1 digest: 19b3442b9f77b5bb1b4c5806a37633580b9018af
+
+[1;36m==>[0m Проверка подписи AAB:
+AAB signature: OK
+
+[1;36m==>[0m Информация об APK:
+package: name='ru.telegramshop.shop' versionCode='1' versionName='1.0.0' platformBuildVersionName='14' platformBuildVersionCode='34' compileSdkVersion='34' compileSdkVersionCodename='14'
+sdkVersion:'23'
+targetSdkVersion:'34'
+application-label:'Магазин'
+
+[1;32mГОТОВО APK:[0m ../../apk/Shop-1.0.0-release.apk  (2.4M)
+[1;32mГОТОВО AAB:[0m ../../aab/Shop-1.0.0-release.aab  (2.3M)
+ci-build-shop-apk: сборка не дала артефактов
