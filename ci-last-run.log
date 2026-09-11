@@ -440,7 +440,7 @@ Note: Recompile with -Xlint:deprecation for details.
 > Task :app:createReleaseBundleListingFileRedirect
 > Task :app:bundleRelease
 
-BUILD SUCCESSFUL in 1m 34s
+BUILD SUCCESSFUL in 1m 28s
 50 actionable tasks: 50 executed
 
 [1;36m==>[0m Проверка подписи APK:
@@ -459,9 +459,10 @@ application-label:'Магазин'
 
 [1;32mГОТОВО APK:[0m ../../telegram-shop/apk/Shop-1.0.0-release.apk  (2.4M)
 [1;32mГОТОВО AAB:[0m ../../telegram-shop/aab/Shop-1.0.0-release.aab  (2.3M)
-The following paths are ignored by one of your .gitignore files:
-telegram-shop/aab/Shop-1.0.0-release.aab
-telegram-shop/apk/Shop-1.0.0-release.apk
-hint: Use -f if you really want to add them.
-hint: Disable this message with "git config set advice.addIgnoredFile false"
-ci-build-shop-apk: нечего коммитить
+[arena/01a08b6f-magazin-site-sklad-apk 0d9a85c] CI: артефакты Shop 1.0.0 (APK+AAB) [skip ci]
+ 2 files changed, 0 insertions(+), 0 deletions(-)
+ create mode 100644 telegram-shop/aab/Shop-1.0.0-release.aab
+ create mode 100644 telegram-shop/apk/Shop-1.0.0-release.apk
+To https://github.com/t9206921155-sys/Magazin_site_sklad_apk
+   7689dec..0d9a85c  HEAD -> arena/01a08b6f-magazin-site-sklad-apk
+ci-build-shop-apk: артефакты запушены в arena/01a08b6f-magazin-site-sklad-apk
