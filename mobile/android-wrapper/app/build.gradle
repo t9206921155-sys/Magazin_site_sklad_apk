@@ -20,7 +20,7 @@ android {
     signingConfigs {
         release {
             // Решение владельца (блок 25, Фаза 0): общий keystore со «Складом».
-            storeFile file('../../../apk-build/keystore/telegramshop.keystore')
+            storeFile file('../../../telegram-shop/apk-build/keystore/telegramshop.keystore')
             storePassword 'TgShop2026!'
             keyAlias 'telegramshop'
             keyPassword 'TgShop2026!'

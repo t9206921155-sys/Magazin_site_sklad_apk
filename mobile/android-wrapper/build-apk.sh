@@ -26,7 +26,7 @@ SDK_ROOT="${ANDROID_SDK_ROOT:-${CACHE_BASE}/android-sdk}"
 GRADLE_HOME="${CACHE_BASE}/gradle-${GRADLE_VER}"
 JDK_HOME="${JDK17_HOME:-${CACHE_BASE}/jdk-17}"
 KEYSTORE_PASS="TgShop2026!"
-KEYSTORE_PATH="../../apk-build/keystore/telegramshop.keystore"
+KEYSTORE_PATH="../../telegram-shop/apk-build/keystore/telegramshop.keystore"
 CMDLINE_TOOLS_URL="https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip"
 JDK_URL="https://api.adoptium.net/v3/binary/latest/17/ga/linux/x64/jdk/hotspot/normal/eclipse"
 
@@ -121,13 +121,13 @@ build_release_artifacts() {
   "${GRADLE_HOME}/bin/gradle" assembleRelease bundleRelease -PshopUrl="${DEFAULT_URL}" --no-daemon --console=plain
   popd >/dev/null
 
-  mkdir -p ../../apk ../../aab
-  rm -f ../../apk/Shop-*-release.apk ../../aab/Shop-*-release.aab
+  mkdir -p ../../telegram-shop/apk ../../telegram-shop/aab
+  rm -f ../../telegram-shop/apk/Shop-*-release.apk ../../telegram-shop/aab/Shop-*-release.aab
 
   local apk="app/build/outputs/apk/release/app-release.apk"
   local aab="app/build/outputs/bundle/release/app-release.aab"
-  local out_apk="../../apk/${APK_NAME}"
-  local out_aab="../../aab/${AAB_NAME}"
+  local out_apk="../../telegram-shop/apk/${APK_NAME}"
+  local out_aab="../../telegram-shop/aab/${AAB_NAME}"
   cp -f "${apk}" "${out_apk}"
   cp -f "${aab}" "${out_aab}"
 
