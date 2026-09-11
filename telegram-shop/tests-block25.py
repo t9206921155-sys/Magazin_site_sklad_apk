@@ -75,7 +75,7 @@ if shop_apks:
     ok("download_url ведёт на APK", d.get("download_url", "").endswith("/" + fname), d.get("download_url"))
     c2, raw2, h2 = get("/apk/" + fname)
     ok("APK раздаётся по /apk/", c2 == 200, c2)
-    ok("content-type APK", "android.package-archive" in h2.get("Content-Type", "") or "octet-stream" in h2.get("Content-Type", ""), h2.get("Content-Type"))
+    ok("content-type APK", "android.package-archive" in h2.get("content-type", "") or "octet-stream" in h2.get("content-type", ""), h2.get("Content-Type"))
 else:
     ok("APK не собран: download_url — страница /download/app (фолбэк)", d.get("download_url", "").endswith("/download/app"), d.get("download_url"))
     print("  ℹ️ Shop-*.apk отсутствует в telegram-shop/apk — проверка раздачи пропущена (артефакт собирает CI)")
