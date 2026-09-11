@@ -301,23 +301,5 @@
 
 <div class="hint copy-feedback" id="copy-feedback"></div>
 
-<script>
-(function () {
-  var feedback = document.getElementById('copy-feedback');
-  document.querySelectorAll('[data-copy-target]').forEach(function (btn) {
-    btn.addEventListener('click', async function () {
-      var field = document.getElementById(btn.dataset.copyTarget);
-      var text = field ? field.value : '';
-      try {
-        await navigator.clipboard.writeText(text);
-        feedback.textContent = '✅ Поле скопировано';
-        feedback.style.color = '#10b981';
-      } catch (e) {
-        feedback.textContent = '❌ Не удалось скопировать';
-        feedback.style.color = '#ef4444';
-      }
-    });
-  });
-})();
-</script>
+<script src="/site/js/android-rustore.js" defer></script>
 {% endblock %}

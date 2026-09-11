@@ -1,6 +1,6 @@
 # 📱 ТЗ: Мобильное приложение покупателя (Android)
 
-> Дата: 08.09.2026 · Статус: на согласование
+> Дата: 08.09.2026 · Статус: согласовано; **Фаза 1 реализована 11.09.2026** (см. отчёт `blocks/BLOCK-25-mobile-buyer-app.md`)
 > Заказчик проекта: Telegram Shop / маркетплейс б/у вещей
 > Связанные документы: `MARKETPLACE-PLAN.md` (3.7 Mobile-first/PWA), `ROADMAP.md`, `blocks/BLOCK-25-mobile-buyer-app.md`
 

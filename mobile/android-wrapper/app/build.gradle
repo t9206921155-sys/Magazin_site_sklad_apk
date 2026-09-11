@@ -1,0 +1,54 @@
+plugins {
+    id 'com.android.application'
+}
+
+android {
+    namespace 'ru.telegramshop.shop'
+    compileSdk 34
+
+    defaultConfig {
+        applicationId "ru.telegramshop.shop"
+        minSdk 23
+        targetSdk 34
+        versionCode 1
+        versionName "1.0.0"
+        // Витрина по умолчанию: передаётся при сборке -PshopUrl=https://...
+        // Если пусто — при первом запуске приложение покажет экран ввода адреса.
+        buildConfigField "String", "SHOP_URL", "\"${project.findProperty('shopUrl') ?: ''}\""
+    }
+
+    signingConfigs {
+        release {
+            // Решение владельца (блок 25, Фаза 0): общий keystore со «Складом».
+            storeFile file('../../../apk-build/keystore/telegramshop.keystore')
+            storePassword 'TgShop2026!'
+            keyAlias 'telegramshop'
+            keyPassword 'TgShop2026!'
+        }
+    }
+
+    buildTypes {
+        debug {
+            applicationIdSuffix '.debug'
+            versionNameSuffix '-debug'
+        }
+        release {
+            minifyEnabled false
+            shrinkResources false
+            signingConfig signingConfigs.release
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+
+    buildFeatures {
+        buildConfig true
+    }
+}
+
+dependencies {
+    implementation 'androidx.appcompat:appcompat:1.6.1'
+}
