@@ -22,12 +22,18 @@ node tests-hid-scanner.js || status=1
 python3 tests-stage5.py "$BASE" || status=1
 python3 tests-block06.py "$BASE" || status=1
 python3 tests-block09.py "$BASE" || status=1
+python3 tests-block25.py "$BASE" || status=1
+python3 tests-block27.py "$BASE" || status=1
 python3 scripts/check-env-keys.py || status=1
 python3 -m py_compile *.py || status=1
 for f in warehouse/*.js webapp/*.js; do node --check "$f" || status=1; done
 # блок 26: после зелёных тестов собираем Android-релиз «Склад» (только на CI)
 if [ "$status" = 0 ]; then
   bash "$ROOT/ci-build-apk.sh" || status=1
+fi
+# блок 25: после зелёных тестов собираем покупательское приложение (только на CI)
+if [ "$status" = 0 ]; then
+  bash "$ROOT/ci-build-shop-apk.sh" || status=1
 fi
 # CI: лог прогона — коммитом в ветку (диагностика + проверка прав на push)
 if [ -n "${GITHUB_EVENT_NAME:-}" ] && [ -n "${GITHUB_REF_NAME:-}" ] && [ -f /tmp/ci-run.log ]; then

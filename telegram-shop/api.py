@@ -242,6 +242,27 @@ def create_app(store, providers: dict, bot=None, notify_new_order=None, notify_o
                 return JSONResponse(status_code=429, content={"detail": "Слишком много запросов. Повторите через минуту."})
         return await call_next(request)
 
+    # ── Блок 27: Content-Security-Policy ────────────────────────────────────
+    # Публичные SSR-страницы не содержат inline-скриптов (вынесены в /site/js/*.js),
+    # поэтому для них действует строгий CSP. Внутренние инструменты (Mini App,
+    # склад-PWA, админка, CRM, кабинет продавца) пока используют inline-обработчики —
+    # им политика отдаётся в режиме Report-Only (не ломает работу; вынос inline-JS —
+    # бэктлог). Заголовок ставится только для HTML-документов.
+    CSP_SELF_POLICY = (
+        "default-src 'self'; "
+        "script-src 'self'; "
+        "style-src 'self' 'unsafe-inline'; "
+        "img-src 'self' data: blob: https:; "
+        "font-src 'self' data:; "
+        "connect-src 'self' https: wss:; "
+        "media-src 'self' blob:; "
+        "object-src 'none'; "
+        "base-uri 'self'; "
+        "form-action 'self'"
+    )
+    CSP_RELAXED_PREFIXES = ("/app", "/warehouse", "/admin", "/crm", "/shop", "/api",
+                            "/media", "/site", "/apk", "/aab", "/distr", "/1c", "/docs")
+
     @app.middleware("http")
     async def security_headers(request: Request, call_next):
         response = await call_next(request)
@@ -250,6 +271,14 @@ def create_app(store, providers: dict, bot=None, notify_new_order=None, notify_o
         response.headers.setdefault("Referrer-Policy", "strict-origin-when-cross-origin")
         response.headers.setdefault("Permissions-Policy", "camera=(self), geolocation=()")
         if request.url.scheme == "https": response.headers.setdefault("Strict-Transport-Security", "max-age=31536000; includeSubDomains")
+        ctype = response.headers.get("content-type", "")
+        if ctype.split(";")[0].strip() == "text/html":
+            path = request.url.path
+            relaxed = path.startswith(CSP_RELAXED_PREFIXES) or path in ("/seller", "/seller/")
+            if relaxed:
+                response.headers.setdefault("Content-Security-Policy-Report-Only", CSP_SELF_POLICY)
+            else:
+                response.headers.setdefault("Content-Security-Policy", CSP_SELF_POLICY)
         return response
 
     @app.middleware("http")
@@ -568,6 +597,105 @@ def create_app(store, providers: dict, bot=None, notify_new_order=None, notify_o
             publication=publication,
         )
         return _render(request, "android_rustore.html", ctx)
+
+    # ── Блок 25, Фаза 1: покупательское Android-приложение (Shop) ──────────
+
+    SHOP_APP_PACKAGE = "ru.telegramshop.shop"
+    SHOP_MIN_SUPPORTED_VERSION = "1.0.0"
+
+    def _shop_release_files(request: Request) -> dict:
+        """Релизы покупательского приложения: файлы Shop-*.apk / Shop-*.aab в apk/aab."""
+        files = []
+        for kind, folder, url_prefix, ext in (("apk", apk_dir, "/apk/", ".apk"), ("aab", aab_dir, "/aab/", ".aab")):
+            for name in sorted(os.listdir(folder)):
+                if not name.startswith("Shop-") or not name.lower().endswith(ext):
+                    continue
+                path = os.path.join(folder, name)
+                if not os.path.isfile(path):
+                    continue
+                st = os.stat(path)
+                files.append({
+                    "kind": kind,
+                    "filename": name,
+                    "version": name.replace("Shop-", "").replace(f"-release{ext}", ""),
+                    "size_bytes": int(st.st_size),
+                    "size_human": _human_size(int(st.st_size)),
+                    "sha256": _sha256_file(path),
+                    "updated_at": datetime.datetime.fromtimestamp(st.st_mtime).strftime("%d.%m.%Y %H:%M"),
+                    "mtime": float(st.st_mtime),
+                    "download_url": _abs(request, url_prefix + urllib.parse.quote(name)),
+                })
+        files.sort(key=lambda x: x["mtime"], reverse=True)
+        latest_apk = next((x for x in files if x["kind"] == "apk"), None)
+        latest_aab = next((x for x in files if x["kind"] == "aab"), None)
+        return {"files": files, "latest_apk": latest_apk, "latest_aab": latest_aab}
+
+    def _recommended_storefront_url(request: Request, raw: str = "") -> str:
+        """Адрес витрины для deep link: origin + / (без пути/запроса)."""
+        candidate = (raw or "").strip()
+        if not candidate:
+            return _abs(request, "/")
+        if not candidate.startswith(("http://", "https://")):
+            candidate = "https://" + candidate
+        try:
+            u = urllib.parse.urlparse(candidate)
+            scheme = u.scheme or "https"
+            netloc = u.netloc or u.path
+            return urllib.parse.urlunparse((scheme, netloc, "/", "", "", ""))
+        except Exception:
+            return _abs(request, "/")
+
+    def _shop_deep_link(mode: str, server_url: str) -> str:
+        if mode == "install":
+            return "shop://install"
+        host = "setup" if mode == "setup" else "connect"
+        return f"shop://{host}?url={urllib.parse.quote(server_url, safe='')}"
+
+    @app.get("/api/app/version")
+    async def api_shop_app_version(request: Request):
+        """Проверка обновлений покупательского APK (используется обёрткой блока 25)."""
+        data = _shop_release_files(request)
+        latest = data["latest_apk"] or data["latest_aab"] or {}
+        return {
+            "app": "shop",
+            "package_id": SHOP_APP_PACKAGE,
+            "version": latest.get("version", "1.0.0"),
+            "min_supported_version": SHOP_MIN_SUPPORTED_VERSION,
+            "download_url": latest.get("download_url") or _abs(request, "/download/app"),
+            "page_url": _abs(request, "/download/app"),
+            "deep_link_install": "shop://install",
+            "updated_at": latest.get("updated_at", ""),
+        }
+
+    @app.get("/api/app/version/qr.svg")
+    async def api_shop_app_qr(request: Request, mode: str = "connect", server: str = ""):
+        recommended = _recommended_storefront_url(request, server)
+        payload = _shop_deep_link(mode, recommended)
+        return Response(_android_qr_svg(payload), media_type="image/svg+xml")
+
+    @app.get("/download/app")
+    async def shop_app_download_page(request: Request):
+        data = _shop_release_files(request)
+        latest_apk = data["latest_apk"]
+        latest_aab = data["latest_aab"]
+        latest_version = (latest_apk or latest_aab or {}).get("version", "1.0.0")
+        recommended_server_url = _recommended_storefront_url(request, request.query_params.get("server", ""))
+        ctx = _seo_ctx(
+            request,
+            title=seo.page_title(store.settings["shop_name"], "Скачать приложение магазина для Android"),
+            description=f"Приложение покупателя для Android: каталог, корзина, оплата и заказы. Версия {latest_version}. QR и deep link для быстрого подключения.",
+            canonical=_abs(request, "/download/app"),
+            latest_apk=latest_apk,
+            latest_aab=latest_aab,
+            release_files=data["files"],
+            recommended_server_url=recommended_server_url,
+            deep_link_setup=_shop_deep_link("setup", recommended_server_url),
+            deep_link_connect=_shop_deep_link("connect", recommended_server_url),
+            connect_qr_svg=_abs(request, "/api/app/version/qr.svg?mode=connect&server=" + urllib.parse.quote(recommended_server_url, safe="")),
+            setup_qr_svg=_abs(request, "/api/app/version/qr.svg?mode=setup&server=" + urllib.parse.quote(recommended_server_url, safe="")),
+            latest_version=latest_version,
+        )
+        return _render(request, "app_download.html", ctx)
 
     @app.get("/privacy")
     async def privacy_page(request: Request):
@@ -982,6 +1110,7 @@ def create_app(store, providers: dict, bot=None, notify_new_order=None, notify_o
         urls += [(base + f"p/{p['id']}", "daily", "0.8", _day(p.get("updated_at") or p.get("created_at")))
                  for p in store.products() if p.get("in_stock")]
         urls += [(base + "blog", "weekly", "0.7", ""), (base + "download/android", "weekly", "0.8", ""),
+                 (base + "download/app", "weekly", "0.8", ""),
                  (base + "download/android/rustore", "weekly", "0.7", ""), (base + "privacy", "monthly", "0.4", "")]
         urls += [(base + f"blog/{post['slug']}", "monthly", "0.6", _day(post.get("updated_at") or post.get("created_at")))
                  for post in store.posts(published_only=True)]

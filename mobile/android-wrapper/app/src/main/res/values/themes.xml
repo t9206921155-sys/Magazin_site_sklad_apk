@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="Theme.Shop" parent="Theme.AppCompat.Light.NoActionBar">
+        <item name="colorPrimary">@color/indigo</item>
+        <item name="colorPrimaryDark">#4338CA</item>
+        <item name="colorAccent">@color/indigo</item>
+        <item name="android:statusBarColor">#4338CA</item>
+        <item name="android:windowBackground">#FFFFFF</item>
+    </style>
+</resources>

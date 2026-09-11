@@ -223,5 +223,140 @@ health: 2 passed, 0 failed
   ✅ архивирован Б09АУДИТ дорогой
 
 47 passed, 0 failed
+1) Страница /download/app
+  ✅ страница отвечает 200
+  ✅ content-type text/html
+  ✅ заголовок про приложение
+  ✅ deep link shop://connect на странице
+  ✅ QR-ссылка /api/app/version/qr.svg
+  ✅ упомянут пакет ru.telegramshop.shop
+  ✅ нет inline onclick
+2) API /api/app/version
+  ✅ JSON 200
+  ✅ app=shop
+  ✅ package_id
+  ✅ version формата x.y.z
+  ✅ min_supported_version
+  ✅ deep_link_install
+  ✅ page_url указывает на /download/app
+  ✅ версия совпадает с собранным APK
+  ✅ download_url ведёт на APK
+  ✅ APK раздаётся по /apk/
+  ✅ content-type APK
+3) QR deep link
+  ✅ QR отдаётся SVG
+  ✅ QR — валидный SVG с данными
+  ✅ QR mode=install отдаётся
+4) Интеграция с сайтом
+  ✅ в футере есть ссылка /download/app
+  ✅ sitemap содержит /download/app
+  ✅ страница складского APK жива
+5) Безопасность страницы
+  ✅ CSP задан
+  ✅ X-Content-Type-Options
+  ✅ X-Frame-Options
+6) Пустой каталог не ломает страницу
+  ✅ страница с ?server= отвечает 200
+  ✅ адрес витрины подставлен
+
+Итого: 29 ok, 0 fail
+0) Подготовка: товар и продавец
+1) Строгий CSP на публичных страницах
+  ✅ /: 200
+  ✅ /: CSP задан
+  ✅ /: script-src 'self'
+  ✅ /: без unsafe-inline в script-src
+  ✅ /catalog: 200
+  ✅ /catalog: CSP задан
+  ✅ /catalog: script-src 'self'
+  ✅ /catalog: без unsafe-inline в script-src
+  ✅ /favorites: 200
+  ✅ /favorites: CSP задан
+  ✅ /favorites: script-src 'self'
+  ✅ /favorites: без unsafe-inline в script-src
+  ✅ /become-seller: 200
+  ✅ /become-seller: CSP задан
+  ✅ /become-seller: script-src 'self'
+  ✅ /become-seller: без unsafe-inline в script-src
+  ✅ /blog: 200
+  ✅ /blog: CSP задан
+  ✅ /blog: script-src 'self'
+  ✅ /blog: без unsafe-inline в script-src
+  ✅ /download/android: 200
+  ✅ /download/android: CSP задан
+  ✅ /download/android: script-src 'self'
+  ✅ /download/android: без unsafe-inline в script-src
+  ✅ /download/app: 200
+  ✅ /download/app: CSP задан
+  ✅ /download/app: script-src 'self'
+  ✅ /download/app: без unsafe-inline в script-src
+  ✅ /privacy: 200
+  ✅ /privacy: CSP задан
+  ✅ /privacy: script-src 'self'
+  ✅ /privacy: без unsafe-inline в script-src
+2) В HTML публичных страниц нет inline-скриптов и onclick
+  ✅ /: нет inline <script>
+  ✅ /: нет onclick=
+  ✅ /catalog: нет inline <script>
+  ✅ /catalog: нет onclick=
+  ✅ /favorites: нет inline <script>
+  ✅ /favorites: нет onclick=
+  ✅ /become-seller: нет inline <script>
+  ✅ /become-seller: нет onclick=
+  ✅ /blog: нет inline <script>
+  ✅ /blog: нет onclick=
+  ✅ /download/android: нет inline <script>
+  ✅ /download/android: нет onclick=
+  ✅ /download/app: нет inline <script>
+  ✅ /download/app: нет onclick=
+  ✅ /privacy: нет inline <script>
+  ✅ /privacy: нет onclick=
+  ✅ /p/12: нет inline <script>
+  ✅ /p/12: нет onclick=
+3) Страница товара: JS-файлы и JSON-LD на месте
+  ✅ подключён product-page.js
+  ✅ подключён page-common.js
+  ✅ data-product-id проставлен
+  ✅ JSON-LD сохранён
+  ✅ chat-кнопки без onclick
+4) Внешние JS-файлы отдаются
+  ✅ /site/js/page-common.js
+  ✅ /site/js/product-page.js
+  ✅ /site/js/home-page.js
+  ✅ /site/js/catalog-page.js
+  ✅ /site/js/favorites-page.js
+  ✅ /site/js/become-seller.js
+  ✅ /site/js/android-download.js
+  ✅ /site/js/android-rustore.js
+  ✅ /site/js/spa-bootstrap.js
+  ✅ /site/js/app-download.js
+5) Внутренние инструменты: только Report-Only
+  ✅ /shop: 200
+  ✅ /shop: enforce-CSP НЕ ставится
+  ✅ /shop: Report-Only задан
+  ✅ /app: 200
+  ✅ /app: enforce-CSP НЕ ставится
+  ✅ /app: Report-Only задан
+  ✅ /warehouse/: 200
+  ✅ /warehouse/: enforce-CSP НЕ ставится
+  ✅ /warehouse/: Report-Only задан
+  ✅ /admin/: 200
+  ✅ /admin/: enforce-CSP НЕ ставится
+  ✅ /admin/: Report-Only задан
+  ✅ /crm/: 200
+  ✅ /crm/: enforce-CSP НЕ ставится
+  ✅ /crm/: Report-Only задан
+6) Публичная витрина продавца — строгий CSP
+  ✅ витрина 200
+  ✅ витрина: CSP строгий
+7) SPA-страница /shop — shell без inline-скриптов
+  ✅ /shop: нет inline <script> после выноса bootstrap
+  ✅ /shop: подключён spa-bootstrap.js
+8) API не тронуты
+  ✅ /api/catalog 200
+  ✅ /health/ready 200
+
+Итого: 86 ok, 0 fail
 env keys: 18 documented, 0 missing
 ci-build-apk: артефакты 1.1.0 уже в репо — пропуск
+ci-build-shop-apk: артефакты 1.0.0 уже в репо — пропуск

@@ -11,6 +11,7 @@
 - [~] Production smoke: скрипт готов; запуск на staging/production ожидает URL.
 - [x] Security/observability (блок 15): rate limit login/1С/API, TTL сессий склада, маскирование секретов в логах, метрики латентности/статусов, диск в readiness, watchdog + TG-алерты, last_error бэкапа. CSP — бэктлог (нужен вынос inline-JS).
 - [~] Security: CORS, metrics token, rate limit и headers готовы; ручной аудит production ожидает окружение.
+- [x] CSP (бэклог блока 15 закрыт блоком 27, 11.09.2026): inline-JS публичного сайта вынесен в `/site/js/*`, строгий `script-src 'self'` на SSR-страницах, Report-Only на внутренних инструментах; тесты `tests-block27.py` 86/86.
 
 ## P1 — marketplace catalog
 

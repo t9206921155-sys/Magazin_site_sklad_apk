@@ -116,6 +116,24 @@ ZPL/EPL прямо с телефона по Wi-Fi (`:9100`), «экран не �
   (пропускается, если артефакты текущей версии уже в репо)
 - `telegram-shop/apk-build/README-APK.md`
 
+## Приложение покупателя — «Магазин» 1.0.0 (Android, блок 25 Фаза 1)
+
+Покупательская WebView-обёртка витрины: каталог, корзина, оплата и заказы — через
+сайт; deep link `shop://connect?url=…`, баннер обновления, экран ошибки с
+«Повторить». Пакет `ru.telegramshop.shop`, подпись общая со «Складом».
+
+| Способ | Адрес |
+|---|---|
+| Страница с QR | `https://ваш-сервер/download/app` |
+| API обновлений | `GET /api/app/version` — приложение само предлагает обновление |
+| QR deep link | `/api/app/version/qr.svg?mode=connect&server=` |
+| В репозитории | `telegram-shop/apk/Shop-1.0.0-release.apk` (появляется после CI-сборки) |
+
+Сборка и исходники: `mobile/android-wrapper/` (`./build-apk.sh [URL]`),
+CI — `ci-build-shop-apk.sh` (вызывается из `run-tests.sh` после тестов).
+План развития (React Native, push, RuStore): `mobile/ANDROID-APP-TZ.md`,
+отчёт — `blocks/BLOCK-25-mobile-buyer-app.md`.
+
 ## Документация по проекту
 
 - `telegram-shop/README.md` — основное описание

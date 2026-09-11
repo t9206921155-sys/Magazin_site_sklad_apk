@@ -1,0 +1,194 @@
+{% extends "base.html" %}
+{% block content %}
+<nav class="crumbs">
+  <a href="/">Главная</a> <span>›</span> <span>Приложение покупателя</span>
+</nav>
+
+<section class="dl-hero">
+  <div class="dl-hero-copy">
+    <div class="dl-badge dark">📱 Android-приложение магазина</div>
+    <h1>Каталог, корзина и заказы — отдельным приложением на телефоне</h1>
+    <p>«Магазин» — лёгкая Android-обёртка над витриной: открывает сайт в WebView, сохраняет адрес магазина,
+    понимает deep link <code>shop://connect</code>, показывает баннер при выходе новой версии и открывает внешние
+    ссылки в браузере, не теряя корзину.</p>
+    <div class="dl-hero-actions">
+      {% if latest_apk %}<a class="btn primary dl-btn" href="{{ latest_apk.download_url }}">Скачать APK</a>{% endif %}
+      <a class="btn ghost dl-btn-light" href="#configurator">Настроить ссылку подключения</a>
+      <a class="btn ghost dl-btn-light" href="/download/android">Приложение для склада</a>
+    </div>
+    <div class="dl-hero-facts">
+      <div><b>{{ latest_version }}</b><span>текущая версия</span></div>
+      <div><b>Android 6.0+</b><span>minSdk 23</span></div>
+      <div><b>QR + deep link</b><span>подключение за пару минут</span></div>
+    </div>
+  </div>
+  <div class="dl-phone">
+    <div class="dl-phone-frame">
+      <div class="dl-phone-top"></div>
+      <div class="dl-phone-screen">
+        <div class="dl-screen-header">🛍️ Магазин</div>
+        <div class="dl-screen-card">
+          <b>1. Скачайте APK</b>
+          <span>установите приложение как обычно</span>
+        </div>
+        <div class="dl-screen-card active">
+          <b>2. Сканируйте QR</b>
+          <span>приложение откроет <code>shop://connect?url=...</code></span>
+        </div>
+        <div class="dl-screen-card">
+          <b>3. Покупайте</b>
+          <span>каталог, корзина, оплата и заказы — как на сайте</span>
+        </div>
+        <div class="dl-screen-card">
+          <b>4. Получайте обновления</b>
+          <span>баннер предложит новую версию, когда она выйдет</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="dl-grid">
+  <div class="panel dl-card dl-card-main">
+    <div class="dl-badge">📦 Для покупателей</div>
+    <h3>APK{% if latest_apk %} · версия {{ latest_apk.version }}{% endif %}</h3>
+    {% if latest_apk %}
+      <p>Готовый подписанный файл для прямой установки на Android-телефон или планшет.</p>
+      <a class="btn primary dl-btn" href="{{ latest_apk.download_url }}">Скачать APK</a>
+      <div class="hint dl-meta">{{ latest_apk.filename }} · {{ latest_apk.size_human }} · обновлено {{ latest_apk.updated_at }}</div>
+      <code class="dl-code">SHA-256: {{ latest_apk.sha256 }}</code>
+    {% else %}
+      <div class="empty">APK ещё собирается — загляните позже или напишите нам.</div>
+    {% endif %}
+  </div>
+
+  <div class="panel dl-card">
+    <div class="dl-badge">ℹ️ Как это работает</div>
+    <h3>Внутри приложения</h3>
+    <ul class="dl-list">
+      <li>Ссылки вашего магазина открываются внутри приложения, внешние — в браузере.</li>
+      <li>Адрес витрины можно сменить без переустановки (долгое нажатие на экране → настройки).</li>
+      <li>Новая версия APK предложит обновиться мягким баннером.</li>
+      <li>Складское приложение «Склад» живёт отдельно: <a href="/download/android">/download/android</a>.</li>
+    </ul>
+  </div>
+</section>
+
+<section class="sect" id="configurator">
+  <div class="sect-head"><h2>Быстрая ссылка и QR-код подключения</h2><span class="sect-sub">отправьте покупателю вместе с APK</span></div>
+  <div class="panel dl-config">
+    <div class="dl-config-main">
+      <label class="dl-label" for="server-url">Адрес витрины</label>
+      <input class="field" id="server-url" value="{{ recommended_server_url }}" data-recommended="{{ recommended_server_url }}" placeholder="https://example.com/">
+      <div class="hint">Если указать только домен, приложение откроет главную страницу витрины.</div>
+      <div class="dl-config-actions">
+        <a class="btn primary dl-btn" id="open-connect" href="{{ deep_link_connect }}">Открыть приложение и подключить</a>
+        <a class="btn ghost dl-btn-light" id="open-setup" href="{{ deep_link_setup }}">Открыть режим настройки</a>
+      </div>
+      <div class="dl-copy-grid">
+        <div>
+          <div class="dl-label">Deep link</div>
+          <code class="dl-code" id="deep-link-code">{{ deep_link_connect }}</code>
+        </div>
+        <div>
+          <div class="dl-label">Адрес витрины</div>
+          <code class="dl-code" id="server-url-code">{{ recommended_server_url }}</code>
+        </div>
+      </div>
+      <div class="dl-config-actions compact">
+        <button class="btn ghost dl-copy-btn" type="button" data-copy="deep-link-code">Скопировать deep link</button>
+        <button class="btn ghost dl-copy-btn" type="button" data-copy="server-url-code">Скопировать адрес витрины</button>
+      </div>
+      <div class="hint" id="copy-note"></div>
+    </div>
+    <div class="dl-config-side">
+      <div class="dl-mini-card"><b>Deep link</b><span><code>shop://setup?url=...</code> или <code>shop://connect?url=...</code>, <code>shop://install</code> — страница обновлений</span></div>
+      <div class="dl-mini-card"><b>QR для подключения</b><span>Покупатель сканирует код и сразу попадает в магазин.</span></div>
+      <div class="dl-mini-card"><b>Проверка обновлений</b><span>Приложение сверяет свою версию с <code>/api/app/version</code> и показывает баннер.</span></div>
+    </div>
+  </div>
+
+  <div class="dl-qr-grid">
+    <div class="panel dl-qr-card">
+      <div class="dl-badge">⚡ Мгновенное подключение</div>
+      <h3>QR: открыть и подключить</h3>
+      <p>Адрес сохранится, приложение сразу откроет витрину.</p>
+      <img class="dl-qr-image" id="qr-connect" src="{{ connect_qr_svg }}" alt="QR для подключения магазина">
+      <div class="dl-config-actions compact">
+        <a class="btn ghost dl-btn" id="download-connect-qr" href="{{ connect_qr_svg }}" download="shop-connect.svg">Скачать SVG QR</a>
+      </div>
+    </div>
+    <div class="panel dl-qr-card">
+      <div class="dl-badge">🛠 Режим настройки</div>
+      <h3>QR: открыть настройки</h3>
+      <p>Если нужно дать покупателю проверить адрес перед входом.</p>
+      <img class="dl-qr-image" id="qr-setup" src="{{ setup_qr_svg }}" alt="QR для настройки магазина">
+      <div class="dl-config-actions compact">
+        <a class="btn ghost dl-btn" id="download-setup-qr" href="{{ setup_qr_svg }}" download="shop-setup.svg">Скачать SVG QR</a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="sect">
+  <div class="sect-head"><h2>Установка по шагам</h2><span class="sect-sub">короткая инструкция для покупателя</span></div>
+  <div class="dl-steps">
+    <div class="panel dl-step"><b>1</b><h3>Скачайте APK</h3><p>Откройте файл на Android и разрешите установку из этого источника.</p></div>
+    <div class="panel dl-step"><b>2</b><h3>Сканируйте QR или откройте deep link</h3><p>Подключение сработает через <code>shop://connect?url=...</code> или <code>shop://setup?url=...</code>.</p></div>
+    <div class="panel dl-step"><b>3</b><h3>Покупайте</h3><p>Каталог, корзина, оплата и статусы заказов — те же, что на сайте.</p></div>
+    <div class="panel dl-step"><b>4</b><h3>Обновляйтесь</h3><p>Когда выйдет новая версия, приложение покажет баннер со ссылкой на APK.</p></div>
+  </div>
+</section>
+
+<section class="sect">
+  <div class="sect-head"><h2>Где лежат исходники</h2><span class="sect-sub">чтобы быстро найти нужные файлы в репозитории</span></div>
+  <div class="dl-source-list">
+    <div class="panel">
+      <h3>Основные пути</h3>
+      <ul class="dl-list">
+        <li><code>mobile/android-wrapper/app/src/main/java/ru/telegramshop/shop/MainActivity.java</code> — WebView-обёртка витрины, deep links, баннер обновлений</li>
+        <li><code>mobile/android-wrapper/app/src/main/AndroidManifest.xml</code> — permissions, activity, схема <code>shop://</code></li>
+        <li><code>mobile/android-wrapper/app/build.gradle</code> — пакет <code>ru.telegramshop.shop</code>, версия, подпись</li>
+        <li><code>mobile/android-wrapper/build-apk.sh</code> — пересборка релизных артефактов</li>
+        <li><code>mobile/ANDROID-APP-TZ.md</code> — полное ТЗ и план развития (Фазы 2–6, React Native)</li>
+      </ul>
+    </div>
+    <div class="panel">
+      <h3>Что скачать / API</h3>
+      <ul class="dl-list">
+        <li><code>telegram-shop/apk/</code> — готовые APK-файлы (Shop-*)</li>
+        <li><code>/download/app</code> — эта страница загрузки</li>
+        <li><code>/api/app/version</code> — JSON с версией и ссылкой на APK</li>
+        <li><code>/api/app/version/qr.svg</code> — SVG-QR для deep link подключения</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+{% if release_files %}
+<section class="sect">
+  <div class="sect-head"><h2>Доступные сборки</h2><span class="sect-sub">история файлов в папках релизов</span></div>
+  <div class="panel">
+    <div class="dl-table-wrap">
+      <table class="dl-table">
+        <thead>
+          <tr><th>Тип</th><th>Файл</th><th>Версия</th><th>Размер</th><th>Обновлено</th><th></th></tr>
+        </thead>
+        <tbody>
+          {% for f in release_files %}
+          <tr>
+            <td><span class="dl-kind {{ f.kind }}">{{ f.kind | upper }}</span></td>
+            <td><code>{{ f.filename }}</code></td>
+            <td>{{ f.version }}</td>
+            <td>{{ f.size_human }}</td>
+            <td>{{ f.updated_at }}</td>
+            <td><a class="see-all" href="{{ f.download_url }}">Скачать →</a></td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+{% endif %}
+{% endblock %}
