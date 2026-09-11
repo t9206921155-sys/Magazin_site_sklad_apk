@@ -368,8 +368,6 @@ yes: standard output: Broken pipe
 
 [1;36m==>[0m Gradle: 8.2.1
 
-[1;36m==>[0m Создаю общий ключ подписи (как у «Склада»)...
-
 [1;36m==>[0m Проверяю версию приложения (1.0.0 / code 1)...
 
 [1;36m==>[0m Собираю release APK и AAB...
@@ -442,13 +440,13 @@ Note: Recompile with -Xlint:deprecation for details.
 > Task :app:createReleaseBundleListingFileRedirect
 > Task :app:bundleRelease
 
-BUILD SUCCESSFUL in 1m 32s
+BUILD SUCCESSFUL in 1m 34s
 50 actionable tasks: 50 executed
 
 [1;36m==>[0m Проверка подписи APK:
-Signer #1 certificate DN: CN=Telegram Shop, OU=Sklad, O=TelegramShop, L=Riga, C=LV
-Signer #1 certificate SHA-256 digest: 73c096bd09d62fa34f6df8dcf88c3c00e09b914d59e2bcdace19442aafc9d8c0
-Signer #1 certificate SHA-1 digest: 19b3442b9f77b5bb1b4c5806a37633580b9018af
+Signer #1 certificate DN: CN=Telegram Shop, OU=Sklad, O=TelegramShop, L=Moscow, C=RU
+Signer #1 certificate SHA-256 digest: bf355bc60576b9991029ab08966e0eb4e97c653e1e85078fd0566078588e66c7
+Signer #1 certificate SHA-1 digest: 9220f76f97f0582d954f09dde5237b230a9ce40a
 
 [1;36m==>[0m Проверка подписи AAB:
 AAB signature: OK
@@ -459,6 +457,11 @@ sdkVersion:'23'
 targetSdkVersion:'34'
 application-label:'Магазин'
 
-[1;32mГОТОВО APK:[0m ../../apk/Shop-1.0.0-release.apk  (2.4M)
-[1;32mГОТОВО AAB:[0m ../../aab/Shop-1.0.0-release.aab  (2.3M)
-ci-build-shop-apk: сборка не дала артефактов
+[1;32mГОТОВО APK:[0m ../../telegram-shop/apk/Shop-1.0.0-release.apk  (2.4M)
+[1;32mГОТОВО AAB:[0m ../../telegram-shop/aab/Shop-1.0.0-release.aab  (2.3M)
+The following paths are ignored by one of your .gitignore files:
+telegram-shop/aab/Shop-1.0.0-release.aab
+telegram-shop/apk/Shop-1.0.0-release.apk
+hint: Use -f if you really want to add them.
+hint: Disable this message with "git config set advice.addIgnoredFile false"
+ci-build-shop-apk: нечего коммитить
