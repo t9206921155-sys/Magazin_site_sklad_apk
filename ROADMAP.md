@@ -100,7 +100,7 @@ python3 tests-block25.py      # 29 — покупательское APK: стр�
 python3 tests-block27.py      # 86 — CSP: вынос inline-JS, заголовки (нужен сервер)
 python3 tests-block29.py      # 30 — бэкенд RN: карточка, mobile API, FCM dry-run (нужен сервер)
 python3 tests-block15.py      # 40 — security/observability (нужен сервер; ЗАПУСКАТЬ ПОСЛЕДНИМ)
-pytest tests/                 # 45 — маркетинг/SEO/провайдеры + установка + staging (из корня репо; в run-tests.sh/CI)
+pytest tests/                 # 46 — маркетинг/SEO/провайдеры + установка + staging (из корня репо; в run-tests.sh/CI)
 ```
 
 ---
@@ -222,5 +222,5 @@ VPS), **22** (ждёт официальный API-аудит Wildberries), **25 
 - Блок 22 — ⛔ внешнее условие (официальный API-аудит Wildberries); boundary и
   диагностика готовы и протестированы.
 - Ручные на staging: 11 (железо), 17 (manual validation checklist), 18 (backup на тестовом VPS).
-- Автотесты: ~545 проверок в 16 test-suite'ах + pytest (45, в run-tests.sh/CI); порядок регрессии см. выше (block15 — последним). Полная регрессия выполняется `run-tests.sh` одной командой (блоки 13/16/19/23/15 возвращены в CI в блоке 29).
+- Автотесты: ~545 проверок в 16 test-suite'ах + pytest (46, в run-tests.sh/CI); порядок регрессии см. выше (block15 — последним). Полная регрессия выполняется `run-tests.sh` одной командой (блоки 13/16/19/23/15 возвращены в CI в блоке 29).
 - `tests-block14` (32/32) в порядке регрессии после block09 и в `run-tests.sh` — долг закрыт 12.09.2026.

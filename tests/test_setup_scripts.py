@@ -211,6 +211,16 @@ def test_setup_help_and_dry_run():
     assert TOKEN not in r.stdout  # маскировка сквозная
 
 
+def test_setup_check_end_to_end(tmp_path):
+    """./setup.sh --check целиком: env, секреты, boot сервера, health страниц."""
+    env_file = tmp_path / ".env"
+    run(["bash", SETUP_ENV, "--non-interactive", "--force", "--domain", "chk.local"],
+        env={"SETUP_ENV_FILE": str(env_file)}, check=True)
+    r = run(["bash", SETUP, "--check"], env={"SETUP_ENV_FILE": str(env_file)})
+    assert r.returncode == 0, r.stdout + r.stderr
+    assert "проверка пройдена" in r.stdout
+
+
 def test_update_and_bootstrap_help():
     assert run(["bash", UPDATE, "--help"]).returncode == 0
     assert run(["bash", BOOTSTRAP, "--help"]).returncode == 0

@@ -166,7 +166,7 @@ check)
   # короткий boot + health на временной БД (не трогает боевую)
   if python3 -c 'import fastapi, uvicorn' 2>/dev/null; then
     TMP_DB="$(mktemp "${TMPDIR:-/tmp}/magazin-check-XXXXXX.db")"
-    PORT="$(python3 -c 'import socket;s=socket.socket();s.bind(("127.0.0.1",0));print(s.getsockname()[1]);s.close())')"
+    PORT="$(python3 -c 'import socket;s=socket.socket();s.bind(("127.0.0.1",0));print(s.getsockname()[1]);s.close()')"
     export MAGAZIN_DB="$TMP_DB" BOT_TOKEN= PORT
     python3 "$APP/bot.py" >"$TMP_DB.log" 2>&1 & PID=$!
     ok_boot=0
