@@ -37,6 +37,7 @@ DOMAIN="${SETUP_DOMAIN:-}"; BOT_TOKEN="${SETUP_BOT_TOKEN:-}"
 ADMIN_IDS="${SETUP_ADMIN_IDS:-}"; ADMIN_PASSWORD="${SETUP_ADMIN_PASSWORD:-}"
 PAYMENT="${SETUP_PAYMENT_PROVIDER:-test}"; BOT_MODE="${SETUP_BOT_MODE:-polling}"
 WEBAPP_URL="${SETUP_WEBAPP_URL:-}"; HOST_V="${SETUP_HOST:-0.0.0.0}"; PORT_V="${SETUP_PORT:-8000}"
+FCM_JSON="${SETUP_FCM_CREDENTIALS_JSON:-}"; FCM_DRY="${SETUP_FCM_DRY_RUN:-1}"
 [ "${SETUP_YES:-0}" = "1" ] && NONINTERACTIVE=1
 
 usage(){ sed -n '2,/^# ===/p' "$0" | sed 's/^# \{0,1\}//'; }
@@ -99,7 +100,8 @@ if [ "$CHECK_ONLY" = 1 ]; then
   get(){ grep -E "^$1=" "$ENV_FILE" | head -1 | cut -d= -f2-; }
   for k in BOT_TOKEN ADMIN_IDS ADMIN_PASSWORD WEBAPP_URL PAYMENT_PROVIDER BOT_MODE WEBHOOK_PATH \
            WEBHOOK_SECRET HOST PORT CORS_ORIGINS METRICS_TOKEN AUTH_RATE_LIMIT TRUSTED_HOSTS \
-           RATE_LIMIT_1C RATE_LIMIT_API WH_SESSION_TTL_DAYS DISK_FREE_MIN_MB; do
+           RATE_LIMIT_1C RATE_LIMIT_API WH_SESSION_TTL_DAYS DISK_FREE_MIN_MB \
+           FCM_CREDENTIALS_JSON FCM_DRY_RUN; do
     grep -Eq "^$k=" "$ENV_FILE" || { echo "  ❌ нет ключа $k" >&2; fails=1; }
   done
   grep -Eq 'PASTE_|CHANGE_ME|YOUR-DOMAIN|GENERATE_RANDOM' "$ENV_FILE" && { echo "  ❌ в .env остались плейсхолдеры" >&2; fails=1; }
@@ -152,6 +154,7 @@ PAYMENT="$(echo "$PAYMENT" | tr '[:upper:]' '[:lower:]' | tr -d '[:space:]')"
 [ -n "$ADMIN_IDS" ] && ! valid_ids "$ADMIN_IDS" && die "ADMIN_IDS: нужны числа через запятую, например 123456789,987654321"
 valid_payment "$PAYMENT" || die "PAYMENT_PROVIDER=$PAYMENT недопустим (test|yookassa|tbank|cryptobot|stars)"
 valid_mode "$BOT_MODE" || die "BOT_MODE=$BOT_MODE недопустим (polling|webhook)"
+case "$FCM_DRY" in 0|1) : ;; *) die "SETUP_FCM_DRY_RUN=$FCM_DRY недопустим (0|1)" ;; esac
 
 GENERATED_PASSWORD=0
 if [ -z "$ADMIN_PASSWORD" ]; then ADMIN_PASSWORD="$(gen_pass)"; GENERATED_PASSWORD=1; fi
@@ -190,6 +193,8 @@ RATE_LIMIT_1C=120
 RATE_LIMIT_API=600
 WH_SESSION_TTL_DAYS=30
 DISK_FREE_MIN_MB=500
+FCM_CREDENTIALS_JSON=$FCM_JSON
+FCM_DRY_RUN=$FCM_DRY
 EOF
 }
 
@@ -214,6 +219,7 @@ echo "  ADMIN_IDS:      ${ADMIN_IDS:-не задан}"
 echo "  ADMIN_PASSWORD: $(mask "$ADMIN_PASSWORD")"
 echo "  WEBAPP_URL:     ${WEBAPP_URL:-не задан (локальный режим)}"
 echo "  PAYMENT:        $PAYMENT   BOT_MODE: $BOT_MODE"
+echo "  FCM:            $(mask "$FCM_JSON") (dry_run=$FCM_DRY)"
 if [ "$GENERATED_PASSWORD" = 1 ]; then
   warn "СГЕНЕРИРОВАН пароль админки — запишите сейчас, больше он показан не будет:"
   printf '  🔑 ADMIN_PASSWORD=%s\n' "$ADMIN_PASSWORD"

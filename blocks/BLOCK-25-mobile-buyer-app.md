@@ -106,6 +106,14 @@ block15 40/40 (последним) · pytest 16/16.
 3. Проверить deep link: отправить себе `shop://connect?url=https://ваш-домен/` (или QR со страницы `/download/app`).
 4. Проверить баннер обновления: собрать новую версию (поднять `APP_VERSION`/`APP_CODE` в `build-apk.sh`) — приложение предложит обновление.
 
+### Серверная часть ТЗ §6.2 (блок 29, 12.09.2026)
+
+Бэкенд для RN-фаз готов и протестирован (`tests-block29.py`, 30/30):
+`GET /api/product/{id}`, `POST /api/mobile/register`,
+`DELETE /api/mobile/devices/{guest_id}`, `GET /api/mobile/status`,
+`GET /api/app/version?platform=`, FCM-хуки (заказы/чат/офферы) в dry-run.
+Остаток фаз 2–6 — клиентский RN-код + FCM-проект/RuStore владельца.
+
 ### Известные ограничения Фазы 1
 - Push-уведомления не входят в Фазу 1 (WebPush в WebView нестабилен) — Фаза 5 (FCM).
 - Оплата-редирект возвращает пользователя в WebView по обычной ссылке; фирменный

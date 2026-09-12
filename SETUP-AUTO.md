@@ -138,6 +138,8 @@ python3 telegram-shop/scripts/setup_bot.py                # полная нас�
 | `SETUP_BOT_MODE` / `--bot-mode` | `polling` (по умолч.) `webhook` |
 | `SETUP_WEBAPP_URL` | переопределить URL витрины (по умолч. `https://домен`) |
 | `SETUP_YES=1` / `--non-interactive` | не задавать вопросов |
+| `SETUP_FCM_CREDENTIALS_JSON` | Firebase service account JSON (вручную; пусто = FCM выкл) |
+| `SETUP_FCM_DRY_RUN` | `1` (по умолч., dry-run) `0` — боевые push после staging |
 | `DEPLOY_DOMAIN`, `DEPLOY_ROOT`, `DEPLOY_USER`, `LETSENCRYPT_EMAIL`, `DEPLOY_REPO` | параметры VPS-установки |
 | `SETUP_SKIP_HTTPS=1` | пропустить certbot |
 | `SETUP_MOBILE_URL` / `--url` | адрес сервера для сборки APK |
@@ -146,6 +148,18 @@ python3 telegram-shop/scripts/setup_bot.py                # полная нас�
 (кроме сгенерированного пароля — один раз); `.env` — `chmod 600`;
 токены не попадают в git, логи CI и APK (проверяется `secret-scan.sh`
 и `setup.sh --check`).
+
+## Приёмка staging (авто-часть блока 17)
+
+```bash
+./deploy/staging-report.sh https://staging.example.com
+WH_LOGIN=admin WH_PASSWORD=... ./deploy/staging-report.sh https://staging.example.com --out report.md
+./deploy/backup-drill.sh --db telegram-shop/data/shop.db   # авто-прогон backup/restore (блок 18)
+```
+
+Отчёт собирает smoke, HTTPS, security-заголовки, версии API и локальные
+ворота + печатает чек-лист ручного остатка. Ручное (железо, боевые оплаты
+и 1С, скриншоты) — по `DEVELOPER-MANUAL-VALIDATION.md`.
 
 ## FAQ
 

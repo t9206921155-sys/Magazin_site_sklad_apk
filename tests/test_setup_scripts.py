@@ -21,7 +21,8 @@ REQUIRED_KEYS = ["BOT_TOKEN", "ADMIN_IDS", "ADMIN_PASSWORD", "WEBAPP_URL",
                  "PAYMENT_PROVIDER", "BOT_MODE", "WEBHOOK_PATH", "WEBHOOK_SECRET",
                  "HOST", "PORT", "CORS_ORIGINS", "METRICS_TOKEN", "AUTH_RATE_LIMIT",
                  "TRUSTED_HOSTS", "RATE_LIMIT_1C", "RATE_LIMIT_API",
-                 "WH_SESSION_TTL_DAYS", "DISK_FREE_MIN_MB"]
+                 "WH_SESSION_TTL_DAYS", "DISK_FREE_MIN_MB",
+                 "FCM_CREDENTIALS_JSON", "FCM_DRY_RUN"]
 
 
 def run(cmd, env=None, **kw):

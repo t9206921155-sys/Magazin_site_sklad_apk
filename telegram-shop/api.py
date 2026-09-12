@@ -318,6 +318,29 @@ def create_app(store, providers: dict, bot=None, notify_new_order=None, notify_o
         tg_user = user_from_init_data(parsed)
         return (int(tg_user["id"]) if tg_user else None), request.query_params.get("guest_id")
 
+    # --- Блок 29: FCM-хуки покупательского приложения (ТЗ §6.2) ---
+    def _guest_from_buyer_key(buyer_key: str) -> str:
+        """buyer_key 'g:xxx' → guest_id 'xxx' (у tg: мобильного устройства нет)."""
+        return buyer_key[2:] if str(buyer_key or "").startswith("g:") else ""
+
+    def _fcm_fire(guest_ids, title: str, body: str, data: dict = None):
+        """Безопасный хук: никогда не роняет запрос."""
+        try:
+            push.send_fcm(store, guest_ids, title, body, data or {})
+        except Exception as e:
+            log.warning("fcm hook: %s", e)
+
+    def _fcm_order(o, event: str):
+        g = (o or {}).get("guest_id") or ""
+        if not g:
+            return
+        oid = str(o.get("id", ""))
+        titles = {"paid": "Оплата прошла ✅", "processing": "Заказ в работе 🔧",
+                  "shipped": "Заказ отправлен 🚚", "delivered": "Заказ доставлен 🎉",
+                  "completed": "Заказ завершён ✅", "cancelled": "Заказ отменён"}
+        _fcm_fire([g], titles.get(event, f"Статус заказа: {event}"), f"Заказ {oid}",
+                  {"type": "order_status", "order_id": oid, "status": event})
+
     # ------------------------------------------------------------------ статика
     app.mount("/webapp", StaticFiles(directory=config.WEBAPP_DIR), name="webapp")
     app.mount("/site", StaticFiles(directory=config.SITE_DIR), name="site")
@@ -652,12 +675,16 @@ def create_app(store, providers: dict, bot=None, notify_new_order=None, notify_o
         return f"shop://{host}?url={urllib.parse.quote(server_url, safe='')}"
 
     @app.get("/api/app/version")
-    async def api_shop_app_version(request: Request):
+    async def api_shop_app_version(request: Request, platform: str = "android"):
         """Проверка обновлений покупательского APK (используется обёрткой блока 25)."""
+        platform = str(platform or "android").lower()
+        if platform != "android":
+            raise HTTPException(422, "Неизвестная платформа (пока только android)")
         data = _shop_release_files(request)
         latest = data["latest_apk"] or data["latest_aab"] or {}
         return {
             "app": "shop",
+            "platform": platform,
             "package_id": SHOP_APP_PACKAGE,
             "version": latest.get("version", "1.0.0"),
             "min_supported_version": SHOP_MIN_SUPPORTED_VERSION,
@@ -672,6 +699,32 @@ def create_app(store, providers: dict, bot=None, notify_new_order=None, notify_o
         recommended = _recommended_storefront_url(request, server)
         payload = _shop_deep_link(mode, recommended)
         return Response(_android_qr_svg(payload), media_type="image/svg+xml")
+
+    # --- Блок 29: мобильные эндпоинты покупательского приложения (ТЗ §6.2) ---
+    @app.post("/api/mobile/register")
+    async def mobile_register(body: dict):
+        """Регистрация FCM-токена устройства (upsert по guest_id)."""
+        guest_id = str(body.get("guest_id") or "").strip()
+        fcm_token = str(body.get("fcm_token") or "").strip()
+        platform = str(body.get("platform") or "android").strip().lower()
+        app_version = str(body.get("app_version") or "").strip()[:20]
+        if not guest_id or len(guest_id) > 64:
+            raise HTTPException(422, "Нужен guest_id (до 64 символов)")
+        if len(fcm_token) < 10 or len(fcm_token) > 512:
+            raise HTTPException(422, "Нужен fcm_token")
+        if platform not in ("android", "ios"):
+            raise HTTPException(422, "platform: android или ios")
+        d = store.mobile_register(guest_id, fcm_token, platform, app_version)
+        return {"ok": True, **d}
+
+    @app.delete("/api/mobile/devices/{guest_id}")
+    async def mobile_unregister(guest_id: str):
+        return {"ok": True, "removed": store.mobile_unregister(guest_id)}
+
+    @app.get("/api/mobile/status")
+    async def mobile_status():
+        """Диагностика FCM (без секретов и токенов)."""
+        return {"ok": True, **push.fcm_status(store)}
 
     @app.get("/download/app")
     async def shop_app_download_page(request: Request):
@@ -1309,6 +1362,32 @@ def create_app(store, providers: dict, bot=None, notify_new_order=None, notify_o
                 "total": total, "page": page if per_page else 1,
                 "pages": pages, "per_page": per_page}
 
+    @app.get("/api/product/{product_id}")
+    async def api_product_card(product_id: int):
+        """Карточка товара одним запросом для мобильного приложения (ТЗ §6.2)."""
+        p = store.get_product(product_id)
+        if not p or not p.get("in_stock") or p.get("is_archived"):
+            raise HTTPException(404, "Товар не найден")
+        card = {k: v for k, v in p.items()
+                if k not in ("purchase_price", "storage_location", "owner_name")}
+        seller = None
+        if int(p.get("seller_id") or 0):
+            s = store.get_seller(int(p["seller_id"]))
+            if s:
+                r = store.seller_rating(int(p["seller_id"]))
+                seller = {"id": s["id"], "store_name": s.get("store_name", ""),
+                          "slug": s.get("slug", ""),
+                          "rating": r.get("rating", 0),
+                          "reviews": r.get("reviews_approved", 0)}
+        try:
+            similar = store.related_products(int(product_id)) or {}
+        except Exception:
+            similar = {}
+        return {"product": card, "seller": seller,
+                "reviews": store.reviews(int(product_id), only_approved=True)[:10],
+                "review_stats": store.review_stats(int(product_id)),
+                "similar": similar}
+
     @app.get("/api/marketing/utm")
     async def marketing_utm(url: str, source: str, medium: str="social", campaign: str="", content: str=""):
         """Build a safe UTM URL for campaign links."""
@@ -1596,6 +1675,7 @@ def create_app(store, providers: dict, bot=None, notify_new_order=None, notify_o
         if notify_order_paid:
             background_tasks.add_task(notify_order_paid, o)
         background_tasks.add_task(after_payment, store, order_id, notify_admin)
+        _fcm_order(o, "paid")
         return o
 
     @app.post("/admin/api/orders/{order_id}/status")
@@ -1611,6 +1691,7 @@ def create_app(store, providers: dict, bot=None, notify_new_order=None, notify_o
             raise HTTPException(404, "Заказ не найден")
         if notify_status:
             background_tasks.add_task(notify_status, o)
+        _fcm_order(o, status)
         return o
 
     # --- ИИ: контент для склада (название / объявление / Telegram) ---
@@ -4121,6 +4202,11 @@ def create_app(store, providers: dict, bot=None, notify_new_order=None, notify_o
             if not buyer_key:
                 raise HTTPException(422, "Не указан buyer_key диалога")
             msg = store.chat_add(product_id, seller_id, buyer_key, "", "seller", text)
+            _g = _guest_from_buyer_key(buyer_key)
+            if _g:
+                _fcm_fire([_g], "Ответ продавца 💬", text[:120],
+                          {"type": "chat", "product_id": product_id,
+                           "seller_id": seller_id})
             if bot and seller.get("tg_user_id"):
                 try:
                     await bot.send_message(int(seller["tg_user_id"]),
@@ -4342,7 +4428,7 @@ def create_app(store, providers: dict, bot=None, notify_new_order=None, notify_o
         if int(offer.get("seller_id") or 0) != int(seller["id"]):
             raise HTTPException(403, "Это не ваше предложение")
         try:
-            return store.respond_to_offer(
+            res = store.respond_to_offer(
                 offer_id=offer_id,
                 status=str(body.get("status") or ""),
                 seller_response_price=int(body.get("seller_response_price") or 0),
@@ -4350,6 +4436,13 @@ def create_app(store, providers: dict, bot=None, notify_new_order=None, notify_o
             )
         except ValueError as e:
             raise HTTPException(422, str(e))
+        _g = _guest_from_buyer_key(offer.get("buyer_key"))
+        if _g:
+            _fcm_fire([_g], "Ответ на предложение 🤝",
+                      f"Продавец: {res.get('status')}",
+                      {"type": "offer", "offer_id": offer_id,
+                       "status": res.get("status")})
+        return res
 
     @app.post("/api/offers/{offer_id}/cancel")
     async def cancel_offer_endpoint(offer_id: int, request: Request):
@@ -4709,6 +4802,7 @@ def create_app(store, providers: dict, bot=None, notify_new_order=None, notify_o
         o = store.set_order_status(oid, status)
         if not o:
             raise HTTPException(404, "Заказ не найден")
+        _fcm_order(o, status)
         return {"ok": True}
 
     # ------------------------------------------------------------------ вебхуки
@@ -4728,6 +4822,7 @@ def create_app(store, providers: dict, bot=None, notify_new_order=None, notify_o
                 if notify_order_paid:
                     background_tasks.add_task(notify_order_paid, o)
                 background_tasks.add_task(after_payment, store, order_id, notify_admin)
+                _fcm_order(o, "paid")
         return {"ok": True}
 
     @app.post("/webhook/cryptobot")
@@ -4746,6 +4841,7 @@ def create_app(store, providers: dict, bot=None, notify_new_order=None, notify_o
                 if notify_order_paid:
                     background_tasks.add_task(notify_order_paid, o)
                 background_tasks.add_task(after_payment, store, order_id, notify_admin)
+                _fcm_order(o, "paid")
         return {"ok": True}
 
     @app.post("/webhook/tbank")
@@ -4771,6 +4867,7 @@ def create_app(store, providers: dict, bot=None, notify_new_order=None, notify_o
                 if notify_order_paid:
                     background_tasks.add_task(notify_order_paid, o)
                 background_tasks.add_task(after_payment, store, order_id, notify_admin)
+                _fcm_order(o, "paid")
         return {"ok": True}
 
     # статическая админка — в конце, чтобы не перекрывала /admin/api
