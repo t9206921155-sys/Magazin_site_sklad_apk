@@ -4,8 +4,8 @@
 
 ## 1. Что загружать
 
-- Для публикации: `aab/Sklad-1.0.6-release.aab`
-- Для внутренней раздачи сотрудникам: `apk/Sklad-1.0.6-release.apk`
+- Для публикации: `aab/Sklad-1.1.0-release.aab`
+- Для внутренней раздачи сотрудникам: `apk/Sklad-1.1.0-release.apk`
 
 ## 2. Текстовые поля
 
@@ -82,7 +82,7 @@
 
 ## 7. Быстрый сценарий для записи скриншотов
 
-1. Установить APK `1.0.6`
+1. Установить APK `1.1.0`
 2. Подключить тестовый сервер через `sklad://connect?...`
 3. Подготовить 3–5 товаров с фото, barcode и остатками
 4. Показать один сценарий со сканированием QR/штрих-кода
@@ -92,7 +92,7 @@
 ## 8. Следующий шаг после push ветки
 
 1. Обновить production из ветки `arena/continue-marketplace-content`
-2. Пройти smoke-check сайта, `/download/android`, `/download/android/rustore` и APK `1.0.6`
+2. Пройти smoke-check сайта, `/download/android`, `/download/android/rustore` и APK `1.1.0`
 3. Проверить deep link, QR onboarding и переход в native fallback scanner при проблемах WebView
 4. Только после успешной проверки готовить merge в `main`
 

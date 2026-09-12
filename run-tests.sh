@@ -22,10 +22,26 @@ node tests-hid-scanner.js || status=1
 python3 tests-stage5.py "$BASE" || status=1
 python3 tests-block06.py "$BASE" || status=1
 python3 tests-block09.py "$BASE" || status=1
+python3 tests-block13.py "$BASE" || status=1
 # блок 14 (backup/restore/миграция): база — тот же $MAGAZIN_DB, что у сервера
 MAGAZIN_DB="$MAGAZIN_DB" python3 tests-block14.py "$BASE" || status=1
+python3 tests-block16.py "$BASE" || status=1
+python3 tests-block19.py "$BASE" || status=1
+python3 tests-block23.py "$BASE" || status=1
 python3 tests-block25.py "$BASE" || status=1
 python3 tests-block27.py "$BASE" || status=1
+python3 tests-block29.py "$BASE" || status=1
+# корневые pytest: маркетинг/SEO/провайдеры + установка из коробки (блок 28)
+if ! python3 -m pytest --version >/dev/null 2>&1; then
+  python3 -m pip install -q pytest 2>/dev/null || true
+fi
+if python3 -m pytest --version >/dev/null 2>&1; then
+  (cd "$ROOT" && python3 -m pytest -q tests) || status=1
+else
+  echo "pytest недоступен — корневые тесты пропущены (pip install pytest)"
+fi
+# блок 15 — ПОСЛЕДНИМ из серверных: ставит IP в rate-карантин ~60с
+python3 tests-block15.py "$BASE" || status=1
 python3 scripts/check-env-keys.py || status=1
 python3 -m py_compile *.py || status=1
 for f in warehouse/*.js webapp/*.js; do node --check "$f" || status=1; done

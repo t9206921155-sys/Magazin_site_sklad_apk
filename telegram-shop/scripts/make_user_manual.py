@@ -138,7 +138,7 @@ def cover():
 
 
 TOC = [
-    "1. Что это за система", "2. Требования", "3. Установка «из коробки» (3 способа)",
+    "1. Что это за система", "2. Требования", "3. Установка «из коробки» (4 способа)",
     "4. Файл .env: все переменные с примерами", "5. Telegram-бот и Mini App",
     "6. Склад: вход, роли, мультисклад", "7. Сканеры штрих-кодов (HID, ТСД, камера)",
     "8. Печать этикеток: ZPL/EPL, IP-принтер, Wi-Fi с телефона", "9. Android APK «Склад 1.1.0»",
@@ -221,17 +221,21 @@ def build():
                           "сайт и склад работают на SQLite «из коробки».")
 
     # ---------- 3 ----------
-    story += h1(3, "Установка «из коробки» (3 способа)")
-    story.append(Paragraph("3.1. Локально / на любом сервере — скрипт install.sh", S["h2"]))
+    story += h1(3, "Установка «из коробки» (4 способа)")
+    story.append(Paragraph("3.1. Локально / на любом сервере — мастер setup.sh", S["h2"]))
     story += code(
         "git clone https://github.com/t9206921155-sys/Magazin_site_sklad_apk.git\n"
         "cd Magazin_site_sklad_apk\n"
-        "./install.sh                 # установка + запуск\n"
-        "./install.sh --venv --test   # с venv и прогоном тестов\n"
-        "./install.sh --no-run        # только установить",
+        "./setup.sh                        # мастер: deps + .env + бот + запуск\n"
+        "./setup.sh --venv --test          # с venv и прогоном тестов\n"
+        "./setup.sh --no-run               # только установить\n"
+        "./setup.sh --check                # проверить установку",
         "терминал")
-    story.append(p("Скрипт сам проверит Python, поставит зависимости, создаст <font name='DVM'>telegram-shop/.env</font> "
-                   "из шаблона и запустит сервер на <font name='DVM'>:8000</font>. Останов — Ctrl+C."))
+    story.append(p("Мастер сам проверит Python, поставит зависимости, задаст 5 вопросов "
+                   "(домен, токен бота, ID админов, пароль, оплата), создаст "
+                   "<font name='DVM'>telegram-shop/.env</font> с надёжными секретами, предложит настроить "
+                   "Telegram-бота и запустит сервер на <font name='DVM'>:8000</font>. Останов — Ctrl+C. "
+                   "Старый <font name='DVM'>install.sh</font> работает как раньше. Подробнее — SETUP-AUTO.md."))
     story.append(Paragraph("3.2. Вручную (прозрачно, по шагам)", S["h2"]))
     story += code(
         "cd telegram-shop\n"
@@ -244,10 +248,14 @@ def build():
     story.append(Paragraph("3.4. Production-VPS (nginx + systemd + HTTPS)", S["h2"]))
     story += code(
         "git clone https://github.com/t9206921155-sys/Magazin_site_sklad_apk.git && cd Magazin_site_sklad_apk\n"
-        "sudo -E DEPLOY_DOMAIN=shop.example.com LETSENCRYPT_EMAIL=you@example.com ./deploy/bootstrap-vps.sh\n"
-        "# далее: заполнить /opt/magazin-shop/telegram-shop/.env и повторить команду\n"
-        "./deploy/post-deploy-smoke.sh https://shop.example.com",
+        "sudo -E ./setup.sh --vps --domain shop.example.com \\\n"
+        "  --bot-token 123456:AA... --admin-ids 123456789 --bot-mode webhook\n"
+        "# HTTPS: добавьте LETSENCRYPT_EMAIL=you@example.com\n"
+        "# дальше из сводки: smoke → setup_bot.py → build-apps.sh",
         "терминал (на VPS)")
+    story.append(p("Мастер VPS ставит пакеты, код в <font name='DVM'>/opt/magazin-shop</font>, venv, "
+                   "настраивает <font name='DVM'>.env</font> (вопросы или переменные SETUP_*), systemd, nginx, HTTPS, "
+                   "таймеры бэкапов и watchdog. Ручное заполнение .env больше не требуется."))
     story += box("ВАЖНО", "Смените пароль склада и админки: в .env — ADMIN_PASSWORD (по умолчанию admin123), "
                           "в складе: Настройки → Сотрудники → задайте пароли сотрудникам.")
 
@@ -343,7 +351,8 @@ def build():
                    [["Страница с QR", "<font name='DVM'>https://ваш-сервер/download/android</font> — откройте на телефоне, сканируйте QR"],
                     ["Прямая ссылка", "<font name='DVM'>https://ваш-сервер/apk/Sklad-1.1.0-release.apk</font>"],
                     ["Из приложения", "Установленная версия сама предложит «Скачать обновление» (запрос к /api/releases/android)"],
-                    ["Из репозитория", "<font name='DVM'>telegram-shop/apk/Sklad-1.1.0-release.apk</font> (+ .aab в telegram-shop/aab/)"]],
+                    ["Из репозитория", "<font name='DVM'>telegram-shop/apk/Sklad-1.1.0-release.apk</font> (+ .aab в telegram-shop/aab/)<br/>" +
+                     "Покупательское «Магазин 1.0.0»: <font name='DVM'>/download/app</font> (+ Shop-*.apk в telegram-shop/apk/)"]],
                    [42 * mm, 126 * mm])
     story.append(Paragraph("9.2. Установка и подключение", S["h2"]))
     story += li(["Разрешите установку из источника (настройки Android → Безопасность)",
@@ -417,12 +426,15 @@ def build():
 
     # ---------- 15 ----------
     story += h1(15, "Обновление системы и пересборка APK")
-    story += li(["Обновление кода: <font name='DVM'>git pull</font> → <font name='DVM'>pip install -r requirements.txt</font> → рестарт сервиса",
-                 "Тесты перед выкладкой: <font name='DVM'>bash run-tests.sh</font> (≈370 проверок)",
-                 "<b>APK пересобирается сам</b>: пуш в ветку → GitHub Actions собирает APK+AAB и коммитит в репо "
-                 "(скрипт ci-build-apk.sh; повторной сборки нет, если версия не менялась)",
-                 "Новая версия APK: поднять versionName/versionCode в telegram-shop/apk-build/android/app/build.gradle "
-                 "и в шапке rebuild-apk.sh → запустить ci-build-apk.sh (или пустой пуш)",
+    story += li(["Обновление на VPS одной командой: <font name='DVM'>sudo ./setup.sh --update</font> — сначала бэкап "
+                 "БД с ротацией, затем код, зависимости, рестарт, health и smoke",
+                 "Тесты перед выкладкой: <font name='DVM'>bash run-tests.sh</font> (серверные сюиты + корневой "
+                 "<font name='DVM'>pytest tests/</font>); быстрая проверка: <font name='DVM'>./setup.sh --check</font>",
+                 "<b>APK пересобираются сами</b>: пуш в ветку → GitHub Actions собирает APK+AAB «Склада» и «Магазина» "
+                 "и коммитит в репо (ci-build-apk.sh, ci-build-shop-apk.sh; повторной сборки нет, если версия не менялась)",
+                 "Новая версия APK: поднять versionName/versionCode в build.gradle и в шапке rebuild-apk.sh "
+                 "(или mobile/android-wrapper/build-apk.sh) → пуш",
+                 "Локальная сборка с адресом сервера: <font name='DVM'>./deploy/build-apps.sh --url https://ваш-домен</font>",
                  "Телефон увидит обновление через «Скачать обновление» в приложении"])
 
     # ---------- 16 ----------

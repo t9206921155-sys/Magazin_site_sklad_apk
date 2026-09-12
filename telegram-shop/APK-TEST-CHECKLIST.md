@@ -3,9 +3,9 @@
 Практический чек-лист для ручной проверки Android-приложения склада перед выдачей сотрудникам или публикацией очередного релиза.
 
 Проверяемый релиз:
-- APK: `telegram-shop/apk/Sklad-1.0.6-release.apk`
-- AAB: `telegram-shop/aab/Sklad-1.0.6-release.aab`
-- Версия: `1.0.6`
+- APK: `telegram-shop/apk/Sklad-1.1.0-release.apk`
+- AAB: `telegram-shop/aab/Sklad-1.1.0-release.aab`
+- Версия: `1.1.0`
 
 Если нужен общий запуск проекта, дополнительно смотрите:
 - `FIRST-LAUNCH-15-MIN.md`
@@ -32,7 +32,7 @@
 
 ## 2. Установка APK
 
-- [ ] скачать `Sklad-1.0.6-release.apk`
+- [ ] скачать `Sklad-1.1.0-release.apk`
 - [ ] Android разрешил установку APK
 - [ ] приложение установилось без ошибки
 - [ ] иконка приложения появилась

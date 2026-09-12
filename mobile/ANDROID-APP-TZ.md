@@ -10,7 +10,7 @@
 
 | Компонент | Статус | Что это |
 |---|---|---|
-| **APK «Склад»** | ✅ сделано | `telegram-shop/apk/Sklad-1.0.6-release.apk` + `.aab`, пакет `ru.telegramshop.sklad`, подписан `apk-build/keystore/`. WebView-обёртка PWA `/warehouse/`: QR/deep-link подключение (`sklad://connect?url=…`), нативный fallback сканера, cookies/DOM storage, смена сервера без пересборки. Пересборка: `apk-build/rebuild-apk.sh` |
+| **APK «Склад»** | ✅ сделано | `telegram-shop/apk/Sklad-1.1.0-release.apk` + `.aab`, пакет `ru.telegramshop.sklad`, подписан `apk-build/keystore/`. WebView-обёртка PWA `/warehouse/`: QR/deep-link подключение (`sklad://connect?url=…`), нативный fallback сканера, cookies/DOM storage, смена сервера без пересборки. Пересборка: `apk-build/rebuild-apk.sh` |
 | **Приложение покупателя** | ❌ не сделано | `mobile/` — болванка: 9 файлов, 122 строки; «экраны» возвращают объекты-описания (не UI), `build-apk.sh` — заглушка из `echo`, android-проекта нет, сборка невозможна |
 | Мобильный сайт/PWA покупателя | ✅ частично | Адаптивный сайт `/` + SPA `/shop`; офлайн и push сделаны только у склада |
 
@@ -64,7 +64,7 @@
 | Поиск | Умный поиск с опечатками, автодополнение (`/api/search/suggest`), история запросов локально |
 | Карточка товара | Галерея (свайп, зум), цена/старая цена, бейджи, состояние + дефекты, параметры товара, продавец (рейтинг, «проверенный»), кнопки: в корзину, **предложить цену** (`/api/offers`), **забронировать** (`/api/reservations`), **написать продавцу** (`/api/chat/*`), **пожаловаться** (`/api/complaints`); похожие товары |
 | Корзина | Локальная (как на сайте), промокод, пересчёт, офлайн-доступность |
-| Оформление | Способы доставки (`/api/delivery/*`, расчёт СДЭК/5POST), способы оплаты (`/api/payment/methods`), создание заказа (`POST /api/orders`), оплата (см. §5) |
+| Оформление | Способы доставки (`/api/delivery/*`, расчёт СДЭК/5POST), способы оплаты (`/api/payment/methods`), создание заказа (`POST /api/order`), оплата (см. §5) |
 | Заказы | Список и статусы (`GET /api/orders?guest_id=`), повтор заказа |
 | Профиль | Guest-профиль + (опц.) привязка Telegram; контакты, версия приложения, проверка обновлений APK |
 | Push (FCM) | Статус заказа (оплачен/отправлен/доставлен), ответ продавца в чате, цена принята (offers). Токен → `POST /api/mobile/register` |
@@ -101,7 +101,7 @@ GET  /api/catalog                    — q,cat,sub,condition,seller,price_min,ma
 GET  /api/search/suggest?q=          — автодополнение
 GET  /api/recommendations?product_id — похожие; /api/recommendations/recent
 GET  /p/{id} данные через /api/catalog или отдельный /api/product/{id} (добавить)
-POST /api/orders                     — {items[{id,qty}],customer,delivery_method,
+POST /api/order                      — {items[{id,qty}],customer,delivery_method,
                                        payment_method,promo_code,bonus_spend}
 GET  /api/orders?guest_id=           — заказы покупателя
 POST /api/delivery/calc | /api/delivery/points
@@ -114,11 +114,11 @@ GET  /api/chat/threads|messages|unread (требуют Telegram-авториза
 
 ### 6.2 Добавить на бэкенде (мало, назад-совместимо)
 
-1. `GET /api/product/{id}` — полная карточка одним запросом (сейчас карточку собирает SSR).
-2. `POST /api/mobile/register` — `{guest_id, fcm_token, platform:"android", app_version}`; хранение в новой таблице `mobile_devices`; замена токена при повторной регистрации.
-3. Отправка FCM: статусы заказа (`confirm_payment`, `set_order_status`), новое сообщение чата, ответ на offer. Секрет FCM — `FCM_CREDENTIALS_JSON` в env (как остальные секреты, только через .env).
-4. `GET /api/app/version?platform=android` — текущая версия/ссылка на APK (можно переиспользовать `/api/releases/android`).
-5. Rate limit на новые публичные эндпоинты (уже есть middleware блок 15).
+1. ✅ `GET /api/product/{id}` — полная карточка одним запросом (блок 29; секреты склада вычищены, см. `tests-block29.py`).
+2. ✅ `POST /api/mobile/register` + `DELETE /api/mobile/devices/{guest_id}` + `GET /api/mobile/status` (блок 29; таблица `mobile_devices`, upsert токена).
+3. 🔨 Отправка FCM: хуки статусов заказа (админка, бот, 1С, 3 платёжных вебхука), ответа в чате и ответа на offer — готовы (блок 29), но работают в **dry-run** (`FCM_DRY_RUN=1`, `GET /api/mobile/status`). Боевой транспорт (FCM HTTP v1 + OAuth2) — staging, Фаза 5, после FCM-проекта владельца. Секрет — `FCM_CREDENTIALS_JSON` в .env.
+4. ✅ `GET /api/app/version?platform=android` (блок 29; параметр опционален, обратно совместимо).
+5. ✅ Rate limit — глобальный middleware блока 15 покрывает `/api/*` автоматически.
 
 ---
 

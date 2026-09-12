@@ -733,6 +733,14 @@ async def cb_status(cb: CallbackQuery):
         await cb.answer("Заказ не найден", show_alert=True)
         return
     await notify_customer_status(o)
+    try:  # блок 29: push покупателю в мобильное приложение (dry-run gated)
+        if o.get("guest_id"):
+            push.send_fcm(store, [o["guest_id"]],
+                          f"Статус заказа: {STATUS_LABELS.get(status, status)}",
+                          f"Заказ {oid}",
+                          {"type": "order_status", "order_id": oid, "status": status})
+    except Exception as e:
+        log.warning("fcm hook: %s", e)
     await cb.message.edit_text(order_detail_text(o),
                                reply_markup=order_detail_kb(oid, o["status"], o.get("payment")))
     await cb.answer(f"Статус: {STATUS_LABELS.get(status, status)}")

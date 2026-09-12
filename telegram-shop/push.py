@@ -9,6 +9,8 @@
 import json
 import logging
 
+import config
+
 log = logging.getLogger("shop.push")
 
 try:
@@ -36,6 +38,51 @@ def _vapid(store):
 def vapid_public(store) -> str:
     pub, _ = _vapid(store)
     return pub or ""
+
+
+# ------------------------------------------------------------------ FCM (блок 29, ТЗ §6.2)
+# Граница провайдера (та же конвенция, что у остальных): без credentials или
+# при FCM_DRY_RUN=1 реальных отправок нет — только диагностика. Боевой
+# транспорт (FCM HTTP v1 + OAuth2 service account) включается на staging
+# в Фазе 5 после проверки google-services.json/FCM-проекта владельца.
+
+def fcm_configured() -> bool:
+    return bool(config.FCM_CREDENTIALS_JSON)
+
+
+def fcm_status(store) -> dict:
+    dry = config.FCM_DRY_RUN or not fcm_configured()
+    return {"configured": fcm_configured(), "dry_run": dry,
+            "devices": store.mobile_devices_count(),
+            "transport": "pending-staging" if dry else "fcm-http-v1"}
+
+
+def send_fcm(store, guest_ids, title: str, body: str, data: dict = None) -> dict:
+    """Push покупателям. Никогда не бросает исключения наружу (хуки безопасны).
+
+    Возвращает {"sent": N, "dry_run": bool, "skipped_no_device": M}.
+    Токены в логи не пишутся (только маски guest_id).
+    """
+    data = data or {}
+    try:
+        targets = store.mobile_devices_for(guest_ids)
+    except Exception as e:
+        log.warning("fcm: не удалось прочитать устройства: %s", e)
+        return {"sent": 0, "dry_run": True, "skipped_no_device": 0}
+    wanted = {str(g) for g in (guest_ids or []) if str(g).strip()}
+    skipped = len(wanted - {t["guest_id"] for t in targets})
+    if not targets:
+        return {"sent": 0, "dry_run": True, "skipped_no_device": skipped}
+    if config.FCM_DRY_RUN or not fcm_configured():
+        log.info("fcm dry-run: '%s' → %d устр. (guest: %s)",
+                 title, len(targets),
+                 ",".join(t["guest_id"][:4] + "…" for t in targets[:5]))
+        return {"sent": 0, "dry_run": True, "skipped_no_device": skipped}
+    # Боевой транспорт — staging (Фаза 5): без OAuth2 service account
+    # отправлять нечем, поэтому честно остаёмся в dry-run.
+    log.warning("fcm: credentials заданы, но транспорт pending-staging — отправка пропущена")
+    return {"sent": 0, "dry_run": True, "skipped_no_device": skipped,
+            "note": "transport-pending-staging"}
 
 
 def send_push(store, user_ids, title: str, body: str, url: str = "/warehouse/") -> int:
