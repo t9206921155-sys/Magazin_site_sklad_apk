@@ -58,5 +58,5 @@ print("самопроверка архива: OK")
 PY
 
 log "Готово: $OUT ($(du -h "$OUT" | cut -f1))"
-echo    "Состав: исходники + docs/Telegram-Shop-руководство.pdf + install.sh + APK/AAB «Склад ${VERSION}»"
-echo    "Установка получателем: unzip ${NAME}.zip && cd ${NAME} && ./install.sh"
+echo    "Состав: исходники + setup.sh + SETUP-AUTO.md + PDF-руководство + install.sh + APK/AAB «Склад ${VERSION}»"
+echo    "Установка получателем: unzip ${NAME}.zip && cd ${NAME} && ./setup.sh"
