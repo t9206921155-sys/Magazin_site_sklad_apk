@@ -7,7 +7,7 @@
 Из корня репозитория:
 
 ```bash
-./deploy/deploy.sh --domain https://example.com --expected-version 1.0.6
+./deploy/deploy.sh --domain https://example.com --expected-version 1.1.0
 ```
 
 Если домена ещё нет — можно сначала локально:
@@ -70,7 +70,7 @@ PORT=8000
 ## 7. Установите APK
 
 Файл:
-- `telegram-shop/apk/Sklad-1.0.6-release.apk`
+- `telegram-shop/apk/Sklad-1.1.0-release.apk`
 
 На телефоне:
 1. установить APK

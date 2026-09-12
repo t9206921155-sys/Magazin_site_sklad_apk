@@ -33,6 +33,13 @@ else
   printf 'AAB: missing (%s)\n' "$AAB_PATH"
 fi
 
+if [ -f "$SHOP_APK" ]; then
+  printf 'Shop APK: %s\n' "$SHOP_APK"
+  sha256sum "$SHOP_APK"
+else
+  printf 'Shop APK: missing (%s)\n' "$SHOP_APK"
+fi
+
 cat <<'EOF'
 
 Key docs:

@@ -226,8 +226,8 @@ OpenAI-совместимый API (OpenAI, DeepSeek, OpenRouter…): в карт
   принтеров (добавление/редактирование/удаление), смена своего пароля,
   запоминание логина на устройстве, экспорт склада в Excel.
 
-**Android-релиз (✅ обновлено)**: собраны и подписаны `apk/Sklad-1.0.6-release.apk`
-и `aab/Sklad-1.0.6-release.aab` (пакет `ru.telegramshop.sklad`, Android 6.0+).
+**Android-релиз (✅ обновлено)**: собраны и подписаны `apk/Sklad-1.1.0-release.apk`
+и `aab/Sklad-1.1.0-release.aab` (пакет `ru.telegramshop.sklad`, Android 6.0+).
 Это WebView-обёртка PWA `/warehouse/` в духе PWABuilder «APK без TWA». Первый запуск —
 экран настроек подключения APK, фото с камеры, множественный выбор изображений, смена
 адреса склада через настройки APK, deep link-настройка через `sklad://setup` / `sklad://connect`,

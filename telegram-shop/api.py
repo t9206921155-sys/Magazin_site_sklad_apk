@@ -530,7 +530,7 @@ def create_app(store, providers: dict, bot=None, notify_new_order=None, notify_o
     async def api_android_releases(request: Request):
         data = _android_release_files(request)
         recommended = _recommended_warehouse_url(request, request.query_params.get("server", ""))
-        latest_version = (data["latest_apk"] or data["latest_aab"] or {}).get("version", "1.0.6")
+        latest_version = (data["latest_apk"] or data["latest_aab"] or {}).get("version", "1.1.0")
         publication = _android_publication_pack(request, latest_version, recommended)
         return {
             "apk": data["latest_apk"],
@@ -558,7 +558,7 @@ def create_app(store, providers: dict, bot=None, notify_new_order=None, notify_o
         url = _abs(request, "/download/android")
         latest_apk = data["latest_apk"]
         latest_aab = data["latest_aab"]
-        latest_version = (latest_apk or latest_aab or {}).get("version", "1.0.6")
+        latest_version = (latest_apk or latest_aab or {}).get("version", "1.1.0")
         recommended_server_url = _recommended_warehouse_url(request, request.query_params.get("server", ""))
         publication = _android_publication_pack(request, latest_version, recommended_server_url)
         ctx = _seo_ctx(
@@ -583,7 +583,7 @@ def create_app(store, providers: dict, bot=None, notify_new_order=None, notify_o
     @app.get("/download/android/rustore")
     async def android_rustore_page(request: Request):
         data = _android_release_files(request)
-        latest_version = (data["latest_apk"] or data["latest_aab"] or {}).get("version", "1.0.6")
+        latest_version = (data["latest_apk"] or data["latest_aab"] or {}).get("version", "1.1.0")
         recommended_server_url = _recommended_warehouse_url(request, request.query_params.get("server", ""))
         publication = _android_publication_pack(request, latest_version, recommended_server_url)
         ctx = _seo_ctx(

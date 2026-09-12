@@ -10,7 +10,7 @@
 
 | Компонент | Статус | Что это |
 |---|---|---|
-| **APK «Склад»** | ✅ сделано | `telegram-shop/apk/Sklad-1.0.6-release.apk` + `.aab`, пакет `ru.telegramshop.sklad`, подписан `apk-build/keystore/`. WebView-обёртка PWA `/warehouse/`: QR/deep-link подключение (`sklad://connect?url=…`), нативный fallback сканера, cookies/DOM storage, смена сервера без пересборки. Пересборка: `apk-build/rebuild-apk.sh` |
+| **APK «Склад»** | ✅ сделано | `telegram-shop/apk/Sklad-1.1.0-release.apk` + `.aab`, пакет `ru.telegramshop.sklad`, подписан `apk-build/keystore/`. WebView-обёртка PWA `/warehouse/`: QR/deep-link подключение (`sklad://connect?url=…`), нативный fallback сканера, cookies/DOM storage, смена сервера без пересборки. Пересборка: `apk-build/rebuild-apk.sh` |
 | **Приложение покупателя** | ❌ не сделано | `mobile/` — болванка: 9 файлов, 122 строки; «экраны» возвращают объекты-описания (не UI), `build-apk.sh` — заглушка из `echo`, android-проекта нет, сборка невозможна |
 | Мобильный сайт/PWA покупателя | ✅ частично | Адаптивный сайт `/` + SPA `/shop`; офлайн и push сделаны только у склада |
 
