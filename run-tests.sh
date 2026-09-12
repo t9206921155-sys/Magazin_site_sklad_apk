@@ -22,6 +22,8 @@ node tests-hid-scanner.js || status=1
 python3 tests-stage5.py "$BASE" || status=1
 python3 tests-block06.py "$BASE" || status=1
 python3 tests-block09.py "$BASE" || status=1
+# блок 14 (backup/restore/миграция): база — тот же $MAGAZIN_DB, что у сервера
+MAGAZIN_DB="$MAGAZIN_DB" python3 tests-block14.py "$BASE" || status=1
 python3 tests-block25.py "$BASE" || status=1
 python3 tests-block27.py "$BASE" || status=1
 python3 scripts/check-env-keys.py || status=1

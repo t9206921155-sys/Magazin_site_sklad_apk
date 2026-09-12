@@ -14,10 +14,15 @@
 
 Запуск (сервер должен быть поднят):
     cd telegram-shop && python3 tests-block14.py [base_url]
+
+База берётся из того же MAGAZIN_DB, что и у сервера (иначе сверка ложная):
+в CI/run-tests.sh сервер поднимается с временным MAGAZIN_DB, и тест обязан
+смотреть в тот же файл. Без MAGAZIN_DB используется telegram-shop/data/shop.db.
 """
 import hashlib
 import importlib.util
 import json
+import os
 import shutil
 import sqlite3
 import subprocess
@@ -30,6 +35,21 @@ from pathlib import Path
 BASE = sys.argv[1] if len(sys.argv) > 1 else "http://127.0.0.1:8000"
 ROOT = Path(__file__).resolve().parent
 passed = failed = 0
+
+
+def resolve_live_db() -> Path:
+    """Файл БД тестируемого сервера: MAGAZIN_DB (как у сервера) либо data/shop.db."""
+    env = os.getenv("MAGAZIN_DB")
+    if not env:
+        return ROOT / "data" / "shop.db"
+    cand = Path(env).expanduser()
+    if cand.is_absolute():
+        return cand
+    # путь может быть относительным к CWD запуска или к каталогу telegram-shop
+    for c in (Path.cwd() / cand, ROOT / cand):
+        if c.exists():
+            return c.resolve()
+    return (Path.cwd() / cand).resolve()
 
 
 def ok(name, cond, extra=""):
@@ -79,9 +99,13 @@ from store import store  # noqa: E402
 
 mig = load_mod("b14_migrate", "scripts/migrate_sqlite_to_mysql.py")
 
-LIVE = ROOT / "data" / "shop.db"
+LIVE = resolve_live_db()
 
 print("0) Подготовка")
+print(f"   база под тестом: {LIVE}" + (" (MAGAZIN_DB)" if os.getenv("MAGAZIN_DB") else " (по умолчанию)"))
+if not LIVE.is_file():
+    print(f"❌ база не найдена: {LIVE} — подними сервер с MAGAZIN_DB=<этот файл>")
+    sys.exit(1)
 c, tok = call("POST", "/api/warehouse/login", {"login": "admin", "password": "admin123"})
 assert c == 200, f"вход не удался: {c}"
 HA = {"X-WH-Token": tok["token"]}
