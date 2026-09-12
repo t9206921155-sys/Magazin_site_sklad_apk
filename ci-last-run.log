@@ -223,6 +223,157 @@ health: 2 passed, 0 failed
   ✅ архивирован Б09АУДИТ дорогой
 
 47 passed, 0 failed
+0) Подготовка
+   база под тестом: /tmp/magazin-tests-ByS2st.db (MAGAZIN_DB)
+1) Backup API: ненастроенный S3 → понятная ошибка
+  ✅ endpoint отвечает
+  ✅ ok=False с пояснением
+2) Атомарный снимок живой базы
+  ✅ файл создан
+  ✅ integrity_check бэкапа ok
+  ✅ количества записей всех таблиц совпадают с живой
+3) verify_restore.py: валидный бэкап и подделка
+  ✅ валидный бэкап → exit 0
+  ✅ в отчёте «Восстановление валидно»
+  ✅ подделанный бэкап → exit 1
+  ✅ в отчёте есть РАСХОЖДЕНИЕ
+4) restore_sqlite.py: dry-run не трогает цель
+  ✅ dry-run → exit 0
+  ✅ цель не изменена
+5) Миграция: DDL-трансляция и dry-run
+  ✅ AUTOINCREMENT → AUTO_INCREMENT PRIMARY KEY
+  ✅ AUTOINCREMENT удалён
+  ✅ кавычки → backticks
+  ✅ TEXT PRIMARY KEY → VARCHAR(191)
+  ✅ TEXT UNIQUE → VARCHAR(191)
+  ✅ TEXT DEFAULT убран (strict MySQL 8)
+  ✅ AUTOINCREMENT в PK → AUTO_INCREMENT
+  ✅ dry-run миграции → exit 0
+  ✅ в плане есть products, orders, settings, warehouses
+6) Логика копирования и сверки на фейковом MySQL-таргете
+
+Сверка источник → MySQL:
+  [OK ] bonus_balances                  0 →        0
+  [OK ] boosts                          0 →        0
+  [OK ] campaign_publications           0 →        0
+  [OK ] campaigns                       0 →        0
+  [OK ] catalog_cats                    0 →        0
+  [OK ] chat_messages                   0 →        0
+  [OK ] comparisons                     0 →        0
+  [OK ] complaints                      0 →        0
+  [OK ] content_jobs                    0 →        0
+  [OK ] crm_messages                    0 →        0
+  [OK ] crm_tasks                       0 →        0
+  [OK ] events                          0 →        0
+  [OK ] geo_locations                   0 →        0
+  [OK ] labels                          0 →        0
+  [OK ] moderation_results              0 →        0
+  [OK ] offers                          0 →        0
+  [OK ] orders                          0 →        0
+  [OK ] partner_referrals               0 →        0
+  [OK ] payouts                         0 →        0
+  [OK ] posts                           0 →        0
+  [OK ] products                       11 →       11
+  [OK ] promos                          0 →        0
+  [OK ] reservations                    0 →        0
+  [OK ] reviews                         0 →        0
+  [OK ] saved_searches                  0 →        0
+  [OK ] seller_reviews                  0 →        0
+  [OK ] sellers                         0 →        0
+  [OK ] settings                        1 →        1
+  [OK ] social_posts                    0 →        0
+  [OK ] store_subscriptions             0 →        0
+  [OK ] subscribers                     0 →        0
+  [OK ] users                           0 →        0
+  [OK ] warehouses                      1 →        1
+  [OK ] wh_credentials                  0 →        0
+  [OK ] wh_log                         18 →       18
+  [OK ] wh_push_subs                    0 →        0
+  [OK ] wh_scans                        2 →        2
+  [OK ] wh_sessions                     0 →        0
+  [OK ] wh_stock                       11 →       11
+  [OK ] wh_user_access                  1 →        1
+  [OK ] wh_users                        1 →        1
+
+Миграция завершена: количества и контрольные суммы совпадают по всем таблицам.
+Исходная SQLite не изменялась (read-only). Переключение: db_mode=mysql в настройках склада.
+  ✅ полная копия: сверка прошла (exit 0)
+  ✅ все таблицы созданы
+  ✅ товары перенесены
+  ✅ заказы перенесены
+  ✅ склады/остатки перенесены
+  ✅ пользователи перенесены
+  ✅ настройки перенесены (1 строка __settings__)
+
+Сверка источник → MySQL:
+  [OK ] products                       11 →       11
+  [OK ] orders                          0 →        0
+  [OK ] settings                        1 →        1
+
+Миграция завершена: количества и контрольные суммы совпадают по всем таблицам.
+Исходная SQLite не изменялась (read-only). Переключение: db_mode=mysql в настройках склада.
+  ✅ копия products/orders/settings сходится
+
+Сверка источник → MySQL:
+  [РАСХОЖДЕНИЕ] products                       11 →       21
+  [OK ] orders                          0 →        0
+  [РАСХОЖДЕНИЕ] settings                        1 →        2
+
+ОШИБКА: расхождение в 2 таблицах: products, settings
+Откат: целевая MySQL не является рабочей базой; перезапустите с --drop-existing.
+  ✅ потеря строки → расхождение обнаружено (exit 1)
+7) Исходная БД не изменилась
+
+Сверка источник → MySQL:
+  [OK ] bonus_balances                  0 →        0
+  [OK ] boosts                          0 →        0
+  [OK ] campaign_publications           0 →        0
+  [OK ] campaigns                       0 →        0
+  [OK ] catalog_cats                    0 →        0
+  [OK ] chat_messages                   0 →        0
+  [OK ] comparisons                     0 →        0
+  [OK ] complaints                      0 →        0
+  [OK ] content_jobs                    0 →        0
+  [OK ] crm_messages                    0 →        0
+  [OK ] crm_tasks                       0 →        0
+  [OK ] events                          0 →        0
+  [OK ] geo_locations                   0 →        0
+  [OK ] labels                          0 →        0
+  [OK ] moderation_results              0 →        0
+  [OK ] offers                          0 →        0
+  [OK ] orders                          0 →        0
+  [OK ] partner_referrals               0 →        0
+  [OK ] payouts                         0 →        0
+  [OK ] posts                           0 →        0
+  [OK ] products                       11 →       11
+  [OK ] promos                          0 →        0
+  [OK ] reservations                    0 →        0
+  [OK ] reviews                         0 →        0
+  [OK ] saved_searches                  0 →        0
+  [OK ] seller_reviews                  0 →        0
+  [OK ] sellers                         0 →        0
+  [OK ] settings                        1 →        1
+  [OK ] social_posts                    0 →        0
+  [OK ] store_subscriptions             0 →        0
+  [OK ] subscribers                     0 →        0
+  [OK ] users                           0 →        0
+  [OK ] warehouses                      1 →        1
+  [OK ] wh_credentials                  0 →        0
+  [OK ] wh_log                         18 →       18
+  [OK ] wh_push_subs                    0 →        0
+  [OK ] wh_scans                        2 →        2
+  [OK ] wh_sessions                     0 →        0
+  [OK ] wh_stock                       11 →       11
+  [OK ] wh_user_access                  1 →        1
+  [OK ] wh_users                        1 →        1
+
+Миграция завершена: количества и контрольные суммы совпадают по всем таблицам.
+Исходная SQLite не изменялась (read-only). Переключение: db_mode=mysql в настройках склада.
+  ✅ sha256 копии источника до == после миграции
+  ✅ миграция копии прошла (exit 0)
+  ✅ живая база: integrity_check ok
+
+32 passed, 0 failed
 1) Страница /download/app
   ✅ страница отвечает 200
   ✅ content-type text/html
