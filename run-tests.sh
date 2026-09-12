@@ -26,6 +26,15 @@ python3 tests-block09.py "$BASE" || status=1
 MAGAZIN_DB="$MAGAZIN_DB" python3 tests-block14.py "$BASE" || status=1
 python3 tests-block25.py "$BASE" || status=1
 python3 tests-block27.py "$BASE" || status=1
+# корневые pytest: маркетинг/SEO/провайдеры + установка из коробки (блок 28)
+if ! python3 -m pytest --version >/dev/null 2>&1; then
+  python3 -m pip install -q pytest 2>/dev/null || true
+fi
+if python3 -m pytest --version >/dev/null 2>&1; then
+  (cd "$ROOT" && python3 -m pytest -q tests) || status=1
+else
+  echo "pytest недоступен — корневые тесты пропущены (pip install pytest)"
+fi
 python3 scripts/check-env-keys.py || status=1
 python3 -m py_compile *.py || status=1
 for f in warehouse/*.js webapp/*.js; do node --check "$f" || status=1; done
