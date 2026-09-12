@@ -42,14 +42,15 @@ z.close()
 print("добавлены:", apk, "+", aab)
 PY
 
-# самопроверка: PDF, install.sh и APK на месте внутри архива (unzip портит кириллицу — проверяем python'ом)
-python3 - "$OUT" <<'PY'
+# самопроверка: setup.sh, PDF, install.sh и APK на месте внутри архива (unzip портит кириллицу — проверяем python'ом)
+python3 - "$OUT" "$VERSION" <<'PY'
 import sys, zipfile
 z = zipfile.ZipFile(sys.argv[1])
 names = z.namelist()
 prefix = names[0].split("/")[0] + "/"
-need = ["install.sh", "README.md", "run-tests.sh", "docs/Telegram-Shop-руководство.pdf",
-        "telegram-shop/apk/Sklad-1.1.0-release.apk"]
+need = ["setup.sh", "install.sh", "README.md", "SETUP-AUTO.md", "run-tests.sh",
+        "docs/Telegram-Shop-руководство.pdf",
+        f"telegram-shop/apk/Sklad-{sys.argv[2]}-release.apk"]
 missing = [f for f in need if prefix + f not in names]
 if missing:
     print("в архиве нет:", ", ".join(missing)); sys.exit(1)
