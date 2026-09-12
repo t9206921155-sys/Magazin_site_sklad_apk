@@ -224,7 +224,7 @@ health: 2 passed, 0 failed
 
 47 passed, 0 failed
 0) Подготовка
-   база под тестом: /tmp/magazin-tests-Ak4L6P.db (MAGAZIN_DB)
+   база под тестом: /tmp/magazin-tests-INCo5w.db (MAGAZIN_DB)
 1) Backup API: ненастроенный S3 → понятная ошибка
   ✅ endpoint отвечает
   ✅ ok=False с пояснением
@@ -508,8 +508,8 @@ health: 2 passed, 0 failed
   ✅ /health/ready 200
 
 Итого: 86 ok, 0 fail
-...................................                                      [100%]
-35 passed in 1.15s
+.............................................                            [100%]
+45 passed in 1.70s
 env keys: 18 documented, 0 missing
 ci-build-apk: артефакты 1.1.0 уже в репо — пропуск
 ci-build-shop-apk: артефакты 1.0.0 уже в репо — пропуск
