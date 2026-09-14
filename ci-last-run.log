@@ -268,7 +268,7 @@ health: 2 passed, 0 failed
 
 33 passed, 0 failed
 0) Подготовка
-   база под тестом: /tmp/magazin-tests-UKhvN9.db (MAGAZIN_DB)
+   база под тестом: /tmp/magazin-tests-D7lsXh.db (MAGAZIN_DB)
 1) Backup API: ненастроенный S3 → понятная ошибка
   ✅ endpoint отвечает
   ✅ ok=False с пояснением
@@ -703,7 +703,7 @@ health: 2 passed, 0 failed
 
 Итого: 30 ok, 0 fail
 ...............................................                          [100%]
-47 passed in 4.74s
+47 passed in 5.54s
 0) Подготовка
 1) Security headers
   ✅ страница отвечает
