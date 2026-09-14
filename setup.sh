@@ -15,7 +15,7 @@
 #    ./setup.sh --dry-run               # показать план без изменений
 #
 #  Общие флаги: --non-interactive / --yes, --venv, --no-run, --test,
-#    --domain, --bot-token, --admin-ids, --admin-password, --payment,
+#    --domain, --bot-token, --admin-ids, --admin-password, --payment, --branch,
 #    --bot-mode, --force (перезаписать .env), --help.
 #  Все значения можно задать переменными: SETUP_DOMAIN, SETUP_BOT_TOKEN,
 #  SETUP_ADMIN_IDS, SETUP_ADMIN_PASSWORD, SETUP_PAYMENT_PROVIDER, SETUP_BOT_MODE.
@@ -28,6 +28,7 @@ MODE="local"; NONINTERACTIVE=0; USE_VENV=0; DO_RUN=1; DO_TEST=0; FORCE_ENV=0; DR
 DOMAIN="${SETUP_DOMAIN:-}"; BOT_TOKEN="${SETUP_BOT_TOKEN:-}"; ADMIN_IDS="${SETUP_ADMIN_IDS:-}"
 ADMIN_PASSWORD="${SETUP_ADMIN_PASSWORD:-}"; PAYMENT="${SETUP_PAYMENT_PROVIDER:-}"
 BOT_MODE="${SETUP_BOT_MODE:-}"; MOBILE_URL="${SETUP_MOBILE_URL:-}"
+BRANCH="${DEPLOY_BRANCH:-main}"
 [ "${SETUP_YES:-0}" = "1" ] && NONINTERACTIVE=1
 
 usage(){ sed -n '2,/^# ===/p' "$0" | sed 's/^# \{0,1\}//'; }
@@ -55,6 +56,7 @@ while [ "$#" -gt 0 ]; do case "$1" in
   --admin-password) ADMIN_PASSWORD="$2"; shift 2 ;;
   --payment) PAYMENT="$2"; shift 2 ;;
   --bot-mode) BOT_MODE="$2"; shift 2 ;;
+  --branch) BRANCH="$2"; shift 2 ;;
   --url) MOBILE_URL="$2"; shift 2 ;;
   --help|-h) usage; exit 0 ;;
   *) die "Неизвестный аргумент: $1 (--help для справки)" ;;
@@ -130,7 +132,7 @@ case "$MODE" in
 vps)
   [ "$EUID" -eq 0 ] || die "--vps требует root: sudo ./setup.sh --vps ..."
   [ -n "$DOMAIN" ] || die "--vps требует --domain (или SETUP_DOMAIN)"
-  export DEPLOY_DOMAIN="$DOMAIN"
+  export DEPLOY_DOMAIN="$DOMAIN" DEPLOY_BRANCH="$BRANCH"
   log "VPS-установка на домен $DOMAIN"
   [ "$DRY_RUN" = 1 ] && { bash "$ROOT/deploy/bootstrap-vps.sh" --dry-run; exit 0; }
   bash "$ROOT/deploy/bootstrap-vps.sh"

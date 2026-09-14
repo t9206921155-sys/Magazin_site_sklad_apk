@@ -16,7 +16,7 @@
 #    5) таймеры бэкапа + ротация + watchdog;
 #    6) health-check и итоговая сводка.
 #
-#  Переменные: DEPLOY_ROOT (/opt/magazin-shop), DEPLOY_USER (magazin),
+#  Переменные: DEPLOY_ROOT (/opt/magazin-shop), DEPLOY_USER (magazin), DEPLOY_BRANCH (main),
 #    DEPLOY_DOMAIN (обязательно), DEPLOY_REPO, LETSENCRYPT_EMAIL,
 #    SETUP_* (см. deploy/setup-env.sh), SETUP_SKIP_HTTPS=1 (без certbot).
 # ============================================================
@@ -26,6 +26,7 @@ ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 DEPLOY_ROOT_DIR="${DEPLOY_ROOT:-/opt/magazin-shop}"; APP_USER="${DEPLOY_USER:-magazin}"
 DOMAIN="${DEPLOY_DOMAIN:-}"; EMAIL="${LETSENCRYPT_EMAIL:-}"
 REPO="${DEPLOY_REPO:-https://github.com/t9206921155-sys/Magazin_site_sklad_apk.git}"
+BRANCH="${DEPLOY_BRANCH:-main}"
 
 usage(){ sed -n '2,/^# ===/p' "$0" | sed 's/^# \{0,1\}//'; }
 log(){ printf '\033[1;36m==>\033[0m %s\n' "$*"; }
@@ -65,8 +66,8 @@ fi
 
 # ---------- 2. код, пользователь, venv ----------
 log "Код → $DEPLOY_ROOT_DIR"
-if [ ! -d "$DEPLOY_ROOT_DIR/.git" ]; then git clone --depth 1 "$REPO" "$DEPLOY_ROOT_DIR";
-else git -C "$DEPLOY_ROOT_DIR" fetch origin main && git -C "$DEPLOY_ROOT_DIR" reset --hard origin/main; fi
+if [ ! -d "$DEPLOY_ROOT_DIR/.git" ]; then git clone --depth 1 --branch "$BRANCH" "$REPO" "$DEPLOY_ROOT_DIR";
+else git -C "$DEPLOY_ROOT_DIR" fetch origin "$BRANCH" && git -C "$DEPLOY_ROOT_DIR" reset --hard "origin/$BRANCH"; fi
 id "$APP_USER" >/dev/null 2>&1 || useradd --system --home "$DEPLOY_ROOT_DIR" --shell /usr/sbin/nologin "$APP_USER"
 chown -R "$APP_USER:$APP_USER" "$DEPLOY_ROOT_DIR"
 cd "$DEPLOY_ROOT_DIR/telegram-shop"

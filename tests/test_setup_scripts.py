@@ -221,6 +221,14 @@ def test_setup_check_end_to_end(tmp_path):
     assert "проверка пройдена" in r.stdout
 
 
+def test_vps_branch_support():
+    r = run(["bash", SETUP, "--help"])
+    assert "--branch" in r.stdout
+    text = Path(BOOTSTRAP).read_text()
+    assert 'DEPLOY_BRANCH:-main' in text
+    assert '--branch "$BRANCH"' in text
+
+
 def test_update_and_bootstrap_help():
     assert run(["bash", UPDATE, "--help"]).returncode == 0
     assert run(["bash", BOOTSTRAP, "--help"]).returncode == 0

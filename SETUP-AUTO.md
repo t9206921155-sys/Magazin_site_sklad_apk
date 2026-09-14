@@ -50,6 +50,8 @@ cd Magazin_site_sklad_apk
 git clone --depth 1 https://github.com/t9206921155-sys/Magazin_site_sklad_apk.git
 cd Magazin_site_sklad_apk
 sudo -E ./setup.sh --vps --domain shop.ru \
+  # если нужный код ещё не в main (PR открыт): добавьте --branch <имя-ветки>
+  # и клонируйте ту же ветку: git clone --depth 1 --branch <имя-ветки> ...
   --bot-token 123456:ABC... --admin-ids 111222333 \
   --payment test --bot-mode webhook
 # для HTTPS добавьте: LETSENCRYPT_EMAIL=admin@shop.ru
@@ -141,6 +143,7 @@ python3 telegram-shop/scripts/setup_bot.py                # полная нас�
 | `SETUP_FCM_CREDENTIALS_JSON` | Firebase service account JSON (вручную; пусто = FCM выкл) |
 | `SETUP_FCM_DRY_RUN` | `1` (по умолч., dry-run) `0` — боевые push после staging |
 | `DEPLOY_DOMAIN`, `DEPLOY_ROOT`, `DEPLOY_USER`, `LETSENCRYPT_EMAIL`, `DEPLOY_REPO` | параметры VPS-установки |
+| `DEPLOY_BRANCH` / `--branch` | git-ветка для VPS (по умолч. `main`; до вливания PR — имя feature-ветки) |
 | `SETUP_SKIP_HTTPS=1` | пропустить certbot |
 | `SETUP_MOBILE_URL` / `--url` | адрес сервера для сборки APK |
 
