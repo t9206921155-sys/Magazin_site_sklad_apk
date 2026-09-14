@@ -45,11 +45,11 @@ git sparse-checkout set --no-cone '/*' \
 | 10 | Тесты и CI | ✅ | 04.09.2026 | `blocks/BLOCK-10-tests-ci.md` |
 | 11 | Проверка на реальном железе | ⛔ | — | `blocks/BLOCK-11-hardware.md` |
 
-**Вся кодовая часть проекта закрыта: 20 из 24 блоков.** Остались только внешние:
+**Вся кодовая часть проекта закрыта: 22 из 26 блоков.** Остались только внешние:
 **11** (реальное железо, ⛔), **17** (ручная staging-валидация), **18** (backup на
 тестовом VPS), **22** (официальный API-аудит Wildberries, ⛔).
 Регрессию запускать в порядке: labels → hid → stage5 → block06 → block09 → block13
-→ block14 → block16 → block19 → block23 → pytest → **block15 (последним — ставит IP
+→ block14 → block16 → block19 → block23 → block25 → block27 → block29 → pytest → **block15 (последним — ставит IP
 в rate-карантин ~60с)**.
 
 ---
@@ -96,8 +96,11 @@ python3 tests-block14.py      # 32 — backup/restore, миграция SQLite�
 python3 tests-block16.py      # 45 — подписки, брони, жалобы, бусты (нужен сервер)
 python3 tests-block19.py      # 19 — CRM: задачи, чат, права (нужен сервер)
 python3 tests-block23.py      # 20 — content-jobs и fallback-слайдшоу (нужен сервер)
+python3 tests-block25.py      # 29 — покупательское APK: страница, version API, QR (нужен сервер)
+python3 tests-block27.py      # 86 — CSP: вынос inline-JS, заголовки (нужен сервер)
+python3 tests-block29.py      # 30 — бэкенд RN: карточка, mobile API, FCM dry-run (нужен сервер)
 python3 tests-block15.py      # 40 — security/observability (нужен сервер; ЗАПУСКАТЬ ПОСЛЕДНИМ)
-pytest tests/                 # 16 — маркетинг/SEO/провайдеры (из корня репо)
+pytest tests/                 # 46 — маркетинг/SEO/провайдеры + установка + staging (из корня репо; в run-tests.sh/CI)
 ```
 
 ---
@@ -168,7 +171,7 @@ telegram-shop/tests-*   ← автотесты
 
 **Правило продолжения:** новая сессия читает `ROADMAP.md`, `SESSION-PLAYBOOK.md` и первый незакрытый файл блока из этого трека. Не начинать следующий блок до заполнения отчёта и push текущего.
 
-**Состояние трека (11.09.2026):** кодовые блоки 13–16, 19–21, 23–25(Ф1), 26–27 закрыты.
+**Состояние трека (12.09.2026):** кодовые блоки 13–16, 19–21, 23–25(Ф1), 26–29 закрыты.
 Остались блоки с внешними зависимостями: **11** (реальное железо), **17** (ручная
 staging-валидация по `DEVELOPER-MANUAL-VALIDATION.md`), **18** (backup на тестовом
 VPS), **22** (ждёт официальный API-аудит Wildberries), **25 Фазы 2–6** (React Native).
@@ -208,13 +211,16 @@ VPS), **22** (ждёт официальный API-аудит Wildberries), **25 
 | 25 | Мобильное приложение покупателя (Android) | 🔨 Фаза 1 ✅ 11.09.2026; Фазы 2–6 ⏳ | — (Ф1); 15 (Ф2+) | `blocks/BLOCK-25-mobile-buyer-app.md` · ТЗ: `mobile/ANDROID-APP-TZ.md` |
 | 26 | Складской APK 1.1.0: нативные возможности | ✅ | 09.09.2026 | `blocks/BLOCK-26-sklad-apk-native.md` |
 | 27 | CSP-закалка: вынос inline-JS, Content-Security-Policy | ✅ | 11.09.2026 | `blocks/BLOCK-27-csp-hardening.md` |
+| 28 | Установка «из коробки»: setup.sh, мастер .env, setup_bot, build-apps, update, bootstrap VPS | ✅ | 12.09.2026 | `blocks/BLOCK-28-autosetup.md` · инструкция: `SETUP-AUTO.md` |
+| 29 | Финальная доводка: гигиена, staging-автоматы, бэкенд RN | ✅ | 12.09.2026 | `blocks/BLOCK-29-final-polish.md` |
+| 28 | Установка «из коробки»: setup.sh, мастер .env, setup_bot, build-apps, update, bootstrap VPS | ✅ | 12.09.2026 | `blocks/BLOCK-28-autosetup.md` · инструкция: `SETUP-AUTO.md` |
 
 ### Текущий прогресс (11.09.2026) — кодовые блоки закрыты, Фаза 1 покупательского APK готова
 
-- Закрыты блоки: 09, 13, 14, 15, 16, 19, 20, 21, 23, 24, 26, **27 (CSP)**;
+- Закрыты блоки: 09, 13, 14, 15, 16, 19, 20, 21, 23, 24, 26, **27 (CSP)**, **28 (автоустановка)**, **29 (доводка + бэкенд RN)**;
   **25 Фаза 1** (покупательский APK-обёртка) — отчёты в файлах блоков.
 - Блок 22 — ⛔ внешнее условие (официальный API-аудит Wildberries); boundary и
   диагностика готовы и протестированы.
 - Ручные на staging: 11 (железо), 17 (manual validation checklist), 18 (backup на тестовом VPS).
-- Автотесты: ~460 проверок в 13 test-suite'ах + pytest; порядок регрессии см. выше (block15 — последним).
+- Автотесты: ~545 проверок в 16 test-suite'ах + pytest (46, в run-tests.sh/CI); порядок регрессии см. выше (block15 — последним). Полная регрессия выполняется `run-tests.sh` одной командой (блоки 13/16/19/23/15 возвращены в CI в блоке 29).
 - `tests-block14` (32/32) в порядке регрессии после block09 и в `run-tests.sh` — долг закрыт 12.09.2026.

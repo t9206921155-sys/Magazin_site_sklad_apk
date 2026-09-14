@@ -21,7 +21,7 @@
 
 По текущей ветке готовы:
 
-- Android APK `1.0.6`
+- Android APK `1.1.0`
 - AAB для RuStore
 - страница `/download/android`
 - страница `/download/android/rustore`
@@ -54,7 +54,7 @@ python bot.py
 Из корня репозитория:
 
 ```bash
-./deploy/deploy.sh --domain https://example.com --expected-version 1.0.6
+./deploy/deploy.sh --domain https://example.com --expected-version 1.1.0
 ```
 
 Или вручную:
@@ -201,7 +201,7 @@ PORT=8000
 ## 10. Шаг 8 — как установить APK склада
 
 Готовый файл:
-- `telegram-shop/apk/Sklad-1.0.6-release.apk`
+- `telegram-shop/apk/Sklad-1.1.0-release.apk`
 
 ### Установка на телефон
 
@@ -469,7 +469,7 @@ sklad://setup?url=https://ваш-домен/warehouse/
 Автоматическая проверка:
 
 ```bash
-./telegram-shop/scripts/post_deploy_smoke_check.sh https://ваш-домен 1.0.6
+./telegram-shop/scripts/post_deploy_smoke_check.sh https://ваш-домен 1.1.0
 ```
 
 Быстрый статус релиза:
@@ -500,7 +500,7 @@ sklad://setup?url=https://ваш-домен/warehouse/
 6. проверить фото, остатки, штрих-коды, витрину
 
 ### Этап C — включить APK
-7. установить APK `1.0.6`
+7. установить APK `1.1.0`
 8. подключить его к `https://ваш-домен/warehouse/`
 9. проверить логин, сканер, камеру и обновления
 

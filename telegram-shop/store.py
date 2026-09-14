@@ -339,6 +339,11 @@ CREATE TABLE IF NOT EXISTS wh_push_subs(
   id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER DEFAULT 0,
   sub TEXT DEFAULT '', created_at TEXT DEFAULT ''
 );
+CREATE TABLE IF NOT EXISTS mobile_devices(
+  guest_id TEXT PRIMARY KEY, fcm_token TEXT NOT NULL,
+  platform TEXT DEFAULT 'android', app_version TEXT DEFAULT '',
+  updated_at TEXT DEFAULT ''
+);
 CREATE TABLE IF NOT EXISTS catalog_cats(
   id INTEGER PRIMARY KEY AUTOINCREMENT, category TEXT DEFAULT '',
   subcategory TEXT DEFAULT '', slug TEXT UNIQUE,
@@ -3202,6 +3207,44 @@ class Store:
             self._conn.execute("INSERT INTO wh_push_subs(user_id, sub, created_at) VALUES(?,?,?)",
                                (int(user_id), key, _now_iso()))
             self._conn.commit()
+
+    # --- Блок 29: устройства покупательского приложения (ТЗ §6.2) ---
+    def mobile_register(self, guest_id: str, fcm_token: str,
+                        platform: str = "android", app_version: str = "") -> dict:
+        """Регистрация/обновление FCM-токена (upsert по guest_id)."""
+        with _lock:
+            self._conn.execute(
+                "INSERT INTO mobile_devices(guest_id, fcm_token, platform, app_version, updated_at)"
+                " VALUES(?,?,?,?,?)"
+                " ON CONFLICT(guest_id) DO UPDATE SET fcm_token=excluded.fcm_token,"
+                " platform=excluded.platform, app_version=excluded.app_version,"
+                " updated_at=excluded.updated_at",
+                (guest_id, fcm_token, platform, app_version, _now_iso()))
+            self._conn.commit()
+            return self.mobile_device(guest_id)
+
+    def mobile_unregister(self, guest_id: str) -> bool:
+        with _lock:
+            cur = self._conn.execute("DELETE FROM mobile_devices WHERE guest_id=?", (guest_id,))
+            self._conn.commit()
+            return cur.rowcount > 0
+
+    def mobile_device(self, guest_id: str):
+        r = self._q1("SELECT guest_id, platform, app_version, updated_at"
+                     " FROM mobile_devices WHERE guest_id=?", (guest_id,))
+        return dict(r) if r else None
+
+    def mobile_devices_count(self) -> int:
+        return self._count("SELECT COUNT(*) FROM mobile_devices")
+
+    def mobile_devices_for(self, guest_ids) -> list:
+        """Токены для отправки (внутреннее; токены наружу не отдаём)."""
+        ids = [str(g) for g in (guest_ids or []) if str(g).strip()]
+        if not ids:
+            return []
+        return [dict(r) for r in self._q(
+            f"SELECT guest_id, fcm_token FROM mobile_devices WHERE guest_id IN"
+            f" ({','.join('?' * len(ids))})", tuple(ids))]
 
     def wh_push_remove(self, user_id: int, endpoint: str = "") -> int:
         with _lock:

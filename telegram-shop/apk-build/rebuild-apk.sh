@@ -8,6 +8,10 @@
 #  Результат: APK + AAB для публикации в сторах.
 # ============================================================
 set -euo pipefail
+case "${1:-}" in
+  --help|-h) SELF="$(cd "$(dirname "$0")" && pwd)/$(basename "$0")"; sed -n '/^# ===/,/^# ===/p' "$SELF" | sed 's/^# \{0,1\}//' | grep -v '^=\+$'; exit 0 ;;
+  -*) echo "неизвестный флаг: $1 (ожидается URL или --help)" >&2; exit 1 ;;
+esac
 cd "$(dirname "$0")"
 
 DEFAULT_URL="${1:-}"

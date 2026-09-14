@@ -5,8 +5,11 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 cd "$REPO_ROOT"
 
-APK_PATH="telegram-shop/apk/Sklad-1.0.6-release.apk"
-AAB_PATH="telegram-shop/aab/Sklad-1.0.6-release.aab"
+SKLAD_VER="$(sed -n 's/^APP_VERSION="\([^"]*\)"/\1/p' telegram-shop/apk-build/rebuild-apk.sh | head -1)"
+SHOP_VER="$(sed -n 's/^APP_VERSION="\([^"]*\)"/\1/p' mobile/android-wrapper/build-apk.sh | head -1)"
+APK_PATH="telegram-shop/apk/Sklad-${SKLAD_VER:-1.1.0}-release.apk"
+AAB_PATH="telegram-shop/aab/Sklad-${SKLAD_VER:-1.1.0}-release.aab"
+SHOP_APK="telegram-shop/apk/Shop-${SHOP_VER:-1.0.0}-release.apk"
 BUILD_FILE="telegram-shop/apk-build/android/app/build.gradle"
 
 printf 'Branch: %s\n' "$(git branch --show-current)"
@@ -31,6 +34,13 @@ if [ -f "$AAB_PATH" ]; then
   sha256sum "$AAB_PATH"
 else
   printf 'AAB: missing (%s)\n' "$AAB_PATH"
+fi
+
+if [ -f "$SHOP_APK" ]; then
+  printf 'Shop APK: %s\n' "$SHOP_APK"
+  sha256sum "$SHOP_APK"
+else
+  printf 'Shop APK: missing (%s)\n' "$SHOP_APK"
 fi
 
 cat <<'EOF'

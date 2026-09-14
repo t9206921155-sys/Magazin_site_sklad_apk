@@ -43,6 +43,12 @@ RATE_LIMIT_1C = max(10, int(os.getenv("RATE_LIMIT_1C", "120")))
 RATE_LIMIT_API = max(30, int(os.getenv("RATE_LIMIT_API", "600")))
 # Срок жизни сессии быстрого входа склада (дней неактивности).
 WH_SESSION_TTL_DAYS = max(1, int(os.getenv("WH_SESSION_TTL_DAYS", "30")))
+# --- Блок 29: push покупательского приложения (ТЗ §6.2) ---
+# JSON service account Firebase. Пусто — FCM выключен (dry-run диагностика).
+FCM_CREDENTIALS_JSON = os.getenv("FCM_CREDENTIALS_JSON", "").strip()
+# Dry-run по умолчанию: реальные отправки запрещены до staging-проверки
+# (та же конвенция, что у остальных provider boundaries).
+FCM_DRY_RUN = os.getenv("FCM_DRY_RUN", "1").strip().lower() not in ("0", "false", "no")
 # Минимум свободного места на диске с data/ (МБ) для readiness-пробы.
 DISK_FREE_MIN_MB = max(100, int(os.getenv("DISK_FREE_MIN_MB", "500")))
 
